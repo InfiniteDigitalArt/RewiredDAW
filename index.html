@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Web DAW</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-title">Rewired DAW</div>
+    <div class="sidebar-subtitle">Make the music you love</div>
+    <div id="sidebar-loops"></div>
+  </div>
+
+
+
+  <div class="main">
+    <div class="top-bar">
+      <button id="playToggleBtn" class="transport-btn play">Play</button>
+
+      
+
+      <label class="tempo-text" style="margin-left:20px;">Tempo:</label>
+      <input id="tempoSlider" class="tempo-slider" type="range" min="100" max="200" value="175" step="1">
+      <span id="tempoValue" class="tempo-value">175 BPM</span>
+      <button id="saveProjectBtn" class="transport-btn" type="button">Save</button>
+      <button id="loadProjectBtn" class="transport-btn">Load</button>
+      <input type="file" id="projectFileInput" accept=".zip" style="display:none;">
+
+      <button id="exportBtn" class="export-btn">Export WAV</button>
+
+
+    </div>
+
+
+
+
+<div class="timeline" id="timeline">
+
+  <div id="timeline-bar"></div>
+
+  <div class="tracks" id="tracks">
+    <div id="playhead" class="hidden"></div>
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  <!-- Load scripts in correct order -->
+  <script src="assets/loops.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/audioEngine.js"></script>
+  <script src="js/timeline.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/exportSong.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+
+
+</body>
+</html>
