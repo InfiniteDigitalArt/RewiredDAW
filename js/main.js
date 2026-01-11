@@ -435,3 +435,53 @@ window.renderTimelineBar = function(totalBars = 64) {
   window.exportSong();
 });
 
+document.getElementById("masterVolumeSlider").addEventListener("input", e => {
+  masterGain.gain.value = Number(e.target.value);
+});
+
+const vuLeft = document.getElementById("vuLeft");
+const vuRight = document.getElementById("vuRight");
+const ctxL = vuLeft.getContext("2d");
+const ctxR = vuRight.getContext("2d");
+
+const meterData = new Uint8Array(masterAnalyser.frequencyBinCount);
+
+function drawVUMeters() {
+  requestAnimationFrame(drawVUMeters);
+
+  masterAnalyser.getByteTimeDomainData(meterData);
+
+  // Split into L/R (simple approximation)
+  const half = meterData.length / 2;
+  const left = meterData.slice(0, half);
+  const right = meterData.slice(half);
+
+  const leftLevel = getPeak(left);
+  const rightLevel = getPeak(right);
+
+  drawMeter(ctxL, leftLevel);
+  drawMeter(ctxR, rightLevel);
+}
+
+function getPeak(data) {
+  let peak = 0;
+  for (let i = 0; i < data.length; i++) {
+    const v = Math.abs(data[i] - 128) / 128;
+    if (v > peak) peak = v;
+  }
+  return peak;
+}
+
+function drawMeter(ctx, level) {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const barWidth = w * level;
+  ctx.fillStyle = level > 0.9 ? "#ff3b3b" : "#2aff2a";
+  ctx.fillRect(0, 0, barWidth, h);
+}
+
+
+drawVUMeters();
