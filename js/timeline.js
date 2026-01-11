@@ -543,6 +543,53 @@ el.addEventListener("dragstart", (e) => {
   setTimeout(() => ghost.remove(), 0);
 });
 
+/* -------------------------------------------------------
+   TOUCH DRAG SUPPORT (iPad / mobile)
+------------------------------------------------------- */
+let touchDrag = null;
+
+el.addEventListener("touchstart", (e) => {
+  e.preventDefault(); // stop scrolling / text selection
+  const t = e.touches[0];
+
+  touchDrag = {
+    clip,
+    el,
+    dropArea,
+    startX: t.clientX,
+    originalStartBar: clip.startBar
+  };
+}, { passive: false });
+
+el.addEventListener("touchmove", (e) => {
+  if (!touchDrag) return;
+  e.preventDefault();
+
+  const t = e.touches[0];
+  const deltaPx = t.clientX - touchDrag.startX;
+  const deltaBars = Math.round(deltaPx / window.PIXELS_PER_BAR);
+
+  touchDrag.clip.startBar = Math.max(0, touchDrag.originalStartBar + deltaBars);
+  touchDrag.el.style.left = touchDrag.clip.startBar * window.PIXELS_PER_BAR + "px";
+}, { passive: false });
+
+el.addEventListener("touchend", () => {
+  if (!touchDrag) return;
+
+  const { clip, dropArea } = touchDrag;
+
+  resolveClipCollisions(clip);
+
+  // Re-render track
+  dropArea.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === clip.trackIndex)
+    .forEach(c => window.renderClip(c, dropArea));
+
+  touchDrag = null;
+});
+
+
 
   dropArea.appendChild(el);
 };
