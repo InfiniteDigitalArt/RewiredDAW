@@ -8,6 +8,7 @@ window.scheduledSources = [];
 window.isPlaying = false;
 window.transportStartTime = 0;
 
+
 /* -------------------------------------------------------
    TRACK GAIN + ANALYSER NODES
 ------------------------------------------------------- */
@@ -27,6 +28,19 @@ for (let i = 0; i < 16; i++) {
   window.trackGains.push(gain);
   window.trackAnalysers.push(analyser);
 }
+
+// MASTER OUTPUT
+window.masterGain = audioContext.createGain();
+window.masterGain.gain.value = 0.8;
+
+window.masterAnalyser = audioContext.createAnalyser();
+masterAnalyser.fftSize = 256;
+
+masterGain.connect(masterAnalyser);
+masterAnalyser.connect(audioContext.destination);
+
+// Connect all track gains into master
+window.trackGains.forEach(g => g.connect(masterGain));
 
 /* -------------------------------------------------------
    NORMALIZATION FUNCTION
