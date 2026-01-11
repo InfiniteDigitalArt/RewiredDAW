@@ -638,3 +638,30 @@ body {
    /* if you want waveform tinting */ 
    --waveform-color: var(--track-color); 
 }
+
+
+.master-volume-slider {
+  width: 120px;
+  margin-left: 5px;
+}
+
+.master-vu-horizontal {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  margin-left: 15px;
+}
+
+.master-vu-horizontal canvas {
+  background: #111;
+  border: 1px solid #333;
+  height: 6px;
+  width: 80px;
+}
+
+.clip {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
