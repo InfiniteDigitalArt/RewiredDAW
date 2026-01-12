@@ -5,6 +5,35 @@ window.playheadRAF = null;
 window.isDuplicateDrag = false;
 window.shiftDown = false;
 
+// main.js
+
+// --- AUDIO CONTEXT ---
+// IMPORTANT: use the existing global audioContext, not a new one
+const audioCtx = window.audioContext;
+
+// --- MIDI ENGINE ---
+const midiEngine = new window.MidiEngine(audioCtx);
+midiEngine.registerInstrument("basic-saw", new window.BasicSawSynth(audioCtx));
+
+// --- UI INIT ---
+window.initPianoRoll();
+
+// --- GLOBAL MIDI SCHEDULER HOOK ---
+window.onScheduleMidiClip = (clip, track, startTime) => {
+  midiEngine.scheduleClip(clip, track, startTime);
+};
+
+
+// --- CLIP DOUBLE-CLICK HANDLER ---
+function attachClipHandlers(clipElement, clip, track) {
+  clipElement.addEventListener("dblclick", () => {
+    if (track.type === "midi") {
+      openPianoRoll(clip);
+    }
+  });
+}
+
+
 window.addEventListener("keydown", e => {
   if (e.key === "Shift") window.shiftDown = true;
 });
@@ -29,22 +58,42 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     window.DROPBOX_LOOP_MAP[meta.loopId] = {
-      id: meta.loopId,          // required by sidebar
+      id: meta.loopId,
       url: url,
       bpm: meta.bpm,
       bars: meta.bars,
-      displayName: meta.displayName
+      displayName: meta.displayName,
+      type: "audio"
     };
   });
 
-  // IMPORTANT: populateSidebar expects an ARRAY, not an OBJECT
-  populateSidebar(Object.values(window.DROPBOX_LOOP_MAP));
+  // Build the final loop list
+  const loops = Object.values(window.DROPBOX_LOOP_MAP);
 
+  // Add your MIDI clip
+  loops.unshift({
+    id: "basic-midi-clip",
+    type: "midi",
+    displayName: "Basic MIDI Clip (C4 x4)",
+    bars: 1,
+    notes: [
+      { pitch: 60, start: 0, end: 1 },
+      { pitch: 60, start: 1, end: 2 },
+      { pitch: 60, start: 2, end: 3 },
+      { pitch: 60, start: 3, end: 4 }
+    ]
+  });
 
+  // Save globally
+  window.currentLoops = loops;
+
+  // Populate sidebar
+  populateSidebar(loops);
+
+  // Everything below MUST be inside DOMContentLoaded
   initTimeline();
 
   document.getElementById("saveProjectBtn").addEventListener("click", saveProjectZip);
-
 
   const playToggleBtn = document.getElementById("playToggleBtn");
   const transportLabel = document.getElementById("transportLabel");
@@ -59,10 +108,8 @@ window.addEventListener("DOMContentLoaded", () => {
       startPlayhead(realStart);
       document.getElementById("playhead").classList.remove("hidden");
 
-
       playToggleBtn.textContent = "Stop";
       playToggleBtn.classList.add("active");
-      document.getElementById("playhead").classList.remove("hidden");
 
       if (transportLabel) {
         transportLabel.textContent = "Playing";
@@ -79,11 +126,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
       if (transportLabel) {
         transportLabel.textContent = "Stopped";
-        transportLabel.classList.remove("playing"); // falls back to stopped colour
+        transportLabel.classList.remove("playing");
       }
     }
   });
-});
+
+}); // ← only ONE closing brace
 
 
 
@@ -485,3 +533,12 @@ function drawMeter(ctx, level) {
 
 
 drawVUMeters();
+
+function attachClipHandlers(clipElement, clip, track) {
+  clipElement.addEventListener("dblclick", () => {
+    if (track.type === "midi") {
+      openPianoRoll(clip);
+    }
+  });
+}
+

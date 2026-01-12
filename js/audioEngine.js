@@ -94,8 +94,27 @@ window.loadLoop = async function(id, url, bpmFromFilename) {
   const bpm = bpmFromFilename || 175;
   const bars = Math.round((duration * bpm) / 240);
 
+  // Store loop buffer
   window.loopBuffers.set(id, { buffer: normalized, bpm, bars });
-};
+
+  /* -------------------------------------------------------
+     NEW: Re-render any clips using this loop
+  ------------------------------------------------------- */
+  window.clips
+    .filter(c => c.loopId === id)
+    .forEach(c => {
+      const drop = document.querySelector(
+        `.track[data-index="${c.trackIndex}"] .track-drop-area`
+      );
+      if (drop) {
+        drop.innerHTML = "";
+        window.clips
+          .filter(x => x.trackIndex === c.trackIndex)
+          .forEach(x => window.renderClip(x, drop));
+      }
+    });
+
+}; // ← this closes the function properly
 
 /* -------------------------------------------------------
    SCHEDULING (SAFE + DAW-ACCURATE)
@@ -217,11 +236,9 @@ window.scheduleClip = function(clip, seekBars = 0) {
 
 
 
-/**
- * Play from a given bar offset.
- * seekBars = 0 → from start
- * seekBars = 8 → start as if bar 8 is "now"
- */
+// add this near the top of audioEngine.js
+window.onScheduleMidiClip = window.onScheduleMidiClip || null;
+
 window.playAll = function(seekBars = 0) {
   scheduledSources = [];
 
@@ -230,11 +247,25 @@ window.playAll = function(seekBars = 0) {
   // Seek: bar `seekBars` is "now"
   transportStartTime = audioContext.currentTime - offsetSeconds;
 
-  clips.forEach(clip => scheduleClip(clip, seekBars));
-  isPlaying = true;
+  clips.forEach(clip => {
+    if (clip.type === "midi") {
+      if (window.onScheduleMidiClip) {
+        // simple track object for now; you can evolve this later
+        const relativeStartBars = clip.startBar - seekBars;
+        const startTime = transportStartTime + barsToSeconds(relativeStartBars);
+        const track = { instrument: "basic-saw" };
 
+        window.onScheduleMidiClip(clip, track, startTime);
+      }
+    } else {
+      scheduleClip(clip, seekBars);
+    }
+  });
+
+  isPlaying = true;
   return transportStartTime;
 };
+
 
 
 window.stopAll = function() {

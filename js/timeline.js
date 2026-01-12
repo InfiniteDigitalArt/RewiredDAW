@@ -11,6 +11,14 @@ window.TRACK_COLORS = [
   "#FF4D88"  // pink
 ];
 
+// Global timeline event hooks
+window.timeline = {
+  onScheduleClip: null,        // audio scheduling callback
+  onScheduleMidiClip: null,    // midi scheduling callback
+  onPlayheadMove: null,
+  onStop: null
+};
+
 
 window.initTimeline = function () {
   const tracksEl = document.getElementById("tracks");
@@ -148,20 +156,21 @@ drop.addEventListener("drop", async (e) => {
       const bars = (durationSeconds * loopBpm) / 240;
 
 
-      const clip = {
-        id: crypto.randomUUID(),
-        loopId: null,
-        fileName: meta.displayName || file.name,
-        audioBuffer: normalizedBuffer,
-        trackIndex,
-        startBar,
-        bars,
-        bpm: loopBpm,
-        originalBars: bars,
-        startOffset: 0,
-        durationSeconds,
-        
-      };
+    const clip = {
+      id: crypto.randomUUID(),
+      type: "audio",          // ⭐ REQUIRED
+      loopId: null,
+      fileName: meta.displayName || file.name,
+      audioBuffer: normalizedBuffer,
+      trackIndex,
+      startBar,
+      bars,
+      bpm: loopBpm,
+      originalBars: bars,
+      startOffset: 0,
+      durationSeconds,
+    };
+
 
 
 
@@ -179,36 +188,74 @@ drop.addEventListener("drop", async (e) => {
 
 
 
-  /* CASE 1: Dropping a loop from sidebar */
-  if (window.draggedLoop) {
-    const loop = window.draggedLoop;
+    /* CASE 1: Dropping a loop from sidebar */
+    if (window.draggedLoop) {
+      const loop = window.draggedLoop;
 
-    await window.loadLoop(loop.id, loop.url, loop.bpm);
-    const loopData = window.loopBuffers.get(loop.id);
-    // loopData.bars was computed using loop BPM — correct
-    const bars = loopData ? loopData.bars : 1;
+/* -------------------------
+   CASE 1A: MIDI CLIP
+------------------------- */
+if (loop.type === "midi") {
+  console.log("CASE 1A NOTES:", loop.notes);
+  const clip = {
+    id: crypto.randomUUID(),
+    type: "midi",
+    trackIndex,
+    startBar,
+    bars: 1, // ⭐ MIDI clips are 1 bar unless stretched
+    notes: JSON.parse(JSON.stringify(loop.notes))
+  };
 
-    // durationSeconds must be computed from the buffer, not project BPM
-    const durationSeconds = loopData.buffer.duration;
+  console.log("CREATED CLIP NOTES:", clip.notes); // ⭐ add this
+
+  window.clips.push(clip);
+  resolveClipCollisions(clip);
+
+  drop.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === trackIndex)
+    .forEach(c => window.renderClip(c, drop));
+
+  return;
+}
 
 
-    const clip = {
-      id: crypto.randomUUID(),
-      loopId: loop.id,
-      audioBuffer: null,
-      trackIndex,
-      startBar,
-      bars,
-      bpm: loop.bpm,
-      fileName: loop.displayName || loop.id,
-      startOffset: 0,
-      durationSeconds,
-      originalBars: bars
-    };
+      /* -------------------------
+        CASE 1B: AUDIO CLIP
+      ------------------------- */
+      if (loop.type === "audio") {
+        await window.loadLoop(loop.id, loop.url, loop.bpm);
+        const loopData = window.loopBuffers.get(loop.id);
 
-    window.clips.push(clip);
-    resolveClipCollisions(clip);
-  }
+        const bars = loopData ? loopData.bars : 1;
+        const durationSeconds = loopData.buffer.duration;
+
+        const clip = {
+          id: crypto.randomUUID(),
+          type: "audio",
+          loopId: loop.id,
+          audioBuffer: null,
+          trackIndex,
+          startBar,
+          bars,
+          bpm: loop.bpm,
+          fileName: loop.displayName || loop.id,
+          startOffset: 0,
+          durationSeconds,
+          originalBars: bars
+        };
+
+        window.clips.push(clip);
+        resolveClipCollisions(clip);
+
+        drop.innerHTML = "";
+        window.clips
+          .filter(c => c.trackIndex === trackIndex)
+          .forEach(c => window.renderClip(c, drop));
+
+        return;
+      }
+    }
 
 
 /* CASE 2: Moving or duplicating an existing clip */
@@ -315,6 +362,8 @@ window.renderTimelineBar(64);
    CLIP RENDERING (supports local files + library loops)
 ------------------------------------------------------- */
 window.renderClip = function (clip, dropArea) {
+  console.log("RENDER CLIP:", clip);
+
   const el = document.createElement("div");
   el.className = "clip";
   el.dataset.clipId = clip.id;
@@ -422,44 +471,42 @@ handle.addEventListener("mousedown", (e) => {
 
 
 /* -------------------------------------------------------
-   WAVEFORM RENDERING (project-accurate + rainbow colors)
+   AUDIO WAVEFORM RENDERING
 ------------------------------------------------------- */
 let bufferToDraw = null;
 
-if (clip.audioBuffer) {
-  bufferToDraw = clip.audioBuffer;
-} else if (clip.loopId) {
-  const loopData = window.loopBuffers.get(clip.loopId);
-  if (loopData && loopData.buffer) {
-    bufferToDraw = loopData.buffer;
+if (clip.type === "audio") {
+  if (clip.audioBuffer) {
+    bufferToDraw = clip.audioBuffer;
+  } else if (clip.loopId) {
+    const loopData = window.loopBuffers.get(clip.loopId);
+    if (loopData && loopData.buffer) {
+      bufferToDraw = loopData.buffer;
 
-    // Keep originalBars as metadata only (source bar length)
-    if (!clip.originalBars && loopData.bars) {
-      clip.originalBars = loopData.bars;
+      if (!clip.originalBars && loopData.bars) {
+        clip.originalBars = loopData.bars;
+      }
     }
   }
 }
 
-if (bufferToDraw) {
-  // 1. Compute how many bars this audio occupies in THIS project
+
+if (clip.type === "audio" && bufferToDraw) {
   const durationSeconds = bufferToDraw.duration;
-  const barDuration = window.barsToSeconds(1); // uses project BPM
+  const barDuration = window.barsToSeconds(1);
   const projectBars = durationSeconds / barDuration;
 
-  // Store once as the untrimmed project length
   if (!isFinite(clip.originalBars) || clip.originalBars <= 0) {
     clip.originalBars = projectBars;
   }
 
-  // clip.bars = current visible length in bars (trimmed if resized)
   if (!isFinite(clip.bars) || clip.bars <= 0) {
     clip.bars = clip.originalBars;
   }
 
-  const originalBars = clip.originalBars; // full project length of audio
-  const playbackBars = clip.bars;         // current visible length
+  const originalBars = clip.originalBars;
+  const playbackBars = clip.bars;
 
-  // 2. Render waveform at ORIGINAL (full) project length
   const waveformWidth = originalBars * window.PIXELS_PER_BAR;
 
   const color = window.TRACK_COLORS[clip.trackIndex % 10];
@@ -477,19 +524,62 @@ if (bufferToDraw) {
   waveform.style.left = "0";
   waveform.style.pointerEvents = "none";
 
-  // No stretching: waveform is in project-time already
-  // waveform.style.transform = "none";
-
-  // 3. Clip width = visible length in project bars
   const clipWidth = playbackBars * window.PIXELS_PER_BAR;
   el.style.width = clipWidth + "px";
 
-  // 4. Waveform is full length; container trims it
   waveform.style.width = waveformWidth + "px";
   el.style.overflow = "hidden";
 
   el.appendChild(waveform);
 }
+
+
+if (clip.type === "midi") {
+  console.log("RENDER NOTES FULL:", JSON.stringify(clip.notes, null, 2));
+
+
+  // Width of the clip in bars
+  el.style.width = (clip.bars * window.PIXELS_PER_BAR) + "px";
+
+  const midiCanvas = document.createElement("canvas");
+  const beatsPerBar = 4;  
+  midiCanvas.width = clip.bars * beatsPerBar * (window.PIXELS_PER_BAR / beatsPerBar);
+
+  midiCanvas.height = 40;
+  midiCanvas.style.position = "absolute";
+  midiCanvas.style.bottom = "0";
+  midiCanvas.style.left = "0";
+  midiCanvas.style.pointerEvents = "none";
+  midiCanvas.style.zIndex = "2";
+
+  const ctx = midiCanvas.getContext("2d");
+  const pxPerBar = window.PIXELS_PER_BAR;
+
+  
+
+clip.notes.forEach(note => {
+  const startBars = note.start / beatsPerBar;
+  const durationBars = (note.end - note.start) / beatsPerBar;
+
+  const gap = 1; // visual spacing
+  const x = startBars * pxPerBar + gap;
+  const w = durationBars * pxPerBar - gap * 2;
+
+  const y = midiCanvas.height - 10 - ((note.pitch - 60) * 4);
+
+  const h = 6;
+
+  ctx.fillStyle = window.TRACK_COLORS[clip.trackIndex % 10];
+  ctx.fillRect(x, y, w, h);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.strokeRect(x, y, w, h);
+});
+
+
+  el.appendChild(midiCanvas);
+}
+
 
 
 
@@ -643,6 +733,9 @@ function resolveClipCollisions(newClip) {
     const clipStart = clip.startBar;
     const clipEnd = clip.startBar + clip.bars;
 
+    // Skip trimming MIDI clips
+    if (clip.type === "midi") continue;
+
     // Only care if existing clip starts before new clip and overlaps its start
     if (clipStart < newStart && clipEnd > newStart) {
       const newLengthBars = newStart - clipStart;
@@ -654,6 +747,7 @@ function resolveClipCollisions(newClip) {
     }
   }
 }
+
 
 window.renderWaveformSlice = function(samples, width, height = 40, color = "#2a6cff") {
   const canvas = document.createElement("canvas");
