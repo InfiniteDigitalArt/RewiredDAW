@@ -1,13 +1,12 @@
-// midi-clip.js
+console.log("midi-clip.js loaded");
 
-export class MidiClip {
-  constructor(start, end) {
+window.MidiClip = class MidiClip {
+  constructor(startBar, bars) {
     this.id = crypto.randomUUID();
-    this.start = start;
-    this.end = end;
-
-    this.notes = []; 
-    // Each note: { pitch, start, end, velocity }
+    this.type = "midi";
+    this.startBar = startBar;
+    this.bars = bars;
+    this.notes = [];
   }
 
   addNote(pitch, start, end, velocity = 0.8) {
@@ -17,19 +16,4 @@ export class MidiClip {
   removeNote(index) {
     this.notes.splice(index, 1);
   }
-}
-
-const basicMidiClip = {
-  id: "basic-midi-clip",
-  type: "midi",
-  displayName: "Basic MIDI Clip (C4 x4)",
-  notes: [
-    { pitch: 60, start: 0, end: 0.5 }, // beat 1
-    { pitch: 60, start: 1, end: 1.5 }, // beat 2
-    { pitch: 64, start: 2, end: 2.5 }, // beat 3
-    { pitch: 67, start: 3, end: 3.5 }  // beat 4
-  ],
-  bars: 1,
-
-  bpm: 120 // irrelevant for MIDI but keeps structure consistent
 };

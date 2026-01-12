@@ -1,5 +1,3 @@
-// midi-engine.js
-
 window.MidiEngine = class MidiEngine {
   constructor(audioCtx) {
     this.audioCtx = audioCtx;
@@ -19,24 +17,38 @@ window.MidiEngine = class MidiEngine {
     }
 
     const beatsPerBar = 4; // standard 4/4
+    const clipLengthBeats = (clip.bars || 1) * beatsPerBar;
 
     clip.notes.forEach(note => {
-      // Convert beats → bars
-      const startBars = note.start / beatsPerBar;
-      const durationBars = (note.end - note.start) / beatsPerBar;
+      // Note times are in BEATS, relative to clip start
+      let noteStartBeats = note.start;
+      let noteEndBeats   = note.end;
+
+      // Skip notes that start entirely beyond the trimmed clip
+      if (noteStartBeats >= clipLengthBeats) return;
+
+      // Clamp notes that extend past the clip boundary
+      if (noteEndBeats > clipLengthBeats) {
+        noteEndBeats = clipLengthBeats;
+      }
+
+      const durationBeats = noteEndBeats - noteStartBeats;
+      if (durationBeats <= 0) return;
+
+      // Convert beats → bars (same pattern you already used)
+      const startBars    = noteStartBeats / beatsPerBar;
+      const durationBars = durationBeats  / beatsPerBar;
 
       const noteStart = startTime + window.barsToSeconds(startBars);
-      const duration = window.barsToSeconds(durationBars);
+      const duration  = window.barsToSeconds(durationBars);
 
       synth.playNote(
         note.pitch,
         noteStart,
         duration,
-        note.velocity || 0.8
+        note.velocity || 0.8,
+        clip.trackIndex ?? 0
       );
-      
-
     });
   }
-
 };

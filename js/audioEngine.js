@@ -4,7 +4,10 @@ window.BPM = 175;
 
 window.loopBuffers = new Map();
 window.clips = [];
+// near top of audioEngine.js
 window.scheduledSources = [];
+window.scheduledMidiVoices = [];
+
 window.isPlaying = false;
 window.transportStartTime = 0;
 
@@ -273,12 +276,19 @@ window.stopAll = function() {
     try { s.stop(); } catch(e) {}
     try { s.disconnect(); } catch(e) {}
   });
-
   scheduledSources = [];
-  isPlaying = false;
 
-  stopPlayhead(); // <-- REQUIRED
+  // NEW: stop MIDI voices too
+  scheduledMidiVoices.forEach(v => {
+    try { v.stop(); } catch(e) {}
+    try { v.disconnect(); } catch(e) {}
+  });
+  scheduledMidiVoices = [];
+
+  isPlaying = false;
+  stopPlayhead();
 };
+
 
 
 window.setTempo = function(newBpm) {

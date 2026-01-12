@@ -1,17 +1,4 @@
-// 1. Define basicMidiClip
-const basicMidiClip = {
-  id: "basic-midi-clip",
-  type: "midi",
-  displayName: "Basic MIDI Clip (C4 x4)",
-  bars: 1,
-  notes: [
-    { pitch: 60, start: 0, end: 0.5 }, // beat 1
-    { pitch: 60, start: 1, end: 1.5 }, // beat 2
-    { pitch: 64, start: 2, end: 2.5 }, // beat 3
-    { pitch: 67, start: 3, end: 3.5 }  // beat 4
-  ]
-
-};
+let basicMidiClip = null;
 
 // 2. Ensure otherLoops is a valid array
 const otherLoops = Array.isArray(window.otherLoops) ? window.otherLoops : [];
@@ -47,7 +34,6 @@ window.populateSidebar = function(loops) {
           bars: loop.bars
         };
         console.log("DRAGSTART NOTES:", loop.notes);
-
       });
     }
 
@@ -61,5 +47,18 @@ window.populateSidebar = function(loops) {
 
 // 4. Wait for DOM before populating sidebar
 window.addEventListener("DOMContentLoaded", () => {
+  console.log("DOMContentLoaded. MidiClip is:", window.MidiClip);
+
+  // Now MidiClip DEFINITELY exists
+  basicMidiClip = new MidiClip(0, 1);
+  basicMidiClip.id = "basic-midi-clip";
+  basicMidiClip.displayName = "Basic MIDI Clip (C4 x4)";
+  basicMidiClip.notes = [
+    { pitch: 60, start: 0, end: 0.5 },
+    { pitch: 60, start: 1, end: 1.5 },
+    { pitch: 64, start: 2, end: 2.5 },
+    { pitch: 67, start: 3, end: 3.5 }
+  ];
+
   window.populateSidebar([basicMidiClip, ...otherLoops]);
 });

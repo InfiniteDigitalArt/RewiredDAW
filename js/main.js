@@ -542,3 +542,18 @@ function attachClipHandlers(clipElement, clip, track) {
   });
 }
 
+function openPianoRoll(clip) {
+  activeClip = clip;
+
+  const container = document.getElementById("piano-roll-container");
+  container.style.display = "block";
+
+  resizeCanvas();
+  renderPianoRoll();
+}
+
+document.getElementById("piano-roll-close").addEventListener("click", () => {
+  document.getElementById("piano-roll-container").style.display = "none";
+  activeClip = null;
+});
+

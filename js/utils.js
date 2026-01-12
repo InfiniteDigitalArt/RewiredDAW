@@ -21,3 +21,17 @@ window.parseLoopMetadata = function(filename) {
     bars
   };
 };
+
+window.refreshClipInTimeline = function (clip) {
+  const el = document.querySelector(`[data-clip-id="${clip.id}"]`);
+  if (!el) return;
+
+  const parent = el.parentElement;
+  if (!parent) return;
+
+  // Remove old element
+  el.remove();
+
+  // Render fresh
+  window.renderClip(clip, parent);
+};

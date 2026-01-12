@@ -2,6 +2,10 @@
 //  EXPORT FULL SONG AS WAV (DAW‑GRADE QUALITY)
 // ======================================================
 
+// Prevent OfflineAudioContext fade-in at time 0
+const EXPORT_START_OFFSET = 0.005; // 5ms
+
+
 window.exportSong = async function() {
   // ------------------------------------------------------
   // 1. Find the last bar in the song
@@ -52,6 +56,27 @@ window.clips.forEach(clip => {
   limiter.connect(offline.destination);
 
 // ------------------------------------------------------
+// 4B. Create offline track gains + panners (for MIDI + audio)
+// ------------------------------------------------------
+const offlineTrackGains = [];
+const offlineTrackPans = [];
+
+for (let i = 0; i < window.trackGains.length; i++) {
+  const g = offline.createGain();
+  g.gain.value = window.trackGains[i].gain.value;
+
+  const p = offline.createStereoPanner();
+  p.pan.value = window.trackPans?.[i] || 0;
+
+  g.connect(p);
+  p.connect(masterGain);
+
+  offlineTrackGains.push(g);
+  offlineTrackPans.push(p);
+}
+
+
+// ------------------------------------------------------
 // 5. Schedule all clips (loops + dropped audio)
 // ------------------------------------------------------
 window.clips.forEach(clip => {
@@ -92,9 +117,52 @@ window.clips.forEach(clip => {
   trackGain.connect(trackPan);
   trackPan.connect(masterGain);
 
-  const when = window.barsToSeconds(clip.startBar);
+  const when = EXPORT_START_OFFSET + window.barsToSeconds(clip.startBar);
   src.start(when);
+
 });
+
+// ------------------------------------------------------
+// 5B. Schedule MIDI clips
+// ------------------------------------------------------
+window.clips.forEach(clip => {
+  if (clip.type !== "midi") return;
+  if (!Array.isArray(clip.notes) || clip.notes.length === 0) return;
+
+  const trackIndex = clip.trackIndex ?? 0;
+
+  const synth = new BasicSawSynthForContext(offline, offlineTrackGains[trackIndex]);
+
+
+  const clipLengthBars = clip.bars;
+
+  clip.notes.forEach(note => {
+    const noteStartBarsLocal = (note.start || 0) / 4;
+    const noteEndBarsLocal   = (note.end   || 0) / 4;
+
+    if (noteStartBarsLocal >= clipLengthBars) return;
+
+    const clampedEndBarsLocal = Math.min(noteEndBarsLocal, clipLengthBars);
+
+    const absoluteStartBars = clip.startBar + noteStartBarsLocal;
+    const startTime = EXPORT_START_OFFSET + window.barsToSeconds(absoluteStartBars);
+
+
+    const durationBars = clampedEndBarsLocal - noteStartBarsLocal;
+    const durationSec  = window.barsToSeconds(durationBars);
+
+    if (durationSec <= 0) return;
+
+    synth.playNote(
+      note.pitch,
+      startTime,
+      durationSec,
+      note.velocity || 0.8
+    );
+  });
+});
+
+
 
 
   // ------------------------------------------------------

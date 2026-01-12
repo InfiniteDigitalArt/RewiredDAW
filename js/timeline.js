@@ -11,6 +11,7 @@ window.TRACK_COLORS = [
   "#FF4D88"  // pink
 ];
 
+
 // Global timeline event hooks
 window.timeline = {
   onScheduleClip: null,        // audio scheduling callback
@@ -197,16 +198,14 @@ drop.addEventListener("drop", async (e) => {
 ------------------------- */
 if (loop.type === "midi") {
   console.log("CASE 1A NOTES:", loop.notes);
-  const clip = {
-    id: crypto.randomUUID(),
-    type: "midi",
-    trackIndex,
-    startBar,
-    bars: 1, // ⭐ MIDI clips are 1 bar unless stretched
-    notes: JSON.parse(JSON.stringify(loop.notes))
-  };
 
-  console.log("CREATED CLIP NOTES:", clip.notes); // ⭐ add this
+  const clip = new MidiClip(startBar, loop.bars);
+  clip.trackIndex = trackIndex;
+
+  // Deep copy notes
+  clip.notes = JSON.parse(JSON.stringify(loop.notes));
+
+  console.log("CREATED CLIP NOTES:", clip.notes);
 
   window.clips.push(clip);
   resolveClipCollisions(clip);
@@ -218,6 +217,8 @@ if (loop.type === "midi") {
 
   return;
 }
+
+
 
 
       /* -------------------------
@@ -468,6 +469,19 @@ handle.addEventListener("mousedown", (e) => {
 });
 
 
+el.addEventListener("dblclick", () => {
+  if (clip.type === "midi") {
+    window.openPianoRoll(clip);
+  }
+});
+
+// ⭐ Open piano roll on double‑click
+el.addEventListener("dblclick", () => {
+  if (clip.type === "midi") {
+    openPianoRoll(clip);
+  }
+});
+
 
 
 /* -------------------------------------------------------
@@ -535,50 +549,61 @@ if (clip.type === "audio" && bufferToDraw) {
 
 
 if (clip.type === "midi") {
-  console.log("RENDER NOTES FULL:", JSON.stringify(clip.notes, null, 2));
-
-
-  // Width of the clip in bars
   el.style.width = (clip.bars * window.PIXELS_PER_BAR) + "px";
 
-  const midiCanvas = document.createElement("canvas");
-  const beatsPerBar = 4;  
-  midiCanvas.width = clip.bars * beatsPerBar * (window.PIXELS_PER_BAR / beatsPerBar);
+  const beatsPerBar = 4;
+  const pxPerBar = window.PIXELS_PER_BAR;
+  const pxPerBeat = pxPerBar / beatsPerBar;
 
+  // ⭐ Reuse or create preview canvas
+  let midiCanvas = el.querySelector(".midi-preview");
+  if (!midiCanvas) {
+    midiCanvas = document.createElement("canvas");
+    midiCanvas.className = "midi-preview";
+    midiCanvas.style.position = "absolute";
+    midiCanvas.style.bottom = "0";
+    midiCanvas.style.left = "0";
+    midiCanvas.style.pointerEvents = "none";
+    midiCanvas.style.zIndex = "2";
+    el.appendChild(midiCanvas);
+  }
+
+  // ⭐ Resize canvas
+  midiCanvas.width = clip.bars * pxPerBar;
   midiCanvas.height = 40;
-  midiCanvas.style.position = "absolute";
-  midiCanvas.style.bottom = "0";
-  midiCanvas.style.left = "0";
-  midiCanvas.style.pointerEvents = "none";
-  midiCanvas.style.zIndex = "2";
 
   const ctx = midiCanvas.getContext("2d");
-  const pxPerBar = window.PIXELS_PER_BAR;
+  ctx.clearRect(0, 0, midiCanvas.width, midiCanvas.height);
+
+  // Match piano roll pitch range
+  const pitchMin = 48;
+  const pitchMax = 84;
+  const pitchRange = pitchMax - pitchMin;
+  const rowHeight = midiCanvas.height / pitchRange;
+
+  clip.notes.forEach(note => {
+    const gap = 1;
+
+    const x = note.start * pxPerBeat + gap;
+    const w = (note.end - note.start) * pxPerBeat - gap * 2;
+
+    const y = (pitchMax - note.pitch) * rowHeight;
+    const h = Math.max(3, rowHeight - 2);
+
+    ctx.fillStyle = window.TRACK_COLORS[clip.trackIndex % 10];
+    ctx.fillRect(x, y, w, h);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.4)";
+    ctx.strokeRect(x, y, w, h);
+  });
+
 
   
-
-clip.notes.forEach(note => {
-  const startBars = note.start / beatsPerBar;
-  const durationBars = (note.end - note.start) / beatsPerBar;
-
-  const gap = 1; // visual spacing
-  const x = startBars * pxPerBar + gap;
-  const w = durationBars * pxPerBar - gap * 2;
-
-  const y = midiCanvas.height - 10 - ((note.pitch - 60) * 4);
-
-  const h = 6;
-
-  ctx.fillStyle = window.TRACK_COLORS[clip.trackIndex % 10];
-  ctx.fillRect(x, y, w, h);
-
-  ctx.strokeStyle = "rgba(255,255,255,0.4)";
-  ctx.strokeRect(x, y, w, h);
-});
 
 
   el.appendChild(midiCanvas);
 }
+
 
 
 

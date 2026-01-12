@@ -41,11 +41,11 @@ body {
    MAIN AREA
 ------------------------------------------------------- */
 .main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  height: 100%;
   overflow: hidden;
 }
+
 
 /* -------------------------------------------------------
    TIMELINE
@@ -266,7 +266,7 @@ body {
   background: var(--playhead); 
   box-shadow: 0 0 8px var(--playhead);
   pointer-events: none;
-  z-index: 999;
+  z-index: 99;
   left: 0; /* now correct */
 }
 
@@ -668,3 +668,72 @@ body {
   -webkit-user-select: none;
   touch-action: none;
 }
+
+#piano-roll-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+
+  height: 260px; /* or whatever height you prefer */
+  background: #111;
+  border-top: 1px solid #333;
+
+  display: none; /* hidden until a clip is opened */
+  z-index: 100;
+}
+
+#piano-roll-scroll {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+/* ============================================
+   DARK THEME SCROLLBARS (Chrome / Edge / Safari)
+   ============================================ */
+
+#piano-roll-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#piano-roll-scroll::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+#piano-roll-scroll::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 6px;
+  border: 2px solid #1a1a1a; /* inset effect */
+}
+
+#piano-roll-scroll::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+#piano-roll-scroll::-webkit-scrollbar-corner {
+  background: #1a1a1a;
+}
+
+
+#piano-roll-canvas {
+  display: block;
+}
+
+#piano-roll-container.hidden {
+  display: none;
+}
+
+#piano-roll-close {
+  position: absolute;
+  top: 6px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 30;
+}
+

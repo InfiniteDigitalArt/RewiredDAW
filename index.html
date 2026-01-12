@@ -55,30 +55,49 @@
   </div>
 </div>
 
-<!-- ADD THIS -->
-<div id="piano-roll-container" class="hidden">
-  <canvas id="piano-roll-canvas"></canvas>
+<div id="piano-roll-container">
+  <button id="piano-roll-close">×</button>
+  <div id="piano-roll-scroll">
+    <canvas id="piano-roll-canvas"></canvas>
+  </div>
 </div>
+
+
 
 
 
 
   </div>
 
-  <!-- Load scripts in correct order -->
-  <script src="assets/loops.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/audioEngine.js"></script>
-  <script src="js/timeline.js"></script>
-  <script src="js/sidebar.js"></script>
-  <script src="js/midi/midi-engine.js"></script>
-  <script src="js/midi/midi-synth-basic.js"></script>
-  <script src="js/midi/piano-roll.js"></script>
-  <script src="js/main.js"></script>
+<script defer src="assets/loops.js"></script>
+<script defer src="js/utils.js"></script>
 
-  <script src="js/exportSong.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- 1. Realtime + offline synths MUST load first -->
+<script defer src="js/midi/midi-synth-basic.js"></script>
+<script defer src="js/midi/midi-synth-offline.js"></script>
 
+
+<!-- 2. Then the MIDI engine (depends on BasicSawSynth) -->
+<script defer src="js/midi/midi-engine.js"></script>
+
+<!-- 3. Then the audio engine (creates midiEngine, uses MidiEngine + BasicSawSynth) -->
+<script defer src="js/audioEngine.js"></script>
+
+<!-- 4. Rest of the app UI / MIDI tooling -->
+<script defer src="js/timeline.js"></script>
+<script defer src="js/sidebar.js"></script>
+<script defer src="js/midi/midi-clip.js"></script>
+
+<!-- Tone.js MIDI parser -->
+<script defer src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.js"></script>
+
+<script defer src="js/midi/piano-roll.js"></script>
+
+<!-- 5. Main app logic, after the whole engine exists -->
+<script defer src="js/main.js"></script>
+
+<script defer src="js/exportSong.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 
 
