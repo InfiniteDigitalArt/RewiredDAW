@@ -1,13 +1,6 @@
 window.BasicSawSynth = class BasicSawSynth {
   constructor(audioCtx) {
     this.audioCtx = audioCtx;
-
-    // --- Subtle reverb ---
-    this.reverb = audioCtx.createConvolver();
-    this.reverb.buffer = this.makeSmallReverbBuffer(audioCtx);
-
-    this.reverbGain = audioCtx.createGain();
-    this.reverbGain.gain.value = 0.5;
   }
 
   makeSmallReverbBuffer(ctx) {
@@ -23,9 +16,9 @@ window.BasicSawSynth = class BasicSawSynth {
     return impulse;
   }
 
-  // ⭐ NEW: clip is passed in
+  // clip now owns its own reverb + reverbGain
   playNoteFromClip(clip, pitch, startTime, duration, velocity = 0.8, trackIndex = 0) {
-    if (!clip.sampleBuffer) return; // no sample loaded for this clip
+    if (!clip.sampleBuffer) return;
 
     const src = this.audioCtx.createBufferSource();
     src.buffer = clip.sampleBuffer;
@@ -45,11 +38,10 @@ window.BasicSawSynth = class BasicSawSynth {
     gain.gain.setValueAtTime(velocity, startTime + duration);
     gain.gain.linearRampToValueAtTime(0.0001, startTime + duration + release);
 
-    // --- Routing ---
-    gain.connect(window.trackGains[trackIndex]); // dry
-    gain.connect(this.reverb);                   // wet
-    this.reverb.connect(this.reverbGain);
-    this.reverbGain.connect(window.trackGains[trackIndex]);
+    // --- Routing (per‑clip reverb) ---
+    gain.connect(window.trackGains[trackIndex]); // dry path
+    gain.connect(clip.reverb);                   // wet path (per‑clip)
+    // clip.reverb → clip.reverbGain → master is already connected in MidiClip constructor
 
     src.connect(gain);
 

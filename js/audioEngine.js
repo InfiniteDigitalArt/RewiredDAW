@@ -385,3 +385,41 @@ window.renderWaveform = function(audioBuffer, width, height = 40) {
 
   return canvas;
 };
+
+function updateTrackActiveState(trackIndex) {
+  const hasClips = window.clips.some(c => c.trackIndex === trackIndex);
+
+  if (!hasClips) {
+    // Silence the track
+    if (trackGains[trackIndex]) trackGains[trackIndex].gain.value = 0;
+
+    // Optionally disconnect reverb send
+    if (trackReverbSend[trackIndex]) trackReverbSend[trackIndex].disconnect();
+  } else {
+    // Restore normal gain
+    if (trackGains[trackIndex]) {
+      trackGains[trackIndex].gain.value =
+        Number(document.querySelectorAll(".track")[trackIndex]
+          .querySelector(".volume-knob").dataset.value);
+    }
+
+    // Restore reverb routing
+    if (trackReverbSend[trackIndex] && !trackReverbSend[trackIndex].numberOfOutputs) {
+      trackGains[trackIndex].connect(trackReverbSend[trackIndex]);
+    }
+  }
+}
+
+window.makeSmallReverbBuffer = function(ctx) {
+  const length = ctx.sampleRate * 3;
+  const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
+
+  for (let ch = 0; ch < 2; ch++) {
+    const channel = impulse.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      channel[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2);
+    }
+  }
+  return impulse;
+};
+

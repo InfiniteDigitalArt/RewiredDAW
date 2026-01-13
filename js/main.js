@@ -217,21 +217,41 @@ async function saveProjectZip() {
     // ----------------------------------------------------
     // 0. MIDI CLIP
     // ----------------------------------------------------
-    if (clip.type === "midi") {
-      serializedClips.push({
-        type: "midi",
-        id: clip.id,
-        trackIndex: clip.trackIndex,
-        startBar: clip.startBar,
-        bars: clip.bars,
-        notes: clip.notes.map(n => ({
-          pitch: n.pitch,
-          start: n.start,
-          end: n.end
-        }))
-      });
-      continue;
+  if (clip.type === "midi") {
+    const midiData = {
+      type: "midi",
+      id: clip.id,
+      trackIndex: clip.trackIndex,
+      startBar: clip.startBar,
+      bars: clip.bars,
+      notes: clip.notes.map(n => ({
+        pitch: n.pitch,
+        start: n.start,
+        end: n.end
+      })),
+      name: clip.name,
+
+      sampleName: clip.sampleName || null,
+      sampleFile: null,
+
+      reverbAmount: clip.reverbGain?.gain?.value ?? 0.5
+
+    };
+
+    // If the user loaded a custom WAV for this MIDI clip
+    if (clip.sampleBuffer && clip.sampleName && clip.sampleName !== window.defaultMidiSampleName) {
+      const wavBlob = bufferToWavBlob(clip.sampleBuffer);
+      const arrayBuffer = await wavBlob.arrayBuffer();
+      const fileName = `${clip.id}_sample.wav`;
+
+      audioFolder.file(fileName, arrayBuffer);
+      midiData.sampleFile = fileName;
     }
+
+    serializedClips.push(midiData);
+    continue;
+  }
+
 
     // Only audio below this point
     if (!clip.loopId && !clip.audioBuffer) continue;
@@ -309,27 +329,50 @@ async function loadProjectZip(json, zip) {
   // Load clips
   for (const raw of json.clips) {
 
-    // ----------------------------------------------------
-    // 0. MIDI CLIP
-    // ----------------------------------------------------
-    if (raw.type === "midi") {
-      const clip = new MidiClip(raw.startBar, raw.bars);
-      clip.id = raw.id || crypto.randomUUID();
-      clip.type = "midi";
-      clip.trackIndex = raw.trackIndex;
-      clip.notes = raw.notes || [];
+// ----------------------------------------------------
+// 0. MIDI CLIP (with sample restore)
+// ----------------------------------------------------
+if (raw.type === "midi") {
+  const clip = new MidiClip(raw.startBar, raw.bars);
 
-      window.clips.push(clip);
-      resolveClipCollisions(clip);
+  clip.id = raw.id || crypto.randomUUID();
+  clip.type = "midi";
+  clip.trackIndex = raw.trackIndex;
+  clip.notes = raw.notes || [];
+  clip.name = raw.name || `MIDI Clip`;
 
-      const trackEl = document.querySelectorAll(".track")[clip.trackIndex];
-      if (trackEl) {
-        const dropArea = trackEl.querySelector(".track-drop-area");
-        window.renderClip(clip, dropArea);
-      }
 
-      continue;
-    }
+  // -----------------------------
+  // Restore sample name
+  // -----------------------------
+  clip.sampleName = raw.sampleName || window.defaultMidiSampleName;
+
+  // -----------------------------
+  // Restore sample buffer
+  // -----------------------------
+  if (raw.sampleFile) {
+    // Custom sample saved inside ZIP
+    const wavData = await zip.file(`audio/${raw.sampleFile}`).async("arraybuffer");
+    clip.sampleBuffer = await audioContext.decodeAudioData(wavData);
+  } else {
+    // Default sample
+    clip.sampleBuffer = window.defaultMidiSampleBuffer;
+  }
+
+  clip.reverbGain.gain.value = raw.reverbAmount ?? 0.5;
+
+  window.clips.push(clip);
+  resolveClipCollisions(clip);
+
+  const trackEl = document.querySelectorAll(".track")[clip.trackIndex];
+  if (trackEl) {
+    const dropArea = trackEl.querySelector(".track-drop-area");
+    window.renderClip(clip, dropArea);
+  }
+
+  continue;
+}
+
 
     // ----------------------------------------------------
     // 1. LOOP CLIP (external library)

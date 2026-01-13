@@ -409,18 +409,29 @@ window.renderClip = function (clip, dropArea) {
   el.style.left = (clip.startBar * window.PIXELS_PER_BAR) + "px";
   el.style.width = width + "px";
 
-  /* -------------------------------------------------------
-     RIGHT-CLICK DELETE
-  ------------------------------------------------------- */
-  el.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    window.clips = window.clips.filter((c) => c.id !== clip.id);
+/* -------------------------------------------------------
+   RIGHT-CLICK DELETE
+------------------------------------------------------- */
+el.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
 
-    dropArea.innerHTML = "";
-    window.clips
-      .filter((c) => c.trackIndex === clip.trackIndex)
-      .forEach((c) => window.renderClip(c, dropArea));
-  });
+  const trackIndex = clip.trackIndex;
+
+  // 1. Remove the clip from the project
+  window.clips = window.clips.filter(c => c.id !== clip.id);
+
+  // 2. Re-render the track visually
+  dropArea.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === trackIndex)
+    .forEach(c => window.renderClip(c, dropArea));
+
+  // 3. Update audio engine state for this track
+  updateTrackActiveState(trackIndex);
+
+
+});
+
 
 /* -------------------------------------------------------
    RESIZE HANDLE (right-edge trim) — snap to whole bars
@@ -507,6 +518,14 @@ el.addEventListener("dblclick", () => {
   if (clip.type === "midi") {
     const realClip = window.clips.find(c => c.id === el.dataset.clipId);
     window.activeClip = realClip;
+
+    // ⭐ Update clip name in the piano roll header
+    const clipNameEl = document.getElementById("piano-roll-clip-name");
+    if (clipNameEl) {
+      clipNameEl.textContent = realClip.name || "MIDI Clip";
+    }
+
+    // ⭐ Open piano roll (this will update the sample name)
     openPianoRoll(realClip);
   }
 });
@@ -754,6 +773,8 @@ el.addEventListener("touchend", () => {
 
 
   dropArea.appendChild(el);
+  
+
 };
 
 
