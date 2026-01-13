@@ -7,8 +7,8 @@ let activeClip = null;
 let hoverNote = null;
 
 
-const pitchMin = 48; // C3
-const pitchMax = 84; // C6
+const pitchMin = 12; // C1
+const pitchMax = 96; // C8
 const pitchRange = pitchMax - pitchMin;
 
 const pxPerBeat = 100;
@@ -136,7 +136,7 @@ function drawPiano() {
 function midiToNoteName(pitch) {
   const names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
   const name = names[pitch % 12];
-  const octave = Math.floor(pitch / 12) - 1;
+  const octave = Math.floor(pitch / 12);
   return name + octave;
 }
 

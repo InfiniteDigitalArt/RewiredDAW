@@ -189,34 +189,54 @@ drop.addEventListener("drop", async (e) => {
 
 
 
-    /* CASE 1: Dropping a loop from sidebar */
-    if (window.draggedLoop) {
-      const loop = window.draggedLoop;
+/* CASE 1: Dropping a loop from sidebar */
+if (window.draggedLoop) {
+  const loop = window.draggedLoop;
 
-/* -------------------------
-   CASE 1A: MIDI CLIP
-------------------------- */
-if (loop.type === "midi") {
-  console.log("CASE 1A NOTES:", loop.notes);
+  /* -------------------------
+     CASE 1A: MIDI CLIP
+  ------------------------- */
+  if (loop.type === "midi") {
 
-  const clip = new MidiClip(startBar, loop.bars);
-  clip.trackIndex = trackIndex;
+    // BUILT-IN MIDI CLIP (already has notes)
+    if (loop.notes) {
+      const clip = new MidiClip(startBar, loop.bars);
+      clip.trackIndex = trackIndex;
+      clip.notes = JSON.parse(JSON.stringify(loop.notes));
 
-  // Deep copy notes
-  clip.notes = JSON.parse(JSON.stringify(loop.notes));
+      window.clips.push(clip);
+      resolveClipCollisions(clip);
 
-  console.log("CREATED CLIP NOTES:", clip.notes);
+      drop.innerHTML = "";
+      window.clips
+        .filter(c => c.trackIndex === trackIndex)
+        .forEach(c => window.renderClip(c, drop));
 
-  window.clips.push(clip);
-  resolveClipCollisions(clip);
+      return;
+    }
 
-  drop.innerHTML = "";
-  window.clips
-    .filter(c => c.trackIndex === trackIndex)
-    .forEach(c => window.renderClip(c, drop));
+    // DROPBOX MIDI (lazy-loaded)
+    if (loop.url) {
+      // Load + parse MIDI on demand
+      loadMidiFromDropbox(loop.url, loop.displayName).then(clip => {
+        if (!clip) return;
 
-  return;
-}
+        clip.startBar = startBar;
+        clip.trackIndex = trackIndex;
+
+        window.clips.push(clip);
+        resolveClipCollisions(clip);
+
+        drop.innerHTML = "";
+        window.clips
+          .filter(c => c.trackIndex === trackIndex)
+          .forEach(c => window.renderClip(c, drop));
+      });
+
+      return;
+    }
+  }
+
 
 
 
@@ -576,10 +596,22 @@ if (clip.type === "midi") {
   ctx.clearRect(0, 0, midiCanvas.width, midiCanvas.height);
 
   // Match piano roll pitch range
-  const pitchMin = 48;
-  const pitchMax = 84;
-  const pitchRange = pitchMax - pitchMin;
+  // Auto-fit pitch range
+  let minPitch = Infinity;
+  let maxPitch = -Infinity;
+
+  clip.notes.forEach(n => {
+    if (n.pitch < minPitch) minPitch = n.pitch;
+    if (n.pitch > maxPitch) maxPitch = n.pitch;
+  });
+
+  // Add a little padding so notes aren't touching the edges
+  minPitch -= 1;
+  maxPitch += 1;
+
+  const pitchRange = Math.max(1, maxPitch - minPitch);
   const rowHeight = midiCanvas.height / pitchRange;
+
 
   clip.notes.forEach(note => {
     const gap = 1;
@@ -587,7 +619,8 @@ if (clip.type === "midi") {
     const x = note.start * pxPerBeat + gap;
     const w = (note.end - note.start) * pxPerBeat - gap * 2;
 
-    const y = (pitchMax - note.pitch) * rowHeight;
+    const y = (maxPitch - note.pitch) * rowHeight;
+
     const h = Math.max(3, rowHeight - 2);
 
     ctx.fillStyle = window.TRACK_COLORS[clip.trackIndex % 10];

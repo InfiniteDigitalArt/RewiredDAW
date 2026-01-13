@@ -45,50 +45,7 @@ window.addEventListener("keyup", e => {
 
 window.addEventListener("DOMContentLoaded", () => {
 
-  // Convert array of URLs into a dictionary keyed by loopId
-  window.DROPBOX_LOOP_MAP = {};
 
-  window.DROPBOX_LOOPS.forEach(url => {
-    const filename = url.split("/").pop().split("?")[0];
-    const meta = parseLoopMetadata(filename);
-
-    if (!meta || !meta.loopId) {
-      console.error("Bad metadata for:", filename, meta);
-      return;
-    }
-
-    window.DROPBOX_LOOP_MAP[meta.loopId] = {
-      id: meta.loopId,
-      url: url,
-      bpm: meta.bpm,
-      bars: meta.bars,
-      displayName: meta.displayName,
-      type: "audio"
-    };
-  });
-
-  // Build the final loop list
-  const loops = Object.values(window.DROPBOX_LOOP_MAP);
-
-  // Add your MIDI clip
-  loops.unshift({
-    id: "basic-midi-clip",
-    type: "midi",
-    displayName: "Basic MIDI Clip (C4 x4)",
-    bars: 1,
-    notes: [
-      { pitch: 60, start: 0, end: 1 },
-      { pitch: 60, start: 1, end: 2 },
-      { pitch: 60, start: 2, end: 3 },
-      { pitch: 60, start: 3, end: 4 }
-    ]
-  });
-
-  // Save globally
-  window.currentLoops = loops;
-
-  // Populate sidebar
-  populateSidebar(loops);
 
   // Everything below MUST be inside DOMContentLoaded
   initTimeline();
@@ -556,4 +513,59 @@ document.getElementById("piano-roll-close").addEventListener("click", () => {
   document.getElementById("piano-roll-container").style.display = "none";
   activeClip = null;
 });
+
+async function loadMidiFromDropbox(url, displayName) {
+  if (!window.Midi) {
+    console.error("Tone.js MIDI parser not loaded.");
+    return null;
+  }
+
+  try {
+    const response = await fetch(url);
+    const arrayBuffer = await response.arrayBuffer();
+    const midi = new Midi(new Uint8Array(arrayBuffer));
+
+    const notes = [];
+    const ppq = midi.header.ppq;
+
+    midi.tracks.forEach(track => {
+      track.notes.forEach(n => {
+        const startBeats = n.ticks / ppq;
+        const endBeats = (n.ticks + n.durationTicks) / ppq;
+
+        notes.push({
+          pitch: n.midi,
+          start: startBeats,
+          end: endBeats,
+          velocity: n.velocity
+        });
+      });
+    });
+
+    // Determine clip length in bars
+    const maxEnd = notes.length > 0 ? Math.max(...notes.map(n => n.end)) : 1;
+    const bars = Math.ceil(maxEnd / 4);
+
+    // Build a MidiClip object
+    const clip = new MidiClip(0, bars);
+    clip.id = "dropbox-midi-" + Date.now();
+    clip.displayName = displayName;
+    clip.notes = notes;
+
+    return clip;
+
+  } catch (err) {
+    console.error("Failed to load MIDI from Dropbox:", err);
+    return null;
+  }
+}
+
+
+async function loadAllMidiLoops() {
+  return Promise.all(
+    window.MIDI_LOOPS.map(loop =>
+      loadMidiFromDropbox(loop.url, loop.displayName)
+    )
+  );
+}
 

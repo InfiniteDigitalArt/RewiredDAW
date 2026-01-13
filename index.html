@@ -69,21 +69,20 @@
 
   </div>
 
+<!-- Load audio loops FIRST -->
 <script defer src="assets/loops.js"></script>
-<script defer src="js/utils.js"></script>
 
-<!-- 1. Realtime + offline synths MUST load first -->
+<!-- Load MIDI loop definitions -->
+<script defer src="assets/midis.js"></script>
+
+<!-- Load engines -->
+<script defer src="js/utils.js"></script>
 <script defer src="js/midi/midi-synth-basic.js"></script>
 <script defer src="js/midi/midi-synth-offline.js"></script>
-
-
-<!-- 2. Then the MIDI engine (depends on BasicSawSynth) -->
 <script defer src="js/midi/midi-engine.js"></script>
-
-<!-- 3. Then the audio engine (creates midiEngine, uses MidiEngine + BasicSawSynth) -->
 <script defer src="js/audioEngine.js"></script>
 
-<!-- 4. Rest of the app UI / MIDI tooling -->
+<!-- UI + clip classes -->
 <script defer src="js/timeline.js"></script>
 <script defer src="js/sidebar.js"></script>
 <script defer src="js/midi/midi-clip.js"></script>
@@ -93,13 +92,11 @@
 
 <script defer src="js/midi/piano-roll.js"></script>
 
-<!-- 5. Main app logic, after the whole engine exists -->
+<!-- MAIN APP (must be last) -->
 <script defer src="js/main.js"></script>
 
 <script defer src="js/exportSong.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
-
 
 
 </body>
