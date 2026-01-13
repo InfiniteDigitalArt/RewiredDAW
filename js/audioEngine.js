@@ -13,6 +13,20 @@ window.transportStartTime = 0;
 
 
 /* -------------------------------------------------------
+   MASTER OUTPUT (must be created BEFORE tracks)
+------------------------------------------------------- */
+window.masterGain = audioContext.createGain();
+window.masterGain.gain.value = 0.8;
+
+window.masterAnalyser = audioContext.createAnalyser();
+window.masterAnalyser.fftSize = 256;
+
+// Master → analyser → speakers
+window.masterGain.connect(window.masterAnalyser);
+window.masterAnalyser.connect(audioContext.destination);
+
+
+/* -------------------------------------------------------
    TRACK GAIN + ANALYSER NODES
 ------------------------------------------------------- */
 window.trackGains = [];
@@ -25,25 +39,20 @@ for (let i = 0; i < 16; i++) {
   const analyser = audioContext.createAnalyser();
   analyser.fftSize = 256;
 
+  // Track → analyser → master
   gain.connect(analyser);
-  analyser.connect(audioContext.destination);
+  analyser.connect(window.masterGain);
 
   window.trackGains.push(gain);
   window.trackAnalysers.push(analyser);
 }
 
-// MASTER OUTPUT
-window.masterGain = audioContext.createGain();
-window.masterGain.gain.value = 0.8;
+/* -------------------------------------------------------
+   IMPORTANT:
+   ❌ DO NOT connect track gains directly to master again.
+   The analyser already feeds into master.
+------------------------------------------------------- */
 
-window.masterAnalyser = audioContext.createAnalyser();
-masterAnalyser.fftSize = 256;
-
-masterGain.connect(masterAnalyser);
-masterAnalyser.connect(audioContext.destination);
-
-// Connect all track gains into master
-window.trackGains.forEach(g => g.connect(masterGain));
 
 /* -------------------------------------------------------
    NORMALIZATION FUNCTION

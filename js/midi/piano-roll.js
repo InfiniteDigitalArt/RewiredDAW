@@ -75,7 +75,7 @@ function resizeCanvas() {
   const container = document.getElementById("piano-roll-container");
   if (container.classList.contains("hidden")) return;
 
-  const rowHeight = 24;
+  const rowHeight = 20;
   canvas.height = pitchRange * rowHeight;
   canvas.width = container.clientWidth;
 
@@ -107,7 +107,7 @@ function renderPianoRoll() {
 // ======================================================
 
 function drawPiano() {
-  const rowHeight = 24;
+  const rowHeight = 20;
 
   for (let i = 0; i < pitchRange; i++) {
     const pitch = pitchMax - i;
@@ -145,7 +145,7 @@ function midiToNoteName(pitch) {
 // ======================================================
 
 function drawGrid() {
-  const rowHeight = 24;
+  const rowHeight = 20;
 
 
   // Background shading (black/white keys)
@@ -168,7 +168,7 @@ function drawGrid() {
     const pitch = pitchMax - i;
     const isOctave = pitch % 12 === 0;
 
-    ctx.strokeStyle = isOctave ? "#666" : "#333";
+    ctx.strokeStyle = isOctave ? "#444" : "#333";
     ctx.lineWidth = isOctave ? 2 : 1;
     ctx.stroke();
   }
@@ -190,7 +190,7 @@ function drawGrid() {
 // ======================================================
 
 function drawNotes() {
-  const rowHeight = 24;
+  const rowHeight = 20;
   const radius = 4; // rounded corner radius
   const trackColor = window.TRACK_COLORS[activeClip.trackIndex % 10];
 
@@ -273,7 +273,7 @@ function onMouseDown(e) {
   const rawBeat = (x - pianoWidth) / pxPerBeat;
   const beat = Math.floor(rawBeat / snap) * snap;
 
-  const rowHeight = 24;
+  const rowHeight = 20;
 
 
   const pitch = pitchMax - Math.floor(y / rowHeight);
@@ -406,7 +406,7 @@ function onMouseUp() {
 // ======================================================
 
 function findNoteAt(x, y) {
-  const rowHeight = 24;
+  const rowHeight = 20;
 
 
   for (let note of activeClip.notes) {
