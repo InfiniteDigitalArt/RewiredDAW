@@ -4,6 +4,11 @@ window.playheadStartTime = 0;
 window.playheadRAF = null;
 window.isDuplicateDrag = false;
 window.shiftDown = false;
+window.midiClipCounter = 1;
+
+
+
+
 
 // main.js
 
@@ -24,14 +29,7 @@ window.onScheduleMidiClip = (clip, track, startTime) => {
 };
 
 
-// --- CLIP DOUBLE-CLICK HANDLER ---
-function attachClipHandlers(clipElement, clip, track) {
-  clipElement.addEventListener("dblclick", () => {
-    if (track.type === "midi") {
-      openPianoRoll(clip);
-    }
-  });
-}
+
 
 
 window.addEventListener("keydown", e => {
@@ -576,13 +574,21 @@ drawVUMeters();
 function attachClipHandlers(clipElement, clip, track) {
   clipElement.addEventListener("dblclick", () => {
     if (track.type === "midi") {
-      openPianoRoll(clip);
+      window.activeClip = clip;            // ⭐ set active clip FIRST
+      
+      openPianoRoll(clip);                 // open UI
+      
     }
   });
 }
 
+
+
 function openPianoRoll(clip) {
   activeClip = clip;
+  updatePianoRollSampleHeader();
+
+  
 
   const container = document.getElementById("piano-roll-container");
   container.style.display = "block";

@@ -1,4 +1,23 @@
 window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+window.defaultMidiSampleBuffer = null;
+window.defaultMidiSampleName = "LD-1.wav";
+
+
+async function loadDefaultMidiSample() {
+  const url =
+    "https://dl.dropboxusercontent.com/scl/fi/kouvzt916w2y4bnqc4cva/LD-1.wav?rlkey=q4q2qz72p91b6ueaqo8gplws9&st=pdc37b5y";
+
+  const res = await fetch(url);
+  const arrayBuf = await res.arrayBuffer();
+  window.defaultMidiSampleBuffer = await audioContext.decodeAudioData(arrayBuf);
+
+  console.log("Default MIDI sample loaded", window.defaultMidiSampleBuffer);
+}
+
+loadDefaultMidiSample();
+
+
 window.PIXELS_PER_BAR = 80;
 window.BPM = 175;
 

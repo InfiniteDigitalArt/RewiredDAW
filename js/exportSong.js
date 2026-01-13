@@ -134,8 +134,9 @@ window.clips.forEach(clip => {
 const synth = new BasicSawSynthForContext(
   offline,
   offlineTrackGains[trackIndex],
-  window.loadedLeadSample
+  clip.sampleBuffer
 );
+
 
 
 

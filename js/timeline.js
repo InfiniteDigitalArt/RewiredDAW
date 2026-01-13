@@ -199,42 +199,57 @@ if (window.draggedLoop) {
   if (loop.type === "midi") {
 
     // BUILT-IN MIDI CLIP (already has notes)
-    if (loop.notes) {
-      const clip = new MidiClip(startBar, loop.bars);
-      clip.trackIndex = trackIndex;
-      clip.notes = JSON.parse(JSON.stringify(loop.notes));
+if (loop.notes) {
+  const clip = new MidiClip(startBar, loop.bars);
+  clip.trackIndex = trackIndex;
+  clip.notes = JSON.parse(JSON.stringify(loop.notes));
 
-      window.clips.push(clip);
-      resolveClipCollisions(clip);
+  // ⭐ Per‑clip sample fields
+  clip.sampleBuffer = window.defaultMidiSampleBuffer;
+  clip.sampleName = window.defaultMidiSampleName;
 
-      drop.innerHTML = "";
-      window.clips
-        .filter(c => c.trackIndex === trackIndex)
-        .forEach(c => window.renderClip(c, drop));
+  clip.name = generateMidiClipName();
 
-      return;
-    }
+
+  window.clips.push(clip);
+  resolveClipCollisions(clip);
+
+  drop.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === trackIndex)
+    .forEach(c => window.renderClip(c, drop));
+
+  return;
+}
+
 
     // DROPBOX MIDI (lazy-loaded)
-    if (loop.url) {
-      // Load + parse MIDI on demand
-      loadMidiFromDropbox(loop.url, loop.displayName).then(clip => {
-        if (!clip) return;
+if (loop.url) {
+  loadMidiFromDropbox(loop.url, loop.displayName).then(clip => {
+    if (!clip) return;
 
-        clip.startBar = startBar;
-        clip.trackIndex = trackIndex;
+    clip.startBar = startBar;
+    clip.trackIndex = trackIndex;
 
-        window.clips.push(clip);
-        resolveClipCollisions(clip);
+    // ⭐ Per‑clip sample fields
+    clip.sampleBuffer = window.defaultMidiSampleBuffer;
+    clip.sampleName = window.defaultMidiSampleName;
 
-        drop.innerHTML = "";
-        window.clips
-          .filter(c => c.trackIndex === trackIndex)
-          .forEach(c => window.renderClip(c, drop));
-      });
+    clip.name = generateMidiClipName();
 
-      return;
-    }
+
+    window.clips.push(clip);
+    resolveClipCollisions(clip);
+
+    drop.innerHTML = "";
+    window.clips
+      .filter(c => c.trackIndex === trackIndex)
+      .forEach(c => window.renderClip(c, drop));
+  });
+
+  return;
+}
+
   }
 
 
@@ -488,20 +503,13 @@ handle.addEventListener("mousedown", (e) => {
   document.addEventListener("mouseup", up);
 });
 
-
 el.addEventListener("dblclick", () => {
   if (clip.type === "midi") {
-    window.openPianoRoll(clip);
+    const realClip = window.clips.find(c => c.id === el.dataset.clipId);
+    window.activeClip = realClip;
+    openPianoRoll(realClip);
   }
 });
-
-// ⭐ Open piano roll on double‑click
-el.addEventListener("dblclick", () => {
-  if (clip.type === "midi") {
-    openPianoRoll(clip);
-  }
-});
-
 
 
 /* -------------------------------------------------------
@@ -657,10 +665,16 @@ if (clip.type === "midi") {
 
 
   if (clip.audioBuffer) {
+    // Audio clip
     label.textContent = clip.fileName || "Audio File";
+  } else if (clip.type === "midi") {
+    // MIDI clip
+    label.textContent = clip.name || clip.loopId || "MIDI Clip";
   } else {
-    label.textContent = clip.loopId || "Clip";
+    // Fallback
+    label.textContent = "Clip";
   }
+
 
   el.appendChild(label);
 

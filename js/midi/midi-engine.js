@@ -42,13 +42,21 @@ window.MidiEngine = class MidiEngine {
       const noteStart = startTime + window.barsToSeconds(startBars);
       const duration  = window.barsToSeconds(durationBars);
 
-      synth.playNote(
-        note.pitch,
-        noteStart,
-        duration,
-        note.velocity || 0.8,
-        clip.trackIndex ?? 0
-      );
+    synth.playNoteFromClip(
+      clip,
+      note.pitch,
+      noteStart,
+      duration,
+      note.velocity || 0.8,
+      clip.trackIndex ?? 0
+    );
+
     });
   }
 };
+
+function generateMidiClipName() {
+  const num = String(window.midiClipCounter).padStart(3, "0");
+  window.midiClipCounter++;
+  return `MIDI Clip ${num}`;
+}

@@ -7,6 +7,7 @@ window.MidiClip = class MidiClip {
     this.startBar = startBar;
     this.bars = bars;
     this.notes = [];
+    this.sampleName = window.defaultMidiSampleName || "LD-1.wav";
   }
 
   addNote(pitch, start, end, velocity = 0.8) {

@@ -733,14 +733,54 @@ body {
 }
 
 #piano-roll-close {
-  position: absolute;
-  top: 6px;
-  right: 16px;
   background: none;
   border: none;
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 20px;
   cursor: pointer;
-  z-index: 30;
 }
 
+#piano-roll-close:hover {
+  color: var(--text-primary);
+}
+
+#piano-roll-sample-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-mid);
+  font-size: 14px;
+  user-select: none;
+}
+
+#piano-roll-sample-label strong {
+  color: var(--text-accent);
+}
+
+#piano-roll-load-sample {
+  background: var(--bg-track-even);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#piano-roll-load-sample:hover {
+  background: var(--bg-track-odd);
+  border-color: var(--border-mid);
+}
+
+#piano-roll-load-sample:active {
+  background: var(--border-mid);
+}
+
+.piano-roll-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

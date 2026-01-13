@@ -6,6 +6,8 @@ let canvas, ctx;
 let activeClip = null;
 let hoverNote = null;
 
+const loadSampleBtn = document.getElementById("piano-roll-load-sample");
+const sampleName    = document.getElementById("piano-roll-sample-name");
 
 const pitchMin = 12; // C1
 const pitchMax = 96; // C8
@@ -108,29 +110,38 @@ function renderPianoRoll() {
 
 function drawPiano() {
   const rowHeight = 20;
+  const styles = getComputedStyle(document.documentElement);
+
+  const blackKey = styles.getPropertyValue('--bg-track-odd');   // dark theme black keys
+  const whiteKey = '#ffffff';                                   // true white
+
+  const textColor = '#000000';
+  const borderColor = styles.getPropertyValue('--border-mid');
 
   for (let i = 0; i < pitchRange; i++) {
     const pitch = pitchMax - i;
     const y = i * rowHeight;
 
     const isBlack = [1,3,6,8,10].includes(pitch % 12);
-    ctx.fillStyle = isBlack ? "#222" : "#eee";
+
+    ctx.fillStyle = isBlack ? blackKey : whiteKey;
     ctx.fillRect(0, y, pianoWidth, rowHeight);
 
     if (!isBlack) {
-      ctx.fillStyle = "#000";
+      ctx.fillStyle = textColor;
       ctx.font = "12px sans-serif";
       ctx.fillText(midiToNoteName(pitch), 5, y + rowHeight * 0.7);
     }
   }
 
-  ctx.strokeStyle = "#000";
+  ctx.strokeStyle = borderColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(pianoWidth, 0);
   ctx.lineTo(pianoWidth, canvas.height);
   ctx.stroke();
 }
+
 
 
 function midiToNoteName(pitch) {
@@ -146,7 +157,13 @@ function midiToNoteName(pitch) {
 
 function drawGrid() {
   const rowHeight = 20;
+  const styles = getComputedStyle(document.documentElement);
 
+  const bgLight = styles.getPropertyValue('--bg-panel');
+  const bgDark  = styles.getPropertyValue('--bg-track-even');
+  const lineRegular = styles.getPropertyValue('--border-dark');
+  const lineOctave  = styles.getPropertyValue('--border-light');
+  const beatLine    = styles.getPropertyValue('--accent-beat');
 
   // Background shading (black/white keys)
   for (let i = 0; i < pitchRange; i++) {
@@ -154,22 +171,22 @@ function drawGrid() {
     const y = i * rowHeight;
 
     const isBlack = [1,3,6,8,10].includes(pitch % 12);
-    ctx.fillStyle = isBlack ? "#1a1a1a" : "#242424";
+    ctx.fillStyle = isBlack ? bgDark : bgLight;
     ctx.fillRect(pianoWidth, y, canvas.width - pianoWidth, rowHeight);
   }
 
   // Horizontal pitch lines
   for (let i = 0; i <= pitchRange; i++) {
     const y = i * rowHeight;
-    ctx.beginPath();
-    ctx.moveTo(pianoWidth, y);
-    ctx.lineTo(canvas.width, y);
-
     const pitch = pitchMax - i;
     const isOctave = pitch % 12 === 0;
 
-    ctx.strokeStyle = isOctave ? "#444" : "#333";
+    ctx.strokeStyle = isOctave ? lineOctave : lineRegular;
     ctx.lineWidth = isOctave ? 2 : 1;
+
+    ctx.beginPath();
+    ctx.moveTo(pianoWidth, y);
+    ctx.lineTo(canvas.width, y);
     ctx.stroke();
   }
 
@@ -177,14 +194,17 @@ function drawGrid() {
   const totalBeats = Math.ceil((canvas.width - pianoWidth) / pxPerBeat);
   for (let b = 0; b <= totalBeats; b++) {
     const x = pianoWidth + b * pxPerBeat;
+
+    ctx.strokeStyle = beatLine;
+    ctx.lineWidth = 1;
+
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, canvas.height);
-    ctx.strokeStyle = "#222";
-    ctx.lineWidth = 1;
     ctx.stroke();
   }
 }
+
 // ======================================================
 //  DRAW: NOTES (rounded, coloured, hover-aware)
 // ======================================================
@@ -521,3 +541,40 @@ async function onMidiDrop(e) {
   }
 }
 
+loadSampleBtn.onclick = async () => {
+  if (!activeClip) return;
+
+  const file = await pickAudioFile();
+  if (!file) return;
+
+  const arrayBuf = await file.arrayBuffer();
+  const decoded = await audioContext.decodeAudioData(arrayBuf);
+
+  activeClip.sampleBuffer = decoded;
+  activeClip.sampleName = file.name;
+
+  sampleName.textContent = file.name;
+};
+
+
+function pickAudioFile() {
+  return new Promise(resolve => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "audio/*";
+
+    input.onchange = () => resolve(input.files[0]);
+    input.click();
+  });
+}
+
+function updatePianoRollSampleHeader() {
+  const el = document.getElementById("piano-roll-sample-name");
+
+  if (!window.activeClip) {
+    el.textContent = "None";
+    return;
+  }
+
+  el.textContent = window.activeClip.sampleName || "None";
+}
