@@ -215,11 +215,33 @@ async function saveProjectZip() {
   const serializedClips = [];
 
   for (const clip of window.clips) {
+
+    // ----------------------------------------------------
+    // 0. MIDI CLIP
+    // ----------------------------------------------------
+    if (clip.type === "midi") {
+      serializedClips.push({
+        type: "midi",
+        id: clip.id,
+        trackIndex: clip.trackIndex,
+        startBar: clip.startBar,
+        bars: clip.bars,
+        notes: clip.notes.map(n => ({
+          pitch: n.pitch,
+          start: n.start,
+          end: n.end
+        }))
+      });
+      continue;
+    }
+
+    // Only audio below this point
     if (!clip.loopId && !clip.audioBuffer) continue;
 
     const baseData = {
+      type: "audio", // keep type for waveform renderer
       id: clip.id,
-      loopId: clip.loopId,
+      loopId: clip.loopId || null,
       trackIndex: clip.trackIndex,
       startBar: clip.startBar,
       bars: clip.bars,
@@ -254,10 +276,8 @@ async function saveProjectZip() {
     clips: serializedClips
   };
 
-  // Add JSON to ZIP
   zip.file("project.json", JSON.stringify(project, null, 2));
 
-  // Generate ZIP
   const blob = await zip.generateAsync({ type: "blob" });
 
   const url = URL.createObjectURL(blob);
@@ -267,6 +287,7 @@ async function saveProjectZip() {
   a.click();
   URL.revokeObjectURL(url);
 }
+
 
 async function loadProjectZip(json, zip) {
   stopAll();
@@ -289,35 +310,96 @@ async function loadProjectZip(json, zip) {
 
   // Load clips
   for (const raw of json.clips) {
-    const clip = {
-      id: raw.id,
-      loopId: raw.loopId,
-      audioBuffer: null,
-      trackIndex: raw.trackIndex,
-      startBar: raw.startBar,
-      bars: raw.bars,
-      bpm: raw.bpm,
-      fileName: raw.fileName,
-      startOffset: raw.startOffset || 0,
-      durationSeconds: raw.durationSeconds,
-      originalBars: raw.originalBars
-    };
 
-    if (raw.loopId) {
-      const loopInfo = DROPBOX_LOOP_MAP[raw.loopId];
-      await window.loadLoop(raw.loopId, loopInfo.url, loopInfo.bpm);
-    } else if (raw.audioFile) {
-      const wavData = await zip.file(`audio/${raw.audioFile}`).async("arraybuffer");
-      clip.audioBuffer = await audioContext.decodeAudioData(wavData);
+    // ----------------------------------------------------
+    // 0. MIDI CLIP
+    // ----------------------------------------------------
+    if (raw.type === "midi") {
+      const clip = new MidiClip(raw.startBar, raw.bars);
+      clip.id = raw.id || crypto.randomUUID();
+      clip.type = "midi";
+      clip.trackIndex = raw.trackIndex;
+      clip.notes = raw.notes || [];
+
+      window.clips.push(clip);
+      resolveClipCollisions(clip);
+
+      const trackEl = document.querySelectorAll(".track")[clip.trackIndex];
+      if (trackEl) {
+        const dropArea = trackEl.querySelector(".track-drop-area");
+        window.renderClip(clip, dropArea);
+      }
+
+      continue;
     }
 
-    window.clips.push(clip);
-    resolveClipCollisions(clip);
+    // ----------------------------------------------------
+    // 1. LOOP CLIP (external library)
+    // ----------------------------------------------------
+    if (raw.loopId) {
+      const loopInfo = DROPBOX_LOOP_MAP[raw.loopId];
 
-    const trackEl = document.querySelectorAll(".track")[clip.trackIndex];
-    if (!trackEl) continue;
-    const dropArea = trackEl.querySelector(".track-drop-area");
-    window.renderClip(clip, dropArea);
+      // Ensure audio is loaded into loopBuffers
+      await window.loadLoop(raw.loopId, loopInfo.url, loopInfo.bpm);
+
+      // Create the actual clip object
+      const loadedClip = window.createLoopClip(
+        raw.loopId,
+        raw.trackIndex,
+        raw.startBar,
+        raw.bars
+      );
+
+      if (!loadedClip) {
+        console.error("Failed to create loop clip for", raw.loopId);
+        continue;
+      }
+
+      loadedClip.type = "audio"; // for waveform renderer
+
+      resolveClipCollisions(loadedClip);
+
+      const trackEl = document.querySelectorAll(".track")[loadedClip.trackIndex];
+      if (trackEl) {
+        const dropArea = trackEl.querySelector(".track-drop-area");
+        window.renderClip(loadedClip, dropArea);
+      }
+
+      continue;
+    }
+
+    // ----------------------------------------------------
+    // 2. LOCAL AUDIO FILE
+    // ----------------------------------------------------
+    if (raw.audioFile) {
+      const wavData = await zip.file(`audio/${raw.audioFile}`).async("arraybuffer");
+      const audioBuffer = await audioContext.decodeAudioData(wavData);
+
+      const clip = {
+        id: raw.id,
+        type: "audio",
+        audioBuffer,
+        trackIndex: raw.trackIndex,
+        startBar: raw.startBar,
+        bars: raw.bars,
+        bpm: raw.bpm,
+        fileName: raw.fileName,
+        startOffset: raw.startOffset || 0,
+        durationSeconds: raw.durationSeconds,
+        originalBars: raw.originalBars
+      };
+
+      window.clips.push(clip);
+      resolveClipCollisions(clip);
+
+      const trackEl = document.querySelectorAll(".track")[clip.trackIndex];
+      if (trackEl) {
+        const dropArea = trackEl.querySelector(".track-drop-area");
+        window.renderClip(clip, dropArea);
+      }
+
+      continue;
+    }
   }
 }
 

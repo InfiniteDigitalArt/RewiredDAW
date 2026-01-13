@@ -120,6 +120,30 @@ window.loadLoop = async function(id, url, bpmFromFilename) {
 }; // ← this closes the function properly
 
 /* -------------------------------------------------------
+   CREATE CLIP FROM LOADED LOOP
+------------------------------------------------------- */
+window.createLoopClip = function(loopId, trackIndex, startBar, bars) {
+  const loopData = window.loopBuffers.get(loopId);
+  if (!loopData) return null;
+
+  const clip = {
+    id: crypto.randomUUID(),
+    type: "audio",            // ⭐ REQUIRED
+    loopId,
+    audioBuffer: loopData.buffer,
+    trackIndex,
+    startBar,
+    bars: bars || loopData.bars,
+    bpm: loopData.bpm,
+    fileName: loopId
+  };
+
+  window.clips.push(clip);
+  return clip;
+};
+
+
+/* -------------------------------------------------------
    SCHEDULING (SAFE + DAW-ACCURATE)
 ------------------------------------------------------- */
 window.scheduleClip = function(clip, seekBars = 0) {
