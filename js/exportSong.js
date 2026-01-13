@@ -134,7 +134,9 @@ window.clips.forEach(clip => {
 const synth = new BasicSawSynthForContext(
   offline,
   offlineTrackGains[trackIndex],
-  clip.sampleBuffer
+  clip.sampleBuffer,
+  window.makeSmallReverbBuffer(offline),     // ⭐ same impulse as realtime
+  clip.reverbGain.gain.value                 // ⭐ per‑clip wet amount
 );
 
 

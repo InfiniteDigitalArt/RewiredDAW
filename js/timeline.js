@@ -74,6 +74,20 @@ window.initTimeline = function () {
     panLabel.className = "knob-label";
     panLabel.textContent = "PAN";
 
+// If project is loaded, apply saved values
+if (window.loadedProject && window.loadedProject.tracks[i]) {
+  const savedVol = window.loadedProject.tracks[i].volume;
+  const savedPan = window.loadedProject.tracks[i].pan;
+
+  // ⭐ Update knob UI without triggering events
+  vol.dataset.value = savedVol;
+  pan.dataset.value = savedPan;
+
+  updateKnobVisual(vol, savedVol);
+  updateKnobVisual(pan, savedPan);
+}
+
+
     panWrap.appendChild(pan);
     panWrap.appendChild(panLabel);
 
@@ -134,32 +148,84 @@ drop.addEventListener("drop", async (e) => {
   const startBar = Math.floor(x / window.PIXELS_PER_BAR);
   const trackIndex = i;
 
-  // CASE 0: Dropping local audio files
-  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
 
-    for (const file of e.dataTransfer.files) {
-      if (!file.type.startsWith("audio/")) continue;
+  
+// CASE 0: Dropping local audio or MIDI files
+if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
 
-      const arrayBuffer = await file.arrayBuffer();
-      await window.audioContext.resume();
-      const audioBuffer = await window.audioContext.decodeAudioData(arrayBuffer);
-      const normalizedBuffer = normalizeBuffer(audioBuffer);
+  for (const file of e.dataTransfer.files) {
+    const name = file.name.toLowerCase();
 
-      const meta = window.parseLoopMetadata(file.name);
+/* ----------------------------------------------------
+   CASE 0A: Local MIDI file
+---------------------------------------------------- */
+if (
+  name.endsWith(".mid") ||
+  name.endsWith(".midi") ||
+  file.type === "audio/midi" ||
+  file.type === "audio/x-midi"
+) {
+  const arrayBuffer = await file.arrayBuffer();
 
-      // 1. Detect LOOP BPM (never use project BPM here)
-      const loopBpm = meta.bpm || 175; // or your default loop BPM
+  // Parse MIDI → notes[]
+  const midi = new Midi(arrayBuffer); // using tonejs/midi
+  const notes = [];
 
-      // 2. REAL duration from buffer
-      const durationSeconds = normalizedBuffer.duration;
+  midi.tracks.forEach(t => {
+    t.notes.forEach(n => {
+      notes.push({
+        pitch: n.midi,
+        start: n.ticks / midi.header.ppq,                     // ticks → beats (correct)
+        end: (n.ticks + n.durationTicks) / midi.header.ppq    // ticks → beats (correct)
+      });
+    });
+  });
 
-      // 3. REAL bars at LOOP BPM (correct)
-      const bars = (durationSeconds * loopBpm) / 240;
+  // Determine clip length in bars (4 beats per bar)
+  const maxEnd = Math.max(...notes.map(n => n.end));
+  const bars = Math.ceil(maxEnd / 4);
 
+  // Create MIDI clip
+  const clip = new MidiClip(startBar, bars);
+  clip.trackIndex = trackIndex;
+  clip.notes = notes;
+  clip.name = file.name.replace(/\.(mid|midi)$/i, "");
+
+  // Default sample
+  clip.sampleBuffer = window.defaultMidiSampleBuffer;
+  clip.sampleName = window.defaultMidiSampleName;
+
+  window.clips.push(clip);
+  resolveClipCollisions(clip);
+
+  drop.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === trackIndex)
+    .forEach(c => window.renderClip(c, drop));
+
+  continue; // move to next file
+}
+
+
+    /* ----------------------------------------------------
+       CASE 0B: Local audio file
+    ---------------------------------------------------- */
+    if (!file.type.startsWith("audio/")) continue;
+
+    const arrayBuffer = await file.arrayBuffer();
+    await window.audioContext.resume();
+    const audioBuffer = await window.audioContext.decodeAudioData(arrayBuffer);
+    const normalizedBuffer = normalizeBuffer(audioBuffer);
+
+    const meta = window.parseLoopMetadata(file.name);
+
+    const loopBpm = meta.bpm || 175;
+    const durationSeconds = normalizedBuffer.duration;
+    const bars = (durationSeconds * loopBpm) / 240;
 
     const clip = {
       id: crypto.randomUUID(),
-      type: "audio",          // ⭐ REQUIRED
+      type: "audio",
       loopId: null,
       fileName: meta.displayName || file.name,
       audioBuffer: normalizedBuffer,
@@ -172,20 +238,18 @@ drop.addEventListener("drop", async (e) => {
       durationSeconds,
     };
 
-
-
-
-      window.clips.push(clip);
-      resolveClipCollisions(clip);
-    }
-
-    drop.innerHTML = "";
-    window.clips
-      .filter(c => c.trackIndex === trackIndex)
-      .forEach(c => window.renderClip(c, drop));
-
-    return;
+    window.clips.push(clip);
+    resolveClipCollisions(clip);
   }
+
+  drop.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === trackIndex)
+    .forEach(c => window.renderClip(c, drop));
+
+  return;
+}
+
 
 
 

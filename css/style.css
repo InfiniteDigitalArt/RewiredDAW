@@ -555,7 +555,9 @@ body {
 }
 
 /* Slider styling */
-.tempo-slider {
+/* Shared slider styling */
+.tempo-slider,
+.reverb-slider {
   appearance: none;
   -webkit-appearance: none;
 
@@ -568,7 +570,8 @@ body {
   border: 1px solid #2b2b33;
 }
 
-.tempo-slider::-webkit-slider-thumb {
+.tempo-slider::-webkit-slider-thumb,
+.reverb-slider::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
 
@@ -582,9 +585,11 @@ body {
   transition: transform 0.1s ease;
 }
 
-.tempo-slider::-webkit-slider-thumb:active {
+.tempo-slider::-webkit-slider-thumb:active,
+.reverb-slider::-webkit-slider-thumb:active {
   transform: scale(1.2);
 }
+
 
 #timeline-bar {
   height: 24px;
@@ -681,19 +686,30 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
+  display: flex; 
+  flex-direction: column;
 
-  height: 260px; /* or whatever height you prefer */
+  height: 360px; /* or whatever height you prefer */
   background: #111;
   border-top: 1px solid #333;
 
-  display: none; /* hidden until a clip is opened */
+  
   z-index: 100;
 }
+
+#piano-roll-container.hidden {
+  display: none;
+}
+
 
 #piano-roll-scroll {
   width: 100%;
   height: 100%;
   overflow: auto;
+  flex: 1; /* ⭐ fills remaining height */ 
+  overflow: auto; /* ⭐ enables both scrollbars */
+  
+  
 }
 
 /* ============================================
@@ -726,6 +742,7 @@ body {
 
 #piano-roll-canvas {
   display: block;
+  flex-shrink: 0;
 }
 
 #piano-roll-container.hidden {
@@ -792,3 +809,54 @@ body {
   user-select: none;
 }
 
+#piano-roll-reverb-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 20px;
+}
+
+#piano-roll-reverb {
+  width: 120px;
+}
+
+#piano-roll-transpose {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: 20px;
+}
+
+.transpose-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.transpose-label {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.transpose-btn {
+  width: 20px;
+  height: 20px;
+  background: #1c1c22;
+  border: 1px solid #2b2b33;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.transpose-btn:hover {
+  background: #2d2d35;
+}
+
+.transpose-btn:active {
+  background: #007aff;
+  border-color: #007aff;
+}

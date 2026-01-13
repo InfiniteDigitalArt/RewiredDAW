@@ -32,6 +32,27 @@ window.initPianoRoll = function () {
   canvas = document.getElementById("piano-roll-canvas");
   ctx = canvas.getContext("2d");
 
+  reverbSlider.addEventListener("input", () => {
+    if (!activeClip) return;
+    activeClip.reverbGain.gain.value = Number(reverbSlider.value);
+  });
+  
+document.addEventListener("click", e => {
+  if (!e.target.classList.contains("transpose-btn")) return;
+  if (!activeClip) return;
+
+  const step = Number(e.target.dataset.step);
+
+  // Transpose all notes in the active clip
+  activeClip.notes.forEach(n => {
+    n.pitch += step;
+  });
+
+  // Re-render piano roll
+  renderPianoRoll();
+});
+
+
   canvas.addEventListener("mousedown", onMouseDown);
   canvas.addEventListener("mousemove", onMouseMove);
   canvas.addEventListener("mouseup", onMouseUp);
@@ -72,18 +93,39 @@ window.openPianoRoll = function (clip) {
 // ======================================================
 
 function resizeCanvas() {
-  if (!canvas) return;
+
+    function getClipEndInBars(clip) {
+    if (!clip.notes.length) return 4; // default minimum
+
+    let maxEndBeat = 0;
+
+    for (const n of clip.notes) {
+      if (n.end > maxEndBeat) maxEndBeat = n.end;
+    }
+
+    return maxEndBeat / 4; // convert beats → bars
+  }
+
+
+  if (!canvas || !activeClip) return;
 
   const container = document.getElementById("piano-roll-container");
   if (container.classList.contains("hidden")) return;
 
-  const rowHeight = 20;
+  const rowHeight = 16;
   canvas.height = pitchRange * rowHeight;
-  canvas.width = container.clientWidth;
+
+  const pxPerBar = pxPerBeat * 4;
+
+  const endBars = getClipEndInBars(activeClip);
+  const totalBars = endBars + 4;   // ⭐ always 4 bars extra
+
+  canvas.width = totalBars * pxPerBar;
 
 
   renderPianoRoll();
 }
+
 
 function resizePianoRollCanvas() {
   const canvas = document.getElementById("piano-roll-canvas");
@@ -109,7 +151,7 @@ function renderPianoRoll() {
 // ======================================================
 
 function drawPiano() {
-  const rowHeight = 20;
+  const rowHeight = 16;
   const styles = getComputedStyle(document.documentElement);
 
   const blackKey = styles.getPropertyValue('--bg-track-odd');   // dark theme black keys
@@ -156,11 +198,11 @@ function midiToNoteName(pitch) {
 // ======================================================
 
 function drawGrid() {
-  const rowHeight = 20;
+  const rowHeight = 16;
   const styles = getComputedStyle(document.documentElement);
 
-  const bgLight = styles.getPropertyValue('--bg-panel');
-  const bgDark  = styles.getPropertyValue('--bg-track-even');
+  const bgDark = styles.getPropertyValue('--bg-panel');
+  const bgLight = styles.getPropertyValue('--bg-track-even');
   const lineRegular = styles.getPropertyValue('--border-dark');
   const lineOctave  = styles.getPropertyValue('--border-light');
   const beatLine    = styles.getPropertyValue('--accent-beat');
@@ -210,7 +252,7 @@ function drawGrid() {
 // ======================================================
 
 function drawNotes() {
-  const rowHeight = 20;
+  const rowHeight = 16;
   const radius = 4; // rounded corner radius
   const trackColor = window.TRACK_COLORS[activeClip.trackIndex % 10];
 
@@ -293,7 +335,7 @@ function onMouseDown(e) {
   const rawBeat = (x - pianoWidth) / pxPerBeat;
   const beat = Math.floor(rawBeat / snap) * snap;
 
-  const rowHeight = 20;
+  const rowHeight = 16;
 
 
   const pitch = pitchMax - Math.floor(y / rowHeight);
@@ -358,7 +400,9 @@ function onMouseMove(e) {
     );
 
     extendClipIfNeeded(resizingNote.end);
+    resizeCanvas();
     renderPianoRoll();
+
     updateClipPreview();
     return;
   }
@@ -414,6 +458,9 @@ function onMouseMove(e) {
 function onMouseUp() {
   if (drawingNote) {
     updateClipPreview();
+    resizeCanvas();
+    renderPianoRoll();
+
   }
   drawingNote = null;
   resizingNote = null;
@@ -426,7 +473,7 @@ function onMouseUp() {
 // ======================================================
 
 function findNoteAt(x, y) {
-  const rowHeight = 20;
+  const rowHeight = 16;
 
 
   for (let note of activeClip.notes) {
@@ -532,6 +579,7 @@ async function onMidiDrop(e) {
 
     activeClip.bars = Math.max(midiBars, visibleBars);
 
+    resizeCanvas();
     renderPianoRoll();
     updateClipPreview();
     refreshClipInTimeline(activeClip);
@@ -578,3 +626,5 @@ function updatePianoRollSampleHeader() {
 
   el.textContent = window.activeClip.sampleName || "None";
 }
+
+const reverbSlider = document.getElementById("piano-roll-reverb");
