@@ -1,25 +1,35 @@
 window.BasicSawSynthForContext = class BasicSawSynthForContext {
-  constructor(audioCtx, trackGainNode) {
+  constructor(audioCtx, trackGainNode, sampleBuffer) {
     this.audioCtx = audioCtx;
     this.trackGainNode = trackGainNode;
+    this.sampleBuffer = sampleBuffer; // passed in from realtime synth
   }
 
   playNote(pitch, startTime, duration, velocity = 0.8) {
-    const osc = this.audioCtx.createOscillator();
+    if (!this.sampleBuffer) return;
+
+    const src = this.audioCtx.createBufferSource();
+    src.buffer = this.sampleBuffer;
+
+    // MIDI pitch → playbackRate
+    const semitone = pitch - 69;
+    src.playbackRate.value = Math.pow(2, semitone / 12);
+
     const gain = this.audioCtx.createGain();
 
-    osc.type = "sawtooth";
-    osc.frequency.value = 440 * Math.pow(2, (pitch - 69) / 12);
+    // ADSR
+    const attack = 0.001;
+    const release = 0.05;
 
-    const eps = 0.0001; // ⭐ prevents fade-in at time 0
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(velocity, startTime + attack);
+    gain.gain.setValueAtTime(velocity, startTime + duration);
+    gain.gain.linearRampToValueAtTime(0.0001, startTime + duration + release);
 
-    gain.gain.setValueAtTime(velocity, startTime + eps);
-    gain.gain.linearRampToValueAtTime(0.0001, startTime + duration);
-
-    osc.connect(gain);
+    src.connect(gain);
     gain.connect(this.trackGainNode);
 
-    osc.start(startTime);
-    osc.stop(startTime + duration);
+    src.start(startTime);
+    src.stop(startTime + duration + release);
   }
 };

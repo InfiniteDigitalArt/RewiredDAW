@@ -2,12 +2,31 @@ window.BasicSawSynth = class BasicSawSynth {
   constructor(audioCtx) {
     this.audioCtx = audioCtx;
 
+    // --- Load sample once ---
+    this.sampleBuffer = null;
+    this.loadSample();
+
+    // --- Subtle reverb ---
     this.reverb = audioCtx.createConvolver();
     this.reverb.buffer = this.makeSmallReverbBuffer(audioCtx);
 
     this.reverbGain = audioCtx.createGain();
     this.reverbGain.gain.value = 0.5;
   }
+
+async loadSample() {
+  const url =
+    "https://dl.dropboxusercontent.com/scl/fi/kouvzt916w2y4bnqc4cva/LD-1.wav?rlkey=q4q2qz72p91b6ueaqo8gplws9&st=echs7o93";
+
+  const res = await fetch(url);
+  const arrayBuf = await res.arrayBuffer();
+  this.sampleBuffer = await this.audioCtx.decodeAudioData(arrayBuf);
+
+  // ⭐ Make available to exportSong.js
+  window.loadedLeadSample = this.sampleBuffer;
+
+  console.log("LD-1 sample loaded", this.sampleBuffer);
+}
 
   makeSmallReverbBuffer(ctx) {
     const length = ctx.sampleRate * 3;
@@ -23,12 +42,18 @@ window.BasicSawSynth = class BasicSawSynth {
   }
 
   playNote(pitch, startTime, duration, velocity = 0.8, trackIndex = 0) {
-    const osc = this.audioCtx.createOscillator();
+    if (!this.sampleBuffer) return; // sample not ready yet
+
+    const src = this.audioCtx.createBufferSource();
+    src.buffer = this.sampleBuffer;
+
+    // MIDI pitch → playbackRate
+    const semitone = pitch - 69;
+    src.playbackRate.value = Math.pow(2, semitone / 12);
+
     const gain = this.audioCtx.createGain();
 
-    osc.type = "sawtooth";
-    osc.frequency.value = 440 * Math.pow(2, (pitch - 69) / 12);
-
+    // --- ADSR ---
     const attack = 0.001;
     const release = 0.05;
 
@@ -37,6 +62,7 @@ window.BasicSawSynth = class BasicSawSynth {
     gain.gain.setValueAtTime(velocity, startTime + duration);
     gain.gain.linearRampToValueAtTime(0.0001, startTime + duration + release);
 
+    // --- Routing ---
     // Dry → track
     gain.connect(window.trackGains[trackIndex]);
 
@@ -45,11 +71,12 @@ window.BasicSawSynth = class BasicSawSynth {
     this.reverb.connect(this.reverbGain);
     this.reverbGain.connect(window.trackGains[trackIndex]);
 
-    osc.connect(gain);
+    src.connect(gain);
 
-    osc.start(startTime);
-    osc.stop(startTime + duration + release);
+    // --- Start/stop ---
+    src.start(startTime);
+    src.stop(startTime + duration + release);
 
-    window.scheduledMidiVoices.push(osc, gain);
+    window.scheduledMidiVoices.push(src, gain);
   }
 };
