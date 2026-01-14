@@ -3,7 +3,7 @@
 // ======================================================
 
 // Prevent OfflineAudioContext fade-in at time 0
-const EXPORT_START_OFFSET = 0.05; // 5ms
+const EXPORT_START_OFFSET = 0.05;
 
 
 window.exportSong = async function() {

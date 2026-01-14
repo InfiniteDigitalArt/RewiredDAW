@@ -726,20 +726,56 @@ function attachClipHandlers(clipElement, clip, track) {
 
 
 function openPianoRoll(clip) {
-  activeClip = clip;                     // ⭐ set this first
+  activeClip = clip;
   updatePianoRollSampleHeader();
 
-  // ⭐ now the slider can safely read from the active clip
   reverbSlider.value = clip.reverbGain.gain.value;
 
   const container = document.getElementById("piano-roll-container");
   container.classList.remove("hidden");
 
+  // ⭐ Update header background using track colour
+
+const trackColor = window.TRACK_COLORS[clip.trackIndex % 10];
+
+// Clip name tag
+const nameBox = document.getElementById("piano-roll-clip-name");
+nameBox.style.backgroundColor = trackColor;
+nameBox.style.color = "var(--border-dark)";
+nameBox.style.padding = "2px 6px";
+nameBox.style.borderRadius = "4px";
+
+// Sample name tag
+const sampleNameBox = document.getElementById("piano-roll-sample-name");
+sampleNameBox.style.backgroundColor = trackColor;
+sampleNameBox.style.color = "var(--border-dark)";
+sampleNameBox.style.padding = "2px 6px";
+sampleNameBox.style.borderRadius = "4px";
+
+
+
   requestAnimationFrame(() => {
     resizeCanvas();
     renderPianoRoll();
+
+    // ⭐ Auto-scroll to highest note
+    const notes = activeClip.notes || [];
+    if (notes.length > 0) {
+      const highest = Math.max(...notes.map(n => n.pitch));
+
+      const rowHeight = 16;
+      const y = (pitchMax - highest) * rowHeight;
+
+      const scrollContainer = document.getElementById("piano-roll-scroll");
+
+      const extraOffset = 8 * rowHeight; // scroll down by a few notes
+      scrollContainer.scrollTop =
+        y - scrollContainer.clientHeight / 2 + extraOffset;
+    }
   });
 }
+
+
 
 
 document.getElementById("piano-roll-close").addEventListener("click", () => {

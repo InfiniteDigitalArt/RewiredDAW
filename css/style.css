@@ -692,186 +692,6 @@ body {
   touch-action: none;
 }
 
-#piano-roll-container {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex; 
-  flex-direction: column;
-
-  height: 360px; /* or whatever height you prefer */
-  background: #111;
-  border-top: 1px solid #333;
-
-  
-  z-index: 100;
-}
-
-#piano-roll-container.hidden {
-  display: none;
-}
-
-
-#piano-roll-scroll {
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  flex: 1; /* ⭐ fills remaining height */ 
-  overflow: auto; /* ⭐ enables both scrollbars */
-  
-  
-}
-
-/* ============================================
-   DARK THEME SCROLLBARS (Chrome / Edge / Safari)
-   ============================================ */
-
-#piano-roll-scroll::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-#piano-roll-scroll::-webkit-scrollbar-track {
-  background: #1a1a1a;
-}
-
-#piano-roll-scroll::-webkit-scrollbar-thumb {
-  background: #444;
-  border-radius: 6px;
-  border: 2px solid #1a1a1a; /* inset effect */
-}
-
-#piano-roll-scroll::-webkit-scrollbar-thumb:hover {
-  background: #666;
-}
-
-#piano-roll-scroll::-webkit-scrollbar-corner {
-  background: #1a1a1a;
-}
-
-
-#piano-roll-canvas {
-  display: block;
-  flex-shrink: 0;
-}
-
-#piano-roll-container.hidden {
-  display: none;
-}
-
-#piano-roll-close {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 20px;
-  cursor: pointer;
-}
-
-#piano-roll-close:hover {
-  color: var(--text-primary);
-}
-
-#piano-roll-sample-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--bg-panel);
-  color: var(--text-primary);
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border-mid);
-  font-size: 14px;
-  user-select: none;
-}
-
-#piano-roll-sample-label strong {
-  color: var(--text-accent);
-}
-
-#piano-roll-load-sample {
-  background: var(--bg-track-even);
-  border: 1px solid var(--border-light);
-  color: var(--text-primary);
-  padding: 4px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-#piano-roll-load-sample:hover {
-  background: var(--bg-track-odd);
-  border-color: var(--border-mid);
-}
-
-#piano-roll-load-sample:active {
-  background: var(--border-mid);
-}
-
-.piano-roll-header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-#piano-roll-clip-name {
-  color: var(--text-primary);
-  font-weight: 600;
-  margin-right: 20px;
-  user-select: none;
-}
-
-#piano-roll-reverb-control {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 20px;
-}
-
-#piano-roll-reverb {
-  width: 120px;
-}
-
-#piano-roll-transpose {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-left: 20px;
-}
-
-.transpose-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.transpose-label {
-  font-size: 12px;
-  opacity: 0.7;
-}
-
-.transpose-btn {
-  width: 20px;
-  height: 20px;
-  background: #1c1c22;
-  border: 1px solid #2b2b33;
-  color: #fff;
-  cursor: pointer;
-  border-radius: 3px;
-  font-size: 12px;
-  line-height: 18px;
-  padding: 0;
-  transition: background 0.15s ease;
-}
-
-.transpose-btn:hover {
-  background: #2d2d35;
-}
-
-.transpose-btn:active {
-  background: #007aff;
-  border-color: #007aff;
-}
-
 #timeline-bar {
   position: relative;
   height: 24px; /* or whatever your timebar height is */
@@ -935,4 +755,280 @@ body {
 .dropdown-item:hover {
   background: var(--border-mid);
   color: var(--text-primary);
+}
+
+/* ============================================
+   PIANO ROLL CONTAINER
+   ============================================ */
+
+#piano-roll-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 360px;
+  background: #111;
+  border-top: 1px solid #333;
+  z-index: 100;
+}
+
+
+#piano-roll-container.hidden {
+  display: none;
+}
+
+/* ============================================
+   SCROLL AREA
+   ============================================ */
+
+#piano-roll-scroll {
+  position: absolute;
+  top: 38px;        /* header height */
+  left: 60px;       /* piano width */
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+}
+
+
+/* Scrollbars (Chrome / Edge / Safari) */
+#piano-roll-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#piano-roll-scroll::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+#piano-roll-scroll::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 6px;
+  border: 2px solid #1a1a1a;
+}
+
+#piano-roll-scroll::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+#piano-roll-scroll::-webkit-scrollbar-corner {
+  background: #1a1a1a;
+}
+
+#piano-roll-canvas {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+#piano-roll-sample-header {
+  display: flex;
+  align-items: center;
+  background: var(--bg-panel);
+  padding: 0px 10px;
+  border-bottom: 1px solid var(--border-mid);
+  font-size: 14px;
+  color: var(--text-primary);
+  user-select: none;
+  position: relative;
+  height: 38px;
+}
+
+/* LEFT SECTION */
+.piano-roll-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* CENTER SECTION — pinned to true center */
+.piano-roll-header-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* RIGHT SECTION */
+.piano-roll-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ============================================
+   CLIP NAME + SAMPLE NAME TAGS
+   ============================================ */
+
+#piano-roll-clip-name {
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  user-select: none;
+}
+
+#piano-roll-sample-name {
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* ============================================
+   LOAD SAMPLE BUTTON
+   ============================================ */
+
+#piano-roll-load-sample {
+  background: var(--bg-track-even);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#piano-roll-load-sample:hover {
+  background: var(--bg-track-odd);
+  border-color: var(--border-mid);
+}
+
+#piano-roll-load-sample:active {
+  background: var(--border-mid);
+}
+
+/* ============================================
+   CLOSE BUTTON
+   ============================================ */
+
+#piano-roll-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+#piano-roll-close:hover {
+  color: var(--text-primary);
+}
+
+/* ============================================
+   REVERB CONTROL
+   ============================================ */
+
+#piano-roll-reverb-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#piano-roll-reverb {
+  width: 120px;
+  --thumb-color: #fff;
+}
+
+#piano-roll-reverb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--thumb-color);
+  cursor: pointer;
+}
+
+#piano-roll-reverb::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--thumb-color);
+  cursor: pointer;
+}
+
+/* ============================================
+   TRANSPOSE CONTROLS
+   ============================================ */
+
+#piano-roll-transpose {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.transpose-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.transpose-label {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.transpose-btn {
+  width: 20px;
+  height: 20px;
+  background: #1c1c22;
+  border: 1px solid #2b2b33;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.transpose-btn:hover {
+  background: #2d2d35;
+}
+
+.transpose-btn:active {
+  background: #007aff;
+  border-color: #007aff;
+}
+
+/* ============================================
+   FIXED PIANO + SCROLLING GRID LAYOUT
+   ============================================ */
+
+/* Fixed piano column */
+#piano-roll-piano {
+  position: absolute;
+  top: 38px;            /* header height */
+  left: 0;
+  width: 60px;          /* pianoWidth */
+  bottom: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-mid);
+  z-index: 10;
+}
+
+/* Piano canvas fills its container */
+#piano-roll-piano-canvas {
+  width: 100%;
+  
+  display: block;
+}
+
+/* Scrolling grid area */
+#piano-roll-scroll {
+  position: absolute;
+  top: 38px;            /* header height */
+  left: 60px;           /* piano width */
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+}
+
+/* Grid canvas must not shrink */
+#piano-roll-canvas {
+  display: block;
 }

@@ -18,7 +18,7 @@ window.MidiClip = class MidiClip {
 
 
     this.reverbGain = audioContext.createGain();
-    this.reverbGain.gain.value = 0.5; // default wet amount
+    this.reverbGain.gain.value = 0; // default wet amount
 
     // Connect clip reverb → reverbGain → master
     this.reverb.connect(this.reverbGain);
