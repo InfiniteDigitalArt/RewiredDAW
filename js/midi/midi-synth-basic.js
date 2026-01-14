@@ -48,6 +48,8 @@ window.BasicSawSynth = class BasicSawSynth {
     src.start(startTime);
     src.stop(startTime + duration + release);
 
-    window.scheduledMidiVoices.push(src, gain);
+    window.scheduledMidiVoices.add(src);
+    window.scheduledMidiVoices.add(gain);
+
   }
 };

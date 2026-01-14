@@ -66,7 +66,8 @@ for (let i = 0; i < window.trackGains.length; i++) {
   g.gain.value = window.trackGains[i].gain.value;
 
   const p = offline.createStereoPanner();
-  p.pan.value = window.trackPans?.[i] || 0;
+  p.pan.value = window.trackPanners[i].pan.value;
+
 
   g.connect(p);
   p.connect(masterGain);

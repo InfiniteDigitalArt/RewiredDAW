@@ -23,6 +23,9 @@ window.timeline = {
 
 window.initTimeline = function () {
   const tracksEl = document.getElementById("tracks");
+  const marker = document.getElementById("seekMarker");
+  marker.style.left = "104px";
+
 
   for (let i = 0; i < 16; i++) {
     const track = document.createElement("div");
@@ -42,6 +45,8 @@ window.initTimeline = function () {
     const label = document.createElement("div");
     label.className = "track-label";
     label.textContent = "Track " + (i + 1);
+    label.style.color = window.TRACK_COLORS[i % 10];
+
 
     // Horizontal knob row
     const knobRow = document.createElement("div");
@@ -421,8 +426,6 @@ function renderGrid() {
     const totalWidth = totalBars * window.PIXELS_PER_BAR;
     grid.style.width = totalWidth + "px";
 
-
-    // Height of one track lane
     const trackHeight = grid.parentElement.offsetHeight;
 
     // Vertical bars + beats
@@ -432,6 +435,7 @@ function renderGrid() {
       bar.style.left = (i * window.PIXELS_PER_BAR) + "px";
       grid.appendChild(bar);
 
+      // Beat lines
       for (let b = 1; b < beatsPerBar; b++) {
         const beat = document.createElement("div");
         beat.className = "grid-beat";
@@ -441,16 +445,30 @@ function renderGrid() {
           "px";
         grid.appendChild(beat);
       }
+
+      // ⭐ NEW: 1/4-beat subdivision lines
+      const quarter = window.PIXELS_PER_BAR / (beatsPerBar * 4);
+      for (let q = 1; q < beatsPerBar * 4; q++) {
+        // Skip positions that coincide with full beats
+        if (q % 4 === 0) continue;
+
+        const sub = document.createElement("div");
+        sub.className = "grid-subbeat";
+        sub.style.left =
+          (i * window.PIXELS_PER_BAR) +
+          (q * quarter) +
+          "px";
+        grid.appendChild(sub);
+      }
     }
 
-        // Horizontal lines
-      for (let y = 12; y < trackHeight; y += 12) {
-        const row = document.createElement("div");
-        row.className = "grid-row";
-        row.style.top = y + "px";
-        grid.appendChild(row);
-      }
-
+    // Horizontal lines
+    for (let y = 12; y < trackHeight; y += 12) {
+      const row = document.createElement("div");
+      row.className = "grid-row";
+      row.style.top = y + "px";
+      grid.appendChild(row);
+    }
   });
 }
 
@@ -491,7 +509,7 @@ el.addEventListener("contextmenu", (e) => {
     .forEach(c => window.renderClip(c, dropArea));
 
   // 3. Update audio engine state for this track
-  updateTrackActiveState(trackIndex);
+  //updateTrackActiveState(trackIndex);
 
 
 });
@@ -733,33 +751,33 @@ if (clip.type === "midi") {
 
 
 
-  /* -------------------------------------------------------
-     LABEL
-     - Local file: show filename
-     - Loop: show loopId
-  ------------------------------------------------------- */
-  const label = document.createElement("div");
-  label.style.position = "absolute";
-  label.style.top = "2px";
-  label.style.left = "4px";
-  label.style.fontSize = "10px";
-  label.style.color = "#fff";
-  label.style.pointerEvents = "none";
+/* -------------------------------------------------------
+   LABEL
+   - Local audio: fileName
+   - Loop audio: fileName
+   - MIDI: name
+------------------------------------------------------- */
+const label = document.createElement("div");
+label.style.position = "absolute";
+label.style.top = "2px";
+label.style.left = "4px";
+label.style.fontSize = "10px";
+label.style.color = "#fff";
+label.style.pointerEvents = "none";
 
+if (clip.type === "audio") {
+  // Works for both local audio and loop clips
+  label.textContent = clip.fileName || clip.loopId || "Audio";
+} 
+else if (clip.type === "midi") {
+  label.textContent = clip.name || "MIDI Clip";
+} 
+else {
+  label.textContent = "Clip";
+}
 
-  if (clip.audioBuffer) {
-    // Audio clip
-    label.textContent = clip.fileName || "Audio File";
-  } else if (clip.type === "midi") {
-    // MIDI clip
-    label.textContent = clip.name || clip.loopId || "MIDI Clip";
-  } else {
-    // Fallback
-    label.textContent = "Clip";
-  }
+el.appendChild(label);
 
-
-  el.appendChild(label);
 
 /* -------------------------------------------------------
    DRAGGABLE CLIP (child-safe)

@@ -108,17 +108,19 @@ function startPlayhead(realStartTime) {
     window.playheadRAF = null;
   }
 
+  // Always use the transport start time
   window.playheadStartTime = realStartTime;
 
   function update() {
     const playhead = document.getElementById("playhead");
-    if (!playhead) return; // timeline rebuilt
+    if (!playhead) return;
 
     const elapsed = audioContext.currentTime - window.playheadStartTime;
     const bars = (elapsed * window.BPM) / 240;
     const x = bars * window.PIXELS_PER_BAR;
 
-    playhead.style.left = (x + 100) + "px";
+    // Use the SAME offset everywhere (80px)
+    playhead.style.left = (x + 104) + "px";
 
     window.playheadRAF = requestAnimationFrame(update);
   }
@@ -132,8 +134,8 @@ function stopPlayhead() {
     window.playheadRAF = null;
   }
 
-  const playhead = document.getElementById("playhead");
-  if (playhead) playhead.style.left = "100px"; // reset to start
+  // ❌ Do NOT reposition the playhead here
+  // The caller will position it correctly depending on context
 }
 
 
@@ -162,6 +164,12 @@ document.addEventListener("mousedown", (e) => {
     if (knob.classList.contains("volume-knob")) {
       window.trackGains[trackIndex].gain.value = value;
     }
+
+    if (knob.classList.contains("pan-knob")) {
+      const panValue = (value * 2) - 1; // convert 0→1 into -1→+1
+      window.trackPanners[trackIndex].pan.value = panValue;
+    }
+
   }
 
   function up() {
@@ -541,40 +549,57 @@ window.renderTimelineBar = function(totalBars = 64) {
     //el.style.setProperty("--bar-width", barWidth + "px");
     el.textContent = i + 1;
 
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
+el.addEventListener("click", (e) => {
+  e.stopPropagation();
 
-      const barIndex = i;
+  const barIndex = i;
+  window.seekBars = barIndex;
 
-      // Always stop audio + playhead
-      window.stopAll();
-      stopPlayhead();
+  // Update transportStartTime for new seek
+  window.transportStartTime =
+    audioContext.currentTime - window.barsToSeconds(barIndex);
 
-      // Store the new seek position
-      window.seekBars = barIndex;
+const x = barIndex * window.PIXELS_PER_BAR;
 
-      // Move the playhead visually
-      const x = barIndex * window.PIXELS_PER_BAR;
-      document.getElementById("playhead").style.left = (x + 80) + "px";
+// Move the triangle marker
+const marker = document.getElementById("seekMarker");
+marker.style.left = (x + 104 + 2) + "px";
 
-      // Update transportStartTime so next Play starts from here
-      window.transportStartTime =
-        audioContext.currentTime - window.barsToSeconds(barIndex);
 
-      // Reset play button UI
-      const playToggleBtn = document.getElementById("playToggleBtn");
-      playToggleBtn.textContent = "Play";
-      playToggleBtn.classList.remove("active");
-      document.getElementById("playhead").classList.add("hidden");
+  if (window.isPlaying) {
+    window.stopAll();
+    stopPlayhead();
 
-      const transportLabel = document.getElementById("transportLabel");
-      if (transportLabel) {
-        transportLabel.textContent = "Stopped";
-        transportLabel.classList.remove("playing");
-      }
+    window.playAll(barIndex);
 
-      window.isPlaying = false;
-    });
+    const playhead = document.getElementById("playhead");
+    playhead.style.left = (x + 104) + "px";
+    playhead.classList.remove("hidden");
+
+    startPlayhead(window.transportStartTime);
+    return;
+  }
+
+  // If stopped → just move the playhead visually
+  const playhead = document.getElementById("playhead");
+  playhead.style.left = (x + 104) + "px";
+  playhead.classList.remove("hidden");
+
+  // Update UI
+  const playToggleBtn = document.getElementById("playToggleBtn");
+  playToggleBtn.textContent = "Play";
+  playToggleBtn.classList.remove("active");
+
+  const transportLabel = document.getElementById("transportLabel");
+  if (transportLabel) {
+    transportLabel.textContent = "Stopped";
+    transportLabel.classList.remove("playing");
+  }
+});
+
+
+
+
 
 
 
@@ -736,3 +761,22 @@ async function loadAllMidiLoops() {
   );
 }
 
+document.getElementById("newProjectBtn").addEventListener("click", () => {
+  location.reload();
+});
+
+
+const fileMenu = document.getElementById("fileMenu");
+const fileDropdown = document.getElementById("fileDropdown");
+
+fileMenu.addEventListener("click", () => {
+  const isOpen = fileDropdown.style.display === "block";
+  fileDropdown.style.display = isOpen ? "none" : "block";
+});
+
+// Close dropdown when clicking outside
+document.addEventListener("click", (e) => {
+  if (!fileMenu.contains(e.target)) {
+    fileDropdown.style.display = "none";
+  }
+});

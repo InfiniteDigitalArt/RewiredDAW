@@ -396,8 +396,9 @@ body {
 }
 
 .pan-knob[data-value]::after {
-  transform: translateX(-50%) rotate(calc((var(--val, 0.5) * 90deg) - 45deg));
+  transform: translateX(-50%) rotate(calc((var(--val, 0.5) * 270deg) - 135deg));
 }
+
 
 .knob-row {
   display: flex;
@@ -460,6 +461,9 @@ body {
   gap: 14px;
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+
+  position: relative;   /* ⭐ REQUIRED */
+  z-index: 1000;          /* ⭐ Ensures dropdown floats above timeline */
 }
 
 /* -------------------------------------------------------
@@ -859,4 +863,69 @@ body {
 .transpose-btn:active {
   background: #007aff;
   border-color: #007aff;
+}
+
+#timeline-bar {
+  position: relative;
+  height: 24px; /* or whatever your timebar height is */
+}
+
+.seek-marker {
+  position: absolute;
+  top: 1%;
+  transform: translateY(-50%);
+
+  width: 0;
+  height: 0;
+
+  /* Right-pointing triangle */
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 10px solid var(--playhead);
+
+  pointer-events: none;
+  z-index: 10;
+}
+
+.menu-bar {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+
+.menu-item {
+  position: relative;
+  padding: 6px 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.menu-item:hover {
+  background: var(--bg-panel);
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-mid);
+  border-radius: 4px;
+  padding: 4px 0;
+  display: none;
+  min-width: 150px;
+  z-index: 9999;
+}
+
+.dropdown-item {
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background: var(--border-mid);
+  color: var(--text-primary);
 }

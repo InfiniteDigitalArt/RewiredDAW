@@ -4,7 +4,8 @@
 
 let canvas, ctx;
 let activeClip = null;
-let hoverNote = null;
+
+
 
 const loadSampleBtn = document.getElementById("piano-roll-load-sample");
 const sampleName    = document.getElementById("piano-roll-sample-name");
@@ -17,12 +18,7 @@ const pxPerBeat = 100;
 const snap = 0.25; // quarter-beat snapping
 const pianoWidth = 60; // width of vertical piano
 
-let drawingNote = null;
-let drawingStartBeat = 0;
 
-let resizingNote = null;
-let resizeStartX = 0;
-let originalEnd = 0;
 
 // ======================================================
 //  INITIALIZATION
@@ -217,6 +213,40 @@ function drawGrid() {
     ctx.fillRect(pianoWidth, y, canvas.width - pianoWidth, rowHeight);
   }
 
+
+  // Vertical beat lines
+  const totalBeats = Math.ceil((canvas.width - pianoWidth) / pxPerBeat);
+  for (let b = 0; b <= totalBeats; b++) {
+    const x = pianoWidth + b * pxPerBeat;
+
+    ctx.strokeStyle = beatLine;
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+
+  // Vertical 1/4-beat subdivision lines
+  const quarterPx = pxPerBeat / 4;
+  const totalQuarters = Math.ceil((canvas.width - pianoWidth) / quarterPx);
+
+  ctx.strokeStyle = lineRegular;   // faint line
+  ctx.lineWidth = 1;
+
+  for (let q = 0; q <= totalQuarters; q++) {
+    // Skip lines that coincide with full beats
+    if (q % 4 === 0) continue;
+
+    const x = pianoWidth + q * quarterPx;
+
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+
   // Horizontal pitch lines
   for (let i = 0; i <= pitchRange; i++) {
     const y = i * rowHeight;
@@ -232,19 +262,8 @@ function drawGrid() {
     ctx.stroke();
   }
 
-  // Vertical beat lines
-  const totalBeats = Math.ceil((canvas.width - pianoWidth) / pxPerBeat);
-  for (let b = 0; b <= totalBeats; b++) {
-    const x = pianoWidth + b * pxPerBeat;
 
-    ctx.strokeStyle = beatLine;
-    ctx.lineWidth = 1;
 
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
-    ctx.stroke();
-  }
 }
 
 // ======================================================
@@ -322,6 +341,24 @@ function drawNotes() {
 }
 
 // ======================================================
+//  MOUSE STATE
+// ======================================================
+let drawingNote = null;
+let drawingStartBeat = 0;
+
+let resizingNote = null;
+let resizeStartX = 0;
+let originalEnd = 0;
+
+let movingNote = null;
+let moveStartX = 0;
+let moveStartBeat = 0;
+let moveStartPitch = 0;
+
+let hoverNote = null;
+
+
+// ======================================================
 //  MOUSE HANDLERS
 // ======================================================
 
@@ -336,11 +373,11 @@ function onMouseDown(e) {
   const beat = Math.floor(rawBeat / snap) * snap;
 
   const rowHeight = 16;
-
-
   const pitch = pitchMax - Math.floor(y / rowHeight);
 
+  // ---------------------------------------------
   // RIGHT CLICK → DELETE
+  // ---------------------------------------------
   if (e.button === 2) {
     const idx = activeClip.notes.findIndex(n =>
       pitch === n.pitch &&
@@ -348,19 +385,28 @@ function onMouseDown(e) {
       rawBeat <= n.end
     );
 
-  if (idx !== -1) {
-    activeClip.notes.splice(idx, 1);
-
-    renderPianoRoll();
-    updateClipPreview();
-    refreshClipInTimeline(activeClip);   // ⭐ NEW
-  }
-
+    if (idx !== -1) {
+      activeClip.notes.splice(idx, 1);
+      renderPianoRoll();
+      updateClipPreview();
+      refreshClipInTimeline(activeClip);
+    }
     return;
   }
 
-  // Check resize handle
+  // ---------------------------------------------
+  // BLOCK drawing before bar 0 or on piano
+  // ---------------------------------------------
+  if (x < pianoWidth) return;
+
+  // ---------------------------------------------
+  // CHECK NOTE HIT
+  // ---------------------------------------------
   const clicked = findNoteAt(x, y);
+
+  // ---------------------------------------------
+  // RESIZE HANDLE
+  // ---------------------------------------------
   if (clicked && clicked.onRightEdge) {
     resizingNote = clicked.note;
     resizeStartX = x;
@@ -368,19 +414,45 @@ function onMouseDown(e) {
     return;
   }
 
-  // LEFT CLICK → START DRAWING NEW NOTE
+  // ---------------------------------------------
+  // MOVE EXISTING NOTE
+  // ---------------------------------------------
+  if (clicked && !clicked.onRightEdge) {
+    movingNote = clicked.note;
+    moveStartX = x;
+    moveStartBeat = clicked.note.start;
+    moveStartPitch = clicked.note.pitch;
+    return;
+  }
+
+  // ---------------------------------------------
+  // DRAW NEW NOTE
+  // ---------------------------------------------
   drawingStartBeat = beat;
 
-  drawingNote = {
+  const newNote = {
     pitch,
     start: beat,
     end: beat + snap,
     velocity: 0.8
   };
 
-  activeClip.notes.push(drawingNote);
+  // Prevent drawing overlapping notes
+  const overlap = activeClip.notes.some(n =>
+    n.pitch === pitch &&
+    (
+      (newNote.start >= n.start && newNote.start < n.end) ||
+      (newNote.end > n.start && newNote.end <= n.end)
+    )
+  );
+
+  if (overlap) return;
+
+  drawingNote = newNote;
+  activeClip.notes.push(newNote);
   renderPianoRoll();
 }
+
 
 function onMouseMove(e) {
   const rect = canvas.getBoundingClientRect();
@@ -402,13 +474,63 @@ function onMouseMove(e) {
     extendClipIfNeeded(resizingNote.end);
     resizeCanvas();
     renderPianoRoll();
-
     updateClipPreview();
     return;
   }
 
   // ---------------------------------------------
-  // 2. DRAWING NEW NOTE
+  // 2. MOVING EXISTING NOTE
+  // ---------------------------------------------
+  if (movingNote) {
+    const deltaBeats = (x - moveStartX) / pxPerBeat;
+    const snapped = Math.round(deltaBeats / snap) * snap;
+
+    let newStart = moveStartBeat + snapped;
+    newStart = Math.max(0, newStart); // prevent before bar 0
+
+    const newEnd = newStart + (movingNote.end - movingNote.start);
+
+    // Prevent overlap on same pitch
+    const collision = activeClip.notes.some(n =>
+      n !== movingNote &&
+      n.pitch === movingNote.pitch &&
+      (
+        (newStart >= n.start && newStart < n.end) ||
+        (newEnd > n.start && newEnd <= n.end)
+      )
+    );
+
+    if (!collision) {
+      movingNote.start = newStart;
+      movingNote.end = newEnd;
+    }
+
+    // Vertical movement (pitch)
+    const rowHeight = 16;
+    const newPitch = pitchMax - Math.floor(y / rowHeight);
+
+    if (newPitch !== movingNote.pitch) {
+      const pitchCollision = activeClip.notes.some(n =>
+        n !== movingNote &&
+        n.pitch === newPitch &&
+        (
+          (movingNote.start >= n.start && movingNote.start < n.end) ||
+          (movingNote.end > n.start && movingNote.end <= n.end)
+        )
+      );
+
+      if (!pitchCollision) {
+        movingNote.pitch = newPitch;
+      }
+    }
+    updateClipPreview();
+    refreshClipInTimeline(activeClip);
+    renderPianoRoll();
+    return;
+  }
+
+  // ---------------------------------------------
+  // 3. DRAWING NEW NOTE
   // ---------------------------------------------
   if (drawingNote) {
     const rawBeat = (x - pianoWidth) / pxPerBeat;
@@ -425,18 +547,13 @@ function onMouseMove(e) {
   }
 
   // ---------------------------------------------
-  // 3. HOVER DETECTION (for styling + resize handle)
+  // 4. HOVER DETECTION
   // ---------------------------------------------
   const hit = findNoteAt(x, y);
-
   let needsRedraw = false;
 
   if (hit) {
-    if (hit.onRightEdge) {
-      canvas.style.cursor = "ew-resize";
-    } else {
-      canvas.style.cursor = "pointer";
-    }
+    canvas.style.cursor = hit.onRightEdge ? "ew-resize" : "pointer";
 
     if (hoverNote !== hit.note) {
       hoverNote = hit.note;
@@ -450,22 +567,21 @@ function onMouseMove(e) {
     canvas.style.cursor = "default";
   }
 
-  if (needsRedraw) {
-    renderPianoRoll();
-  }
+  if (needsRedraw) renderPianoRoll();
 }
+
 
 function onMouseUp() {
   if (drawingNote) {
     updateClipPreview();
     resizeCanvas();
     renderPianoRoll();
-
   }
+
   drawingNote = null;
   resizingNote = null;
+  movingNote = null;
 }
-
 
 
 // ======================================================
