@@ -25,12 +25,35 @@ const pianoWidth = 60; // width of vertical piano
 // ======================================================
 
 window.initPianoRoll = function () {
+
+
+
   // ⭐ Two canvases now
   gridCanvas = document.getElementById("piano-roll-canvas");
   gridCtx = gridCanvas.getContext("2d");
 
   pianoCanvas = document.getElementById("piano-roll-piano-canvas");
   pianoCtx = pianoCanvas.getContext("2d");
+
+  const piano = document.getElementById("piano-roll-piano");
+  const scroll = document.getElementById("piano-roll-scroll");
+
+  scroll.addEventListener("scroll", () => {
+    piano.scrollTop = scroll.scrollTop;
+  });
+
+  // ⭐ Load Sample button
+  loadSampleBtn.addEventListener("click", async () => {
+    if (!activeClip) return;
+
+    const file = await pickAudioFile();
+    if (!file) return;
+
+    await loadSampleIntoClip(activeClip, file);
+
+    updatePianoRollSampleHeader();
+  });
+
 
   // Reverb slider
   reverbSlider.addEventListener("input", () => {
@@ -78,6 +101,7 @@ window.initPianoRoll = function () {
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
 };
+
 
 window.openPianoRoll = function (clip) {
   activeClip = clip;
@@ -446,6 +470,8 @@ if (beat < 0) return; // optional, but NO pianoWidth check
 
   drawingNote = newNote;
   activeClip.notes.push(newNote);
+  extendClipIfNeeded(newNote.end);
+
   renderPianoRoll();
 }
 
@@ -529,6 +555,8 @@ function onMouseMove(e) {
         movingNote.pitch = newPitch;
       }
     }
+    extendClipIfNeeded(movingNote.end);
+
     updateClipPreview();
     refreshClipInTimeline(activeClip);
     renderPianoRoll();
@@ -657,7 +685,7 @@ function updateClipPreview() {
 async function onMidiDrop(e) {
   e.preventDefault();
   e.stopPropagation();
-  canvas.style.backgroundColor = "";
+  gridCanvas.style.backgroundColor = "";   // ⭐ updated
 
   if (!activeClip) return;
 
@@ -685,8 +713,11 @@ async function onMidiDrop(e) {
         const startBeats = n.ticks / ppq;
         const endBeats = (n.ticks + n.durationTicks) / ppq;
 
+        // ⭐ clamp pitch to piano roll range
+        const pitch = Math.min(pitchMax, Math.max(pitchMin, n.midi));
+
         importedNotes.push({
-          pitch: n.midi,
+          pitch,
           start: startBeats,
           end: endBeats,
           velocity: n.velocity
@@ -696,13 +727,17 @@ async function onMidiDrop(e) {
 
     activeClip.notes = importedNotes;
 
+    // Determine clip length
     const maxEnd = Math.max(...importedNotes.map(n => n.end));
     const midiBars = Math.ceil(maxEnd / 4);
 
-    const visibleBeats = canvas.width / pxPerBeat;
+    // ⭐ updated for new canvas
+    const visibleBeats = gridCanvas.width / pxPerBeat;
     const visibleBars = Math.ceil(visibleBeats / 4);
 
-    activeClip.bars = Math.max(midiBars, visibleBars);
+    activeClip.bars = Math.max(1, midiBars);
+
+
 
     resizeCanvas();
     renderPianoRoll();
@@ -714,20 +749,6 @@ async function onMidiDrop(e) {
   }
 }
 
-loadSampleBtn.onclick = async () => {
-  if (!activeClip) return;
-
-  const file = await pickAudioFile();
-  if (!file) return;
-
-  const arrayBuf = await file.arrayBuffer();
-  const decoded = await audioContext.decodeAudioData(arrayBuf);
-
-  activeClip.sampleBuffer = decoded;
-  activeClip.sampleName = file.name;
-
-  sampleName.textContent = file.name;
-};
 
 
 function pickAudioFile() {
@@ -753,3 +774,15 @@ function updatePianoRollSampleHeader() {
 }
 
 const reverbSlider = document.getElementById("piano-roll-reverb");
+
+async function loadSampleIntoClip(clip, file) {
+  if (!window.audioCtx) {
+    window.audioCtx = new AudioContext();
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const audioBuffer = await window.audioCtx.decodeAudioData(arrayBuffer);
+
+  clip.sampleBuffer = audioBuffer;
+  clip.sampleName = file.name;
+}

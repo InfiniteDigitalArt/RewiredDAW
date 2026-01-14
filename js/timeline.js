@@ -148,14 +148,25 @@ drop.addEventListener("drop", async (e) => {
   e.preventDefault();
   e.stopPropagation();
 
+  const isFileDrop = e.dataTransfer.files && e.dataTransfer.files.length > 0;
+  const isLoopDrop = !!window.draggedLoop;
+  const isClipDrop = !!window.draggedClipId;
+
+  if (!isFileDrop && !isLoopDrop && !isClipDrop) return;
+
+
+  // Continue with your existing logic...
+
+
+  // Continue with your existing logic
   const rect = drop.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const startBar = Math.floor(x / window.PIXELS_PER_BAR);
   const trackIndex = i;
 
+  // CASE 0: Dropping local audio or MIDI files
+   
 
-  
-// CASE 0: Dropping local audio or MIDI files
 if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
 
   for (const file of e.dataTransfer.files) {
@@ -365,8 +376,17 @@ if (loop.url) {
 
 /* CASE 2: Moving or duplicating an existing clip */
 if (window.draggedClipId) {
-  const original = window.clips.find((c) => c.id === window.draggedClipId);
+  const original = window.clips.find(c => c.id === window.draggedClipId);
+
   if (original) {
+
+    const oldTrackIndex = original.trackIndex;
+
+    // ⭐ Force MOVE when dragging to a different track
+    if (oldTrackIndex !== trackIndex) {
+      window.isDuplicateDrag = false;
+    }
+
     if (window.isDuplicateDrag) {
       const newClip = {
         ...original,
@@ -380,21 +400,36 @@ if (window.draggedClipId) {
       original.trackIndex = trackIndex;
       original.startBar = startBar;
       resolveClipCollisions(original);
+      // ⭐ If this clip is currently open in the piano roll, update it
+      if (window.activeClip && window.activeClip.id === original.id) {
+        window.activeClip = original;            // update reference
+        window.activeTrackIndex = trackIndex;    // update track index
+        window.openPianoRoll(original);
+
+        window.renderPianoRoll(original);        // refresh colours + notes
+      }
+
     }
+
+    // ⭐ Remove old DOM element directly (no track refresh)
+    const oldEl = document.querySelector(`[data-clip-id="${original.id}"]`);
+    if (oldEl) oldEl.remove();
   }
 }
 
+/* Re-render NEW track */
+drop.innerHTML = "";
+window.clips
+  .filter(c => c.trackIndex === trackIndex)
+  .forEach(c => window.renderClip(c, drop));
 
-  // Re-render this track
-  drop.innerHTML = "";
-  window.clips
-    .filter((c) => c.trackIndex === trackIndex)
-    .forEach((c) => window.renderClip(c, drop));
+/* Reset drag state */
+window.draggedClipId = null;
+window.draggedLoop = null;
+window.isDuplicateDrag = false;
 
-  // Reset drag state
-  window.draggedLoop = null;
-  window.draggedClipId = null;
-  window.isDuplicateDrag = false;
+
+
 });
 
 
@@ -785,12 +820,14 @@ el.appendChild(label);
 el.draggable = true;
 
 el.addEventListener("dragstart", (e) => {
-  // ensure drag always originates from the clip container
   if (e.target !== el) {
     e.stopPropagation();
   }
 
-  window.isDuplicateDrag = window.shiftDown;
+  // Set duplication state based on modifier keys
+  window.isDuplicateDrag = e.shiftKey || e.altKey || e.ctrlKey;
+
+  // Set which clip is being dragged
   window.draggedClipId = clip.id;
   window.draggedLoop = null;
 

@@ -58,10 +58,14 @@
   <div id="timeline-bar"></div>
   <div id="seekMarker" class="seek-marker"></div>
 
-  <div class="tracks" id="tracks">
-    <div id="playhead" class="hidden"></div>
+  <div id="timeline-scroll">
+    
+    <div class="tracks" id="tracks">
+      <div id="playhead" class="hidden"></div>
+    </div>
   </div>
 </div>
+
 
 <div id="piano-roll-container" class="hidden">
 
@@ -72,6 +76,7 @@
       <span id="piano-roll-sample-label">
         Sample: <strong id="piano-roll-sample-name">None</strong>
       </span>
+      <button id="piano-roll-load-sample">Load Sample</button>
     </div>
 
     <!-- CENTER -->
@@ -98,7 +103,7 @@
 
     <!-- RIGHT -->
     <div class="piano-roll-header-right">
-      <button id="piano-roll-load-sample">Load Sample</button>
+      
       <button id="piano-roll-close">×</button>
     </div>
   </div>
