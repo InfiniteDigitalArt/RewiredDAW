@@ -150,9 +150,12 @@ document.addEventListener("mousedown", (e) => {
 
   let value = parseFloat(knob.dataset.value);
 
+  // Request pointer lock (locks mouse + hides cursor)
+  document.body.requestPointerLock?.();
+
   function move(ev) {
-    // Smooth relative movement
-    const delta = -ev.movementY * 0.003; // sensitivity
+    // Smooth relative movement (movementY works perfectly in pointer lock)
+    const delta = -ev.movementY * 0.003;
 
     value += delta;
     value = Math.max(0, Math.min(1, value));
@@ -160,26 +163,31 @@ document.addEventListener("mousedown", (e) => {
     knob.dataset.value = value;
     knob.style.setProperty("--val", value);
 
-    // APPLY TO AUDIO (kept exactly as needed)
+    // APPLY TO AUDIO
     if (knob.classList.contains("volume-knob")) {
       window.trackGains[trackIndex].gain.value = value;
     }
 
     if (knob.classList.contains("pan-knob")) {
-      const panValue = (value * 2) - 1; // convert 0→1 into -1→+1
+      const panValue = (value * 2) - 1;
       window.trackPanners[trackIndex].pan.value = panValue;
     }
-
   }
 
   function up() {
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
+
+    // Release pointer lock
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
   }
 
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
 });
+
 
 function updateMeters() {
   const fills = document.querySelectorAll(".track-meter-fill");
@@ -620,29 +628,61 @@ marker.style.left = (x + 104 + 2) + "px";
   window.exportSong();
 });
 
+// ------------------------------------------------------
+// MASTER VOLUME
+// ------------------------------------------------------
 document.getElementById("masterVolumeSlider").addEventListener("input", e => {
   masterGain.gain.value = Number(e.target.value);
 });
 
+// ------------------------------------------------------
+// TRUE STEREO MASTER VU SETUP
+// ------------------------------------------------------
+
+// Create a stereo splitter AFTER masterGain
+const masterSplitter = audioContext.createChannelSplitter(2);
+
+// Disconnect old analyser if needed
+try { masterGain.disconnect(masterAnalyser); } catch {}
+
+// Connect masterGain → splitter
+masterGain.connect(masterSplitter);
+
+// ⭐ ADD THIS: connect masterGain to speakers
+masterGain.connect(audioContext.destination);
+
+// Create two analysers (L/R)
+window.masterAnalyserLeft = audioContext.createAnalyser();
+window.masterAnalyserRight = audioContext.createAnalyser();
+
+masterAnalyserLeft.fftSize = 256;
+masterAnalyserRight.fftSize = 256;
+
+// Connect splitter → analysers
+masterSplitter.connect(masterAnalyserLeft, 0);
+masterSplitter.connect(masterAnalyserRight, 1);
+
+
+// ------------------------------------------------------
+// CANVAS + DRAWING
+// ------------------------------------------------------
 const vuLeft = document.getElementById("vuLeft");
 const vuRight = document.getElementById("vuRight");
 const ctxL = vuLeft.getContext("2d");
 const ctxR = vuRight.getContext("2d");
 
-const meterData = new Uint8Array(masterAnalyser.frequencyBinCount);
+const leftData = new Uint8Array(masterAnalyserLeft.frequencyBinCount);
+const rightData = new Uint8Array(masterAnalyserRight.frequencyBinCount);
 
 function drawVUMeters() {
   requestAnimationFrame(drawVUMeters);
 
-  masterAnalyser.getByteTimeDomainData(meterData);
+  // Read true stereo data
+  masterAnalyserLeft.getByteTimeDomainData(leftData);
+  masterAnalyserRight.getByteTimeDomainData(rightData);
 
-  // Split into L/R (simple approximation)
-  const half = meterData.length / 2;
-  const left = meterData.slice(0, half);
-  const right = meterData.slice(half);
-
-  const leftLevel = getPeak(left);
-  const rightLevel = getPeak(right);
+  const leftLevel = getPeak(leftData);
+  const rightLevel = getPeak(rightData);
 
   drawMeter(ctxL, leftLevel);
   drawMeter(ctxR, rightLevel);
@@ -668,8 +708,9 @@ function drawMeter(ctx, level) {
   ctx.fillRect(0, 0, barWidth, h);
 }
 
-
+// Start drawing
 drawVUMeters();
+
 
 function attachClipHandlers(clipElement, clip, track) {
   clipElement.addEventListener("dblclick", () => {

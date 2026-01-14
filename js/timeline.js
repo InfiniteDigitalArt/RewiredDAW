@@ -24,7 +24,7 @@ window.timeline = {
 window.initTimeline = function () {
   const tracksEl = document.getElementById("tracks");
   const marker = document.getElementById("seekMarker");
-  marker.style.left = "104px";
+  marker.style.left = "106px";
 
 
   for (let i = 0; i < 16; i++) {

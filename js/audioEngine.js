@@ -312,8 +312,7 @@ return;
   /* -------------------------------------------------------
      5. Track scheduled sources
   ------------------------------------------------------- */
-  window.scheduledSources.add(source);
-  source.onended = () => window.scheduledSources.delete(source);
+
 
 };
 
