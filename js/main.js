@@ -1,4 +1,4 @@
-window.playheadPosition = 0;
+
 window.playheadInterval = null;
 window.playheadStartTime = 0;
 window.playheadRAF = null;

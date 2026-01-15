@@ -48,6 +48,20 @@
   </div>
 
   <input type="file" id="projectFileInput" accept=".zip" style="display:none;">
+
+  <!-- SNAP CONTROL -->
+  <div class="snap-control" id="snapControl" style="margin-left: 20px; display: flex; align-items: center; gap: 8px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #888;">
+      <path d="M12 2L12 22M8 6L12 2L16 6M8 18L12 22L16 18M2 12L22 12M6 8L2 12L6 16M18 8L22 12L18 16"/>
+    </svg>
+    <select id="snapValue" style="padding: 4px 8px; background: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 3px; cursor: pointer;">
+      <option value="0.25">1 Beat</option>
+      <option value="0.5">2 Beats</option>
+      <option value="1" selected>1 Bar</option>
+      <option value="2">2 Bars</option>
+      <option value="4">4 Bars</option>
+    </select>
+  </div>
 </div>
 
 

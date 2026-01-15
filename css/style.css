@@ -307,12 +307,13 @@ body {
   box-shadow: 0 0 8px var(--playhead);
   pointer-events: none;
   z-index: 99;
-  left: 0; /* now correct */
+  left: 104px; /* now correct */
 }
 
 
 #playhead.hidden {
   opacity: 0;
+  
 }
 
 /* -------------------------------------------------------
@@ -736,7 +737,7 @@ body {
   position: absolute;
   top: 14px;                 /* center vertically */
   transform: translateY(-50%);
-  left: 100px;              /* TEMP: so you can see it */
+                /* TEMP: so you can see it */
   width: 0;
   height: 0;
   border-top: 6px solid transparent;
@@ -1069,5 +1070,30 @@ body {
 /* Grid canvas must not shrink */
 #piano-roll-canvas {
   display: block;
+}
+
+.snap-control {
+  background: #232323;
+  border-radius: 4px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #bbb;
+  font-size: 14px;
+  font-weight: 400;
+}
+.snap-control select {
+  background: #181818;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border 0.15s;
+}
+.snap-control select:focus {
+  border: 1.5px solid #4DD2FF;
 }
 
