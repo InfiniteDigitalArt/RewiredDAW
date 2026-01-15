@@ -40,12 +40,21 @@ window.transportStartTime = 0;
 window.masterGain = audioContext.createGain();
 window.masterGain.gain.value = 0.8;
 
-window.masterAnalyser = audioContext.createAnalyser();
-window.masterAnalyser.fftSize = 256;
+// Create a stereo splitter for master VU meters
+window.masterSplitter = audioContext.createChannelSplitter(2);
 
-// Master → analyser → speakers
-window.masterGain.connect(window.masterAnalyser);
-window.masterAnalyser.connect(audioContext.destination);
+window.masterAnalyserLeft = audioContext.createAnalyser();
+window.masterAnalyserRight = audioContext.createAnalyser();
+window.masterAnalyserLeft.fftSize = 256;
+window.masterAnalyserRight.fftSize = 256;
+
+// Connect masterGain to splitter and destination
+window.masterGain.connect(window.masterSplitter);
+window.masterGain.connect(audioContext.destination);
+
+// Connect splitter outputs to analysers
+window.masterSplitter.connect(window.masterAnalyserLeft, 0);
+window.masterSplitter.connect(window.masterAnalyserRight, 1);
 
 
 /* -------------------------------------------------------
@@ -53,7 +62,8 @@ window.masterAnalyser.connect(audioContext.destination);
 ------------------------------------------------------- */
 window.trackGains = [];
 window.trackPanners = [];
-window.trackAnalysers = [];
+window.trackAnalysersL = [];
+window.trackAnalysersR = [];
 
 for (let i = 0; i < 16; i++) {
   const gain = audioContext.createGain();
@@ -62,17 +72,26 @@ for (let i = 0; i < 16; i++) {
   const panner = audioContext.createStereoPanner();
   panner.pan.value = 0; // center
 
-  const analyser = audioContext.createAnalyser();
-  analyser.fftSize = 256;
+  // Stereo splitter and analysers for L/R
+  const splitter = audioContext.createChannelSplitter(2);
+  const analyserL = audioContext.createAnalyser();
+  const analyserR = audioContext.createAnalyser();
+  analyserL.fftSize = 256;
+  analyserR.fftSize = 256;
 
-  // Track → gain → panner → analyser → master
+  // Track → gain → panner → masterGain (for real audio)
   gain.connect(panner);
-  panner.connect(analyser);
-  analyser.connect(window.masterGain);
+  panner.connect(window.masterGain);
+
+  // Track → gain → panner → splitter → analyserL/R (for VU meters)
+  panner.connect(splitter);
+  splitter.connect(analyserL, 0);
+  splitter.connect(analyserR, 1);
 
   window.trackGains.push(gain);
   window.trackPanners.push(panner);
-  window.trackAnalysers.push(analyser);
+  window.trackAnalysersL.push(analyserL);
+  window.trackAnalysersR.push(analyserR);
 }
 
 
@@ -213,21 +232,27 @@ window.scheduleClip = function(clip, seekBars = 0) {
   // Source duration in buffer seconds
   const sourceDuration = buffer.duration;
 
-  // Ensure originalBars exists for trimming math
+  // ⭐ CRITICAL: originalBars should have been set when clip was created
+  // It represents the full buffer length in bars and should NEVER change
   if (!isFinite(clip.originalBars) || clip.originalBars <= 0) {
-    clip.originalBars = clip.bars; // fallback
+    // Fallback: calculate from buffer if somehow missing
+    const barDuration = barsToSeconds(1);
+    clip.originalBars = sourceDuration / barDuration;
   }
 
-  // How much of the buffer to play (in source seconds)
-  let visibleDuration = sourceDuration;
-
-  // If the user has trimmed the clip (bars < originalBars), trim audio too
-  if (clip.bars < clip.originalBars) {
-    const trimRatio = clip.bars / clip.originalBars;
-    visibleDuration = sourceDuration * trimRatio;
+  // ⭐ Ensure bars never exceeds originalBars (prevents extending past buffer)
+  if (!isFinite(clip.bars) || clip.bars <= 0) {
+    clip.bars = clip.originalBars;
+  }
+  if (clip.bars > clip.originalBars) {
+    clip.bars = clip.originalBars;
   }
 
-  // start offset
+  // ⭐ Calculate visible duration based on current bar length
+  const barDuration = sourceDuration / clip.originalBars;
+  const visibleDuration = clip.bars * barDuration;
+
+  // start offset (only used for left-trim, currently always 0)
   if (!isFinite(clip.startOffset) || clip.startOffset < 0) {
     clip.startOffset = 0;
   }
@@ -247,6 +272,7 @@ window.scheduleClip = function(clip, seekBars = 0) {
 
   const trackGain = window.trackGains[clip.trackIndex];
   source.connect(trackGain);
+
 /* -------------------------------------------------------
    4. Scheduling logic (correct + DAW-accurate)
 ------------------------------------------------------- */
@@ -271,11 +297,11 @@ if (seekBars < clipStart) {
 // CASE B: Transport INSIDE the clip → start from offset
 if (seekBars >= clipStart && seekBars < clipEnd) {
   const barsIntoClip = seekBars - clipStart;
-
   const secondsPerBarInSource = sourceDuration / clip.originalBars;
-  const offsetSeconds = barsIntoClip * secondsPerBarInSource;
+  const offsetSeconds = startOffset + (barsIntoClip * secondsPerBarInSource);
 
-  let safeDuration = sourceDuration - offsetSeconds;
+  const playbackProgress = barsIntoClip * secondsPerBarInSource;
+  let safeDuration = visibleDuration - playbackProgress;
   if (!isFinite(safeDuration) || safeDuration <= 0) safeDuration = 0.001;
 
   window.scheduledSources.add(source);
@@ -294,9 +320,10 @@ if (clip.looped) {
     (barsIntoClip % loopLengthBars + loopLengthBars) % loopLengthBars;
 
   const secondsPerBarInSource = sourceDuration / clip.originalBars;
-  const offsetSeconds = wrappedBarsIntoClip * secondsPerBarInSource;
+  const offsetSeconds = startOffset + (wrappedBarsIntoClip * secondsPerBarInSource);
 
-  let safeDuration = sourceDuration - offsetSeconds;
+  const playbackProgress = wrappedBarsIntoClip * secondsPerBarInSource;
+  let safeDuration = visibleDuration - playbackProgress;
   if (!isFinite(safeDuration) || safeDuration <= 0) safeDuration = 0.001;
 
   window.scheduledSources.add(source);
@@ -447,4 +474,92 @@ window.makeSmallReverbBuffer = function(ctx) {
   }
   return impulse;
 };
+
+// Add after track creation loop
+function drawTrackVUMeter(canvas, value, color) {
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (value > 0.01) {
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, w * value, h);
+  }
+}
+
+function updateTrackVUMeters() {
+  for (let i = 0; i < 16; i++) {
+    const analyserL = window.trackAnalysersL[i];
+    const analyserR = window.trackAnalysersR[i];
+    const controls = document.querySelector(`.track-controls[data-index="${i}"]`);
+    if (!controls) continue;
+
+    // Find or create canvas for left/right VU
+    let canvasL = controls.querySelector(".track-vu-canvas-left");
+    let canvasR = controls.querySelector(".track-vu-canvas-right");
+    const color = window.TRACK_COLORS[i % window.TRACK_COLORS.length];
+
+    if (!canvasL) {
+      canvasL = document.createElement("canvas");
+      canvasL.className = "track-vu-canvas-left";
+      canvasL.width = 60;
+      canvasL.height = 6;
+      // Insert before/after meter-fill if needed, or just append to .track-meter
+      const meter = controls.querySelector(".track-meter");
+      if (meter) meter.appendChild(canvasL);
+    }
+    if (!canvasR) {
+      canvasR = document.createElement("canvas");
+      canvasR.className = "track-vu-canvas-right";
+      canvasR.width = 60;
+      canvasR.height = 6;
+      const meter = controls.querySelector(".track-meter");
+      if (meter) meter.appendChild(canvasR);
+    }
+
+    // Get analyser data
+    const arrayL = new Uint8Array(analyserL.fftSize);
+    const arrayR = new Uint8Array(analyserR.fftSize);
+    analyserL.getByteTimeDomainData(arrayL);
+    analyserR.getByteTimeDomainData(arrayR);
+
+    // Calculate RMS for each channel
+    let sumL = 0, sumR = 0;
+    let maxL = 0, maxR = 0;
+    for (let j = 0; j < arrayL.length; j++) {
+      const vL = (arrayL[j] - 128) / 128;
+      sumL += vL * vL;
+      if (Math.abs(vL) > maxL) maxL = Math.abs(vL);
+      const vR = (arrayR[j] - 128) / 128;
+      sumR += vR * vR;
+      if (Math.abs(vR) > maxR) maxR = Math.abs(vR);
+    }
+    const rmsL = Math.sqrt(sumL / arrayL.length);
+    const rmsR = Math.sqrt(sumR / arrayR.length);
+
+    // Convert RMS to dB, then to a 0-1 scale for the meter
+    function rmsToDb(rms) {
+      return rms > 0 ? 20 * Math.log10(rms) : -96;
+    }
+    const minDb = -48;
+    const maxDb = 0;
+    let dbL = rmsToDb(rmsL);
+    let dbR = rmsToDb(rmsR);
+
+    let percentL = (dbL - minDb) / (maxDb - minDb);
+    let percentR = (dbR - minDb) / (maxDb - minDb);
+
+    percentL = Math.max(0, Math.min(1, percentL));
+    percentR = Math.max(0, Math.min(1, percentR));
+
+    // Use both RMS and max sample value to detect silence
+    const isSilentL = (rmsL < 0.001 && maxL < 0.001);
+    const isSilentR = (rmsR < 0.001 && maxR < 0.001);
+
+    drawTrackVUMeter(canvasL, (isSilentL ? 0 : percentL), color);
+    drawTrackVUMeter(canvasR, (isSilentR ? 0 : percentR), color);
+  }
+  requestAnimationFrame(updateTrackVUMeters);
+}
+updateTrackVUMeters();
 

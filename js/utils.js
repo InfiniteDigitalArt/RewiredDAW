@@ -35,3 +35,32 @@ window.refreshClipInTimeline = function (clip) {
   // Render fresh
   window.renderClip(clip, parent);
 };
+
+/**
+ * Get current snap value in bars
+ * @returns {number} snap value in bars
+ */
+window.getSnapValue = function() {
+  const snapSelect = document.getElementById("snapValue");
+  return snapSelect ? parseFloat(snapSelect.value) : 1;
+};
+
+/**
+ * Snap a bar position to the grid
+ * @param {number} bars - position in bars
+ * @returns {number} snapped position in bars
+ */
+window.snapToGrid = function(bars) {
+  const snapValue = window.getSnapValue();
+  return Math.round(bars / snapValue) * snapValue;
+};
+
+/**
+ * Snap a delta (change) to the grid
+ * @param {number} deltaBars - change in bars
+ * @returns {number} snapped delta in bars
+ */
+window.snapDeltaToGrid = function(deltaBars) {
+  const snapValue = window.getSnapValue();
+  return Math.round(deltaBars / snapValue) * snapValue;
+};
