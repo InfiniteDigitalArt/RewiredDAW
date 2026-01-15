@@ -16,51 +16,112 @@
 
 
   <div class="main">
-    <div class="top-bar">
-      <button id="playToggleBtn" class="transport-btn play">Play</button>
+<div class="top-bar">
 
-      
-
-      <label class="tempo-text" style="margin-left:20px;">Tempo:</label>
-      <input id="tempoSlider" class="tempo-slider" type="range" min="100" max="200" value="175" step="1">
-      <span id="tempoValue" class="tempo-value">175 BPM</span>
-      
-    <!-- MASTER VOLUME -->
-    <label class="master-volume-text" style="margin-left:20px;">Master:</label>
-    <input id="masterVolumeSlider" class="tempo-slider" type="range" min="0" max="1" value="0.8" step="0.01">
-
-    <!-- VU METERS -->
-    <div class="master-vu-horizontal">
-      <canvas id="vuLeft" width="80" height="6"></canvas>
-      <canvas id="vuRight" width="80" height="6"></canvas>
+  <!-- FILE MENU -->
+  <div class="menu-item" id="fileMenu">
+    File ▾
+    <div class="dropdown" id="fileDropdown">
+      <div class="dropdown-item" id="newProjectBtn">New Project</div>
+      <div class="dropdown-item" id="saveProjectBtn">Save</div>
+      <div class="dropdown-item" id="loadProjectBtn">Load</div>
+      <div class="dropdown-item" id="exportBtn">Export WAV</div>
     </div>
+  </div>
 
+  <!-- TRANSPORT -->
+  <button id="playToggleBtn" class="transport-btn play">Play</button>
 
-      <button id="saveProjectBtn" class="transport-btn" type="button">Save</button>
-      <button id="loadProjectBtn" class="transport-btn">Load</button>
-      <input type="file" id="projectFileInput" accept=".zip" style="display:none;">
+  <!-- TEMPO -->
+  <label class="tempo-text" style="margin-left:20px;">Tempo:</label>
+  <input id="tempoSlider" class="tempo-slider" type="range" min="100" max="200" value="175" step="1">
+  <span id="tempoValue" class="tempo-value">175 BPM</span>
 
-      <button id="exportBtn" class="export-btn">Export WAV</button>
+  <!-- MASTER VOLUME -->
+  <label class="master-volume-text" style="margin-left:20px;">Master:</label>
+  <input id="masterVolumeSlider" class="tempo-slider" type="range" min="0" max="1" value="0.8" step="0.01">
 
+  <!-- VU METERS -->
+  <div class="master-vu-horizontal">
+    <canvas id="vuLeft" width="80" height="6"></canvas>
+    <canvas id="vuRight" width="80" height="6"></canvas>
+  </div>
 
-    </div>
+  <input type="file" id="projectFileInput" accept=".zip" style="display:none;">
+</div>
+
 
 
 
 
 <div class="timeline" id="timeline">
   <div id="timeline-bar"></div>
-  <div class="tracks" id="tracks">
-    <div id="playhead" class="hidden"></div>
+  <div id="seekMarker" class="seek-marker"></div>
+
+  <div id="timeline-scroll">
+    
+    <div class="tracks" id="tracks">
+      <div id="playhead" class="hidden"></div>
+    </div>
   </div>
 </div>
 
-<div id="piano-roll-container">
-  <button id="piano-roll-close">×</button>
+
+<div id="piano-roll-container" class="hidden">
+
+  <div id="piano-roll-sample-header">
+    <!-- LEFT -->
+    <div class="piano-roll-header-left">
+      <span id="piano-roll-clip-name"></span>
+      <span id="piano-roll-sample-label">
+        Sample: <strong id="piano-roll-sample-name">None</strong>
+      </span>
+      <button id="piano-roll-load-sample">Load Sample</button>
+    </div>
+
+    <!-- CENTER -->
+    <div class="piano-roll-header-center">
+      <div id="piano-roll-reverb-control">
+        <label>Reverb:</label>
+        <input type="range" id="piano-roll-reverb" min="0" max="1" step="0.01">
+      </div>
+
+      <div id="piano-roll-transpose">
+        <div class="transpose-group">
+          <span class="transpose-label">Semi</span>
+          <button class="transpose-btn" data-step="-1">▼</button>
+          <button class="transpose-btn" data-step="1">▲</button>
+        </div>
+
+        <div class="transpose-group">
+          <span class="transpose-label">Oct</span>
+          <button class="transpose-btn" data-step="-12">▼</button>
+          <button class="transpose-btn" data-step="12">▲</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="piano-roll-header-right">
+      
+      <button id="piano-roll-close">×</button>
+    </div>
+  </div>
+
+  <!-- ⭐ NEW: fixed piano canvas -->
+  <div id="piano-roll-piano">
+    <canvas id="piano-roll-piano-canvas"></canvas>
+  </div>
+
+  <!-- ⭐ Scrolling grid canvas -->
   <div id="piano-roll-scroll">
     <canvas id="piano-roll-canvas"></canvas>
   </div>
+
 </div>
+
+
+
 
 
 

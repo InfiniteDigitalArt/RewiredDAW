@@ -1,8 +1,18 @@
 window.BasicSawSynthForContext = class BasicSawSynthForContext {
-  constructor(audioCtx, trackGainNode, sampleBuffer) {
+  constructor(audioCtx, trackGainNode, sampleBuffer, reverbBuffer, reverbAmount) {
     this.audioCtx = audioCtx;
     this.trackGainNode = trackGainNode;
-    this.sampleBuffer = sampleBuffer; // passed in from realtime synth
+    this.sampleBuffer = sampleBuffer;
+
+    // ⭐ Build per‑clip reverb chain
+    this.reverb = audioCtx.createConvolver();
+    this.reverb.buffer = reverbBuffer;
+
+    this.reverbGain = audioCtx.createGain();
+    this.reverbGain.gain.value = reverbAmount;
+
+    this.reverb.connect(this.reverbGain);
+    this.reverbGain.connect(trackGainNode);
   }
 
   playNote(pitch, startTime, duration, velocity = 0.8) {
@@ -11,13 +21,11 @@ window.BasicSawSynthForContext = class BasicSawSynthForContext {
     const src = this.audioCtx.createBufferSource();
     src.buffer = this.sampleBuffer;
 
-    // MIDI pitch → playbackRate
     const semitone = pitch - 69;
     src.playbackRate.value = Math.pow(2, semitone / 12);
 
     const gain = this.audioCtx.createGain();
 
-    // ADSR
     const attack = 0.001;
     const release = 0.05;
 
@@ -26,8 +34,13 @@ window.BasicSawSynthForContext = class BasicSawSynthForContext {
     gain.gain.setValueAtTime(velocity, startTime + duration);
     gain.gain.linearRampToValueAtTime(0.0001, startTime + duration + release);
 
-    src.connect(gain);
+    // ⭐ Dry path
     gain.connect(this.trackGainNode);
+
+    // ⭐ Wet path
+    gain.connect(this.reverb);
+
+    src.connect(gain);
 
     src.start(startTime);
     src.stop(startTime + duration + release);

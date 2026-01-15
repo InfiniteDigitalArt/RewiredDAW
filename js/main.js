@@ -4,6 +4,11 @@ window.playheadStartTime = 0;
 window.playheadRAF = null;
 window.isDuplicateDrag = false;
 window.shiftDown = false;
+window.midiClipCounter = 1;
+
+
+
+
 
 // main.js
 
@@ -24,14 +29,7 @@ window.onScheduleMidiClip = (clip, track, startTime) => {
 };
 
 
-// --- CLIP DOUBLE-CLICK HANDLER ---
-function attachClipHandlers(clipElement, clip, track) {
-  clipElement.addEventListener("dblclick", () => {
-    if (track.type === "midi") {
-      openPianoRoll(clip);
-    }
-  });
-}
+
 
 
 window.addEventListener("keydown", e => {
@@ -110,17 +108,19 @@ function startPlayhead(realStartTime) {
     window.playheadRAF = null;
   }
 
+  // Always use the transport start time
   window.playheadStartTime = realStartTime;
 
   function update() {
     const playhead = document.getElementById("playhead");
-    if (!playhead) return; // timeline rebuilt
+    if (!playhead) return;
 
     const elapsed = audioContext.currentTime - window.playheadStartTime;
     const bars = (elapsed * window.BPM) / 240;
     const x = bars * window.PIXELS_PER_BAR;
 
-    playhead.style.left = (x + 100) + "px";
+    // Use the SAME offset everywhere (80px)
+    playhead.style.left = (x + 104) + "px";
 
     window.playheadRAF = requestAnimationFrame(update);
   }
@@ -134,8 +134,8 @@ function stopPlayhead() {
     window.playheadRAF = null;
   }
 
-  const playhead = document.getElementById("playhead");
-  if (playhead) playhead.style.left = "100px"; // reset to start
+  // ❌ Do NOT reposition the playhead here
+  // The caller will position it correctly depending on context
 }
 
 
@@ -150,9 +150,12 @@ document.addEventListener("mousedown", (e) => {
 
   let value = parseFloat(knob.dataset.value);
 
+  // Request pointer lock (locks mouse + hides cursor)
+  document.body.requestPointerLock?.();
+
   function move(ev) {
-    // Smooth relative movement
-    const delta = -ev.movementY * 0.003; // sensitivity
+    // Smooth relative movement (movementY works perfectly in pointer lock)
+    const delta = -ev.movementY * 0.003;
 
     value += delta;
     value = Math.max(0, Math.min(1, value));
@@ -160,20 +163,31 @@ document.addEventListener("mousedown", (e) => {
     knob.dataset.value = value;
     knob.style.setProperty("--val", value);
 
-    // APPLY TO AUDIO (kept exactly as needed)
+    // APPLY TO AUDIO
     if (knob.classList.contains("volume-knob")) {
       window.trackGains[trackIndex].gain.value = value;
+    }
+
+    if (knob.classList.contains("pan-knob")) {
+      const panValue = (value * 2) - 1;
+      window.trackPanners[trackIndex].pan.value = panValue;
     }
   }
 
   function up() {
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
+
+    // Release pointer lock
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
   }
 
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
 });
+
 
 function updateMeters() {
   const fills = document.querySelectorAll(".track-meter-fill");
@@ -207,6 +221,10 @@ async function saveProjectZip() {
   // Folder for audio files
   const audioFolder = zip.folder("audio");
 
+  // Deduplication map for samples
+  const savedSamples = new Map();
+
+  // Track mixer state
   const tracks = [...document.querySelectorAll(".track")].map(track => ({
     volume: Number(track.querySelector(".volume-knob").dataset.value),
     pan: Number(track.querySelector(".pan-knob").dataset.value)
@@ -220,7 +238,7 @@ async function saveProjectZip() {
     // 0. MIDI CLIP
     // ----------------------------------------------------
     if (clip.type === "midi") {
-      serializedClips.push({
+      const midiData = {
         type: "midi",
         id: clip.id,
         trackIndex: clip.trackIndex,
@@ -230,16 +248,44 @@ async function saveProjectZip() {
           pitch: n.pitch,
           start: n.start,
           end: n.end
-        }))
-      });
+        })),
+        name: clip.name,
+
+        sampleName: clip.sampleName || null,
+        sampleFile: null,
+
+        reverbAmount: clip.reverbGain?.gain?.value ?? 0.5
+      };
+
+      // Save custom sample (deduplicated)
+      if (
+        clip.sampleBuffer &&
+        clip.sampleName &&
+        clip.sampleName !== window.defaultMidiSampleName
+      ) {
+        if (!savedSamples.has(clip.sampleName)) {
+          const wavBlob = bufferToWavBlob(clip.sampleBuffer);
+          const arrayBuffer = await wavBlob.arrayBuffer();
+          const fileName = `${clip.sampleName}.wav`;
+
+          audioFolder.file(fileName, arrayBuffer, { compression: "STORE" });
+          savedSamples.set(clip.sampleName, fileName);
+        }
+
+        midiData.sampleFile = savedSamples.get(clip.sampleName);
+      }
+
+      serializedClips.push(midiData);
       continue;
     }
 
-    // Only audio below this point
+    // ----------------------------------------------------
+    // 1. AUDIO CLIPS (loop or local)
+    // ----------------------------------------------------
     if (!clip.loopId && !clip.audioBuffer) continue;
 
     const baseData = {
-      type: "audio", // keep type for waveform renderer
+      type: "audio",
       id: clip.id,
       loopId: clip.loopId || null,
       trackIndex: clip.trackIndex,
@@ -256,12 +302,12 @@ async function saveProjectZip() {
       // Loop clips reference external library
       serializedClips.push(baseData);
     } else {
-      // Local audio clips → save WAV file into ZIP
+      // Local audio clips → save WAV file
       const wavBlob = bufferToWavBlob(clip.audioBuffer);
       const arrayBuffer = await wavBlob.arrayBuffer();
 
       const fileName = `${clip.id}.wav`;
-      audioFolder.file(fileName, arrayBuffer);
+      audioFolder.file(fileName, arrayBuffer, { compression: "STORE" });
 
       serializedClips.push({
         ...baseData,
@@ -270,6 +316,9 @@ async function saveProjectZip() {
     }
   }
 
+  // ----------------------------------------------------
+  // 2. PROJECT JSON
+  // ----------------------------------------------------
   const project = {
     tempo: Number(document.getElementById("tempoSlider").value),
     tracks,
@@ -278,8 +327,17 @@ async function saveProjectZip() {
 
   zip.file("project.json", JSON.stringify(project, null, 2));
 
-  const blob = await zip.generateAsync({ type: "blob" });
+  // ----------------------------------------------------
+  // 3. GENERATE ZIP (no compression)
+  // ----------------------------------------------------
+  const blob = await zip.generateAsync({
+    type: "blob",
+    compression: "STORE"
+  });
 
+  // ----------------------------------------------------
+  // 4. DOWNLOAD
+  // ----------------------------------------------------
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -287,6 +345,7 @@ async function saveProjectZip() {
   a.click();
   URL.revokeObjectURL(url);
 }
+
 
 
 async function loadProjectZip(json, zip) {
@@ -300,26 +359,63 @@ async function loadProjectZip(json, zip) {
 
   window.clips = [];
   document.getElementById("tracks").innerHTML = "";
-  initTimeline();
+  initTimeline(); // builds 16 fresh tracks with default knobs
 
-  // Mixer
+  // ----------------------------------------------------
+  // Mixer: apply volumes/pans to audio + knobs
+  // ----------------------------------------------------
   json.tracks.forEach((t, index) => {
-    if (window.trackGains[index]) window.trackGains[index].gain.value = t.volume;
-    if (window.trackPans && window.trackPans[index]) window.trackPans[index].pan.value = t.pan;
+    // Audio engine
+    if (window.trackGains && window.trackGains[index]) {
+      window.trackGains[index].gain.value = t.volume;
+    }
+    if (window.trackPans && window.trackPans[index]) {
+      window.trackPans[index].pan.value = t.pan;
+    }
+
+    // UI knobs
+    const trackEl = document.querySelector(`.track[data-index="${index}"]`);
+    if (!trackEl) return;
+
+const volKnob = trackEl.querySelector(".volume-knob");
+const panKnob = trackEl.querySelector(".pan-knob");
+
+if (volKnob) {
+  volKnob.dataset.value = t.volume;
+  volKnob.style.setProperty("--val", t.volume);
+}
+
+if (panKnob) {
+  panKnob.dataset.value = t.pan;
+  panKnob.style.setProperty("--val", t.pan);
+}
+
   });
 
-  // Load clips
+  // ----------------------------------------------------
+  // Load clips (your existing code)
+  // ----------------------------------------------------
   for (const raw of json.clips) {
-
-    // ----------------------------------------------------
-    // 0. MIDI CLIP
-    // ----------------------------------------------------
+    // 0. MIDI CLIP (with sample restore)
     if (raw.type === "midi") {
       const clip = new MidiClip(raw.startBar, raw.bars);
+
       clip.id = raw.id || crypto.randomUUID();
       clip.type = "midi";
       clip.trackIndex = raw.trackIndex;
       clip.notes = raw.notes || [];
+      clip.name = raw.name || `MIDI Clip`;
+
+      clip.sampleName = raw.sampleName || window.defaultMidiSampleName;
+
+      if (raw.sampleFile) {
+        const wavData = await zip.file(`audio/${raw.sampleFile}`).async("arraybuffer");
+        clip.sampleBuffer = await audioContext.decodeAudioData(wavData);
+      } else {
+        clip.sampleBuffer = window.defaultMidiSampleBuffer;
+      }
+
+      clip.reverbGain.gain.value = raw.reverbAmount ?? 0.5;
 
       window.clips.push(clip);
       resolveClipCollisions(clip);
@@ -333,16 +429,12 @@ async function loadProjectZip(json, zip) {
       continue;
     }
 
-    // ----------------------------------------------------
     // 1. LOOP CLIP (external library)
-    // ----------------------------------------------------
     if (raw.loopId) {
       const loopInfo = DROPBOX_LOOP_MAP[raw.loopId];
 
-      // Ensure audio is loaded into loopBuffers
       await window.loadLoop(raw.loopId, loopInfo.url, loopInfo.bpm);
 
-      // Create the actual clip object
       const loadedClip = window.createLoopClip(
         raw.loopId,
         raw.trackIndex,
@@ -355,7 +447,7 @@ async function loadProjectZip(json, zip) {
         continue;
       }
 
-      loadedClip.type = "audio"; // for waveform renderer
+      loadedClip.type = "audio";
 
       resolveClipCollisions(loadedClip);
 
@@ -368,9 +460,7 @@ async function loadProjectZip(json, zip) {
       continue;
     }
 
-    // ----------------------------------------------------
     // 2. LOCAL AUDIO FILE
-    // ----------------------------------------------------
     if (raw.audioFile) {
       const wavData = await zip.file(`audio/${raw.audioFile}`).async("arraybuffer");
       const audioBuffer = await audioContext.decodeAudioData(wavData);
@@ -402,7 +492,6 @@ async function loadProjectZip(json, zip) {
     }
   }
 }
-
 
 
 
@@ -468,40 +557,57 @@ window.renderTimelineBar = function(totalBars = 64) {
     //el.style.setProperty("--bar-width", barWidth + "px");
     el.textContent = i + 1;
 
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
+el.addEventListener("click", (e) => {
+  e.stopPropagation();
 
-      const barIndex = i;
+  const barIndex = i;
+  window.seekBars = barIndex;
 
-      // Always stop audio + playhead
-      window.stopAll();
-      stopPlayhead();
+  // Update transportStartTime for new seek
+  window.transportStartTime =
+    audioContext.currentTime - window.barsToSeconds(barIndex);
 
-      // Store the new seek position
-      window.seekBars = barIndex;
+const x = barIndex * window.PIXELS_PER_BAR;
 
-      // Move the playhead visually
-      const x = barIndex * window.PIXELS_PER_BAR;
-      document.getElementById("playhead").style.left = (x + 80) + "px";
+// Move the triangle marker
+const marker = document.getElementById("seekMarker");
+marker.style.left = (x + 104 + 2) + "px";
 
-      // Update transportStartTime so next Play starts from here
-      window.transportStartTime =
-        audioContext.currentTime - window.barsToSeconds(barIndex);
 
-      // Reset play button UI
-      const playToggleBtn = document.getElementById("playToggleBtn");
-      playToggleBtn.textContent = "Play";
-      playToggleBtn.classList.remove("active");
-      document.getElementById("playhead").classList.add("hidden");
+  if (window.isPlaying) {
+    window.stopAll();
+    stopPlayhead();
 
-      const transportLabel = document.getElementById("transportLabel");
-      if (transportLabel) {
-        transportLabel.textContent = "Stopped";
-        transportLabel.classList.remove("playing");
-      }
+    window.playAll(barIndex);
 
-      window.isPlaying = false;
-    });
+    const playhead = document.getElementById("playhead");
+    playhead.style.left = (x + 104) + "px";
+    playhead.classList.remove("hidden");
+
+    startPlayhead(window.transportStartTime);
+    return;
+  }
+
+  // If stopped → just move the playhead visually
+  const playhead = document.getElementById("playhead");
+  playhead.style.left = (x + 104) + "px";
+  playhead.classList.remove("hidden");
+
+  // Update UI
+  const playToggleBtn = document.getElementById("playToggleBtn");
+  playToggleBtn.textContent = "Play";
+  playToggleBtn.classList.remove("active");
+
+  const transportLabel = document.getElementById("transportLabel");
+  if (transportLabel) {
+    transportLabel.textContent = "Stopped";
+    transportLabel.classList.remove("playing");
+  }
+});
+
+
+
+
 
 
 
@@ -522,29 +628,61 @@ window.renderTimelineBar = function(totalBars = 64) {
   window.exportSong();
 });
 
+// ------------------------------------------------------
+// MASTER VOLUME
+// ------------------------------------------------------
 document.getElementById("masterVolumeSlider").addEventListener("input", e => {
   masterGain.gain.value = Number(e.target.value);
 });
 
+// ------------------------------------------------------
+// TRUE STEREO MASTER VU SETUP
+// ------------------------------------------------------
+
+// Create a stereo splitter AFTER masterGain
+const masterSplitter = audioContext.createChannelSplitter(2);
+
+// Disconnect old analyser if needed
+try { masterGain.disconnect(masterAnalyser); } catch {}
+
+// Connect masterGain → splitter
+masterGain.connect(masterSplitter);
+
+// ⭐ ADD THIS: connect masterGain to speakers
+masterGain.connect(audioContext.destination);
+
+// Create two analysers (L/R)
+window.masterAnalyserLeft = audioContext.createAnalyser();
+window.masterAnalyserRight = audioContext.createAnalyser();
+
+masterAnalyserLeft.fftSize = 256;
+masterAnalyserRight.fftSize = 256;
+
+// Connect splitter → analysers
+masterSplitter.connect(masterAnalyserLeft, 0);
+masterSplitter.connect(masterAnalyserRight, 1);
+
+
+// ------------------------------------------------------
+// CANVAS + DRAWING
+// ------------------------------------------------------
 const vuLeft = document.getElementById("vuLeft");
 const vuRight = document.getElementById("vuRight");
 const ctxL = vuLeft.getContext("2d");
 const ctxR = vuRight.getContext("2d");
 
-const meterData = new Uint8Array(masterAnalyser.frequencyBinCount);
+const leftData = new Uint8Array(masterAnalyserLeft.frequencyBinCount);
+const rightData = new Uint8Array(masterAnalyserRight.frequencyBinCount);
 
 function drawVUMeters() {
   requestAnimationFrame(drawVUMeters);
 
-  masterAnalyser.getByteTimeDomainData(meterData);
+  // Read true stereo data
+  masterAnalyserLeft.getByteTimeDomainData(leftData);
+  masterAnalyserRight.getByteTimeDomainData(rightData);
 
-  // Split into L/R (simple approximation)
-  const half = meterData.length / 2;
-  const left = meterData.slice(0, half);
-  const right = meterData.slice(half);
-
-  const leftLevel = getPeak(left);
-  const rightLevel = getPeak(right);
+  const leftLevel = getPeak(leftData);
+  const rightLevel = getPeak(rightData);
 
   drawMeter(ctxL, leftLevel);
   drawMeter(ctxR, rightLevel);
@@ -570,29 +708,78 @@ function drawMeter(ctx, level) {
   ctx.fillRect(0, 0, barWidth, h);
 }
 
-
+// Start drawing
 drawVUMeters();
+
 
 function attachClipHandlers(clipElement, clip, track) {
   clipElement.addEventListener("dblclick", () => {
     if (track.type === "midi") {
-      openPianoRoll(clip);
+      window.activeClip = clip;            // ⭐ set active clip FIRST
+      
+      openPianoRoll(clip);                 // open UI
+      
     }
   });
 }
 
+
+
 function openPianoRoll(clip) {
   activeClip = clip;
+  updatePianoRollSampleHeader();
+
+  reverbSlider.value = clip.reverbGain.gain.value;
 
   const container = document.getElementById("piano-roll-container");
-  container.style.display = "block";
+  container.classList.remove("hidden");
 
-  resizeCanvas();
-  renderPianoRoll();
+  // ⭐ Update header background using track colour
+
+const trackColor = window.TRACK_COLORS[clip.trackIndex % 10];
+
+// Clip name tag
+const nameBox = document.getElementById("piano-roll-clip-name");
+nameBox.style.backgroundColor = trackColor;
+nameBox.style.color = "var(--border-dark)";
+nameBox.style.padding = "2px 6px";
+nameBox.style.borderRadius = "4px";
+
+// Sample name tag
+const sampleNameBox = document.getElementById("piano-roll-sample-name");
+sampleNameBox.style.backgroundColor = trackColor;
+sampleNameBox.style.color = "var(--border-dark)";
+sampleNameBox.style.padding = "2px 6px";
+sampleNameBox.style.borderRadius = "4px";
+
+
+
+  requestAnimationFrame(() => {
+    resizeCanvas();
+    renderPianoRoll();
+
+    // ⭐ Auto-scroll to highest note
+    const notes = activeClip.notes || [];
+    if (notes.length > 0) {
+      const highest = Math.max(...notes.map(n => n.pitch));
+
+      const rowHeight = 16;
+      const y = (pitchMax - highest) * rowHeight;
+
+      const scrollContainer = document.getElementById("piano-roll-scroll");
+
+      const extraOffset = 8 * rowHeight; // scroll down by a few notes
+      scrollContainer.scrollTop =
+        y - scrollContainer.clientHeight / 2 + extraOffset;
+    }
+  });
 }
 
+
+
+
 document.getElementById("piano-roll-close").addEventListener("click", () => {
-  document.getElementById("piano-roll-container").style.display = "none";
+  document.getElementById("piano-roll-container").classList.add("hidden"); // ⭐ hide using class toggle
   activeClip = null;
 });
 
@@ -651,3 +838,22 @@ async function loadAllMidiLoops() {
   );
 }
 
+document.getElementById("newProjectBtn").addEventListener("click", () => {
+  location.reload();
+});
+
+
+const fileMenu = document.getElementById("fileMenu");
+const fileDropdown = document.getElementById("fileDropdown");
+
+fileMenu.addEventListener("click", () => {
+  const isOpen = fileDropdown.style.display === "block";
+  fileDropdown.style.display = isOpen ? "none" : "block";
+});
+
+// Close dropdown when clicking outside
+document.addEventListener("click", (e) => {
+  if (!fileMenu.contains(e.target)) {
+    fileDropdown.style.display = "none";
+  }
+});

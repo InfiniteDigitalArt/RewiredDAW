@@ -8,6 +8,7 @@ window.MidiEngine = class MidiEngine {
     this.instruments[name] = synthInstance;
   }
 
+  // startTime is ABSOLUTE SECONDS (from audioEngine)
   scheduleClip(clip, track, startTime) {
     const instrumentName = (track && track.instrument) || "basic-saw";
     const synth = this.instruments[instrumentName];
@@ -16,11 +17,11 @@ window.MidiEngine = class MidiEngine {
       return;
     }
 
-    const beatsPerBar = 4; // standard 4/4
+    const beatsPerBar = 4; // 4/4
     const clipLengthBeats = (clip.bars || 1) * beatsPerBar;
+    const now = this.audioCtx.currentTime;
 
     clip.notes.forEach(note => {
-      // Note times are in BEATS, relative to clip start
       let noteStartBeats = note.start;
       let noteEndBeats   = note.end;
 
@@ -35,20 +36,42 @@ window.MidiEngine = class MidiEngine {
       const durationBeats = noteEndBeats - noteStartBeats;
       if (durationBeats <= 0) return;
 
-      // Convert beats → bars (same pattern you already used)
+      // Beats → bars
       const startBars    = noteStartBeats / beatsPerBar;
       const durationBars = durationBeats  / beatsPerBar;
 
-      const noteStart = startTime + window.barsToSeconds(startBars);
-      const duration  = window.barsToSeconds(durationBars);
+      // Bars → seconds (relative to this clip's startTime, which is already in seconds)
+      let noteStartSec = startTime + window.barsToSeconds(startBars);
+      let durationSec  = window.barsToSeconds(durationBars);
 
-      synth.playNote(
+      // Safety: guard against NaN / Infinity
+      if (!isFinite(noteStartSec) || !isFinite(durationSec)) return;
+      if (durationSec <= 0) return;
+
+      // ⭐ Clamp notes that would start in the past (after seeking)
+      if (noteStartSec < now) {
+        const shift = now - noteStartSec;
+        noteStartSec = now;
+        durationSec = durationSec - shift;
+        if (durationSec <= 0) return;
+      }
+
+      synth.playNoteFromClip(
+        clip,
         note.pitch,
-        noteStart,
-        duration,
+        noteStartSec,
+        durationSec,
         note.velocity || 0.8,
         clip.trackIndex ?? 0
       );
     });
   }
 };
+
+
+
+function generateMidiClipName() {
+  const num = String(window.midiClipCounter).padStart(3, "0");
+  window.midiClipCounter++;
+  return `MIDI Clip ${num}`;
+}

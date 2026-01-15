@@ -1,32 +1,7 @@
 window.BasicSawSynth = class BasicSawSynth {
   constructor(audioCtx) {
     this.audioCtx = audioCtx;
-
-    // --- Load sample once ---
-    this.sampleBuffer = null;
-    this.loadSample();
-
-    // --- Subtle reverb ---
-    this.reverb = audioCtx.createConvolver();
-    this.reverb.buffer = this.makeSmallReverbBuffer(audioCtx);
-
-    this.reverbGain = audioCtx.createGain();
-    this.reverbGain.gain.value = 0.5;
   }
-
-async loadSample() {
-  const url =
-    "https://dl.dropboxusercontent.com/scl/fi/kouvzt916w2y4bnqc4cva/LD-1.wav?rlkey=q4q2qz72p91b6ueaqo8gplws9&st=echs7o93";
-
-  const res = await fetch(url);
-  const arrayBuf = await res.arrayBuffer();
-  this.sampleBuffer = await this.audioCtx.decodeAudioData(arrayBuf);
-
-  // ⭐ Make available to exportSong.js
-  window.loadedLeadSample = this.sampleBuffer;
-
-  console.log("LD-1 sample loaded", this.sampleBuffer);
-}
 
   makeSmallReverbBuffer(ctx) {
     const length = ctx.sampleRate * 3;
@@ -41,11 +16,12 @@ async loadSample() {
     return impulse;
   }
 
-  playNote(pitch, startTime, duration, velocity = 0.8, trackIndex = 0) {
-    if (!this.sampleBuffer) return; // sample not ready yet
+  // clip now owns its own reverb + reverbGain
+  playNoteFromClip(clip, pitch, startTime, duration, velocity = 0.8, trackIndex = 0) {
+    if (!clip.sampleBuffer) return;
 
     const src = this.audioCtx.createBufferSource();
-    src.buffer = this.sampleBuffer;
+    src.buffer = clip.sampleBuffer;
 
     // MIDI pitch → playbackRate
     const semitone = pitch - 69;
@@ -62,21 +38,18 @@ async loadSample() {
     gain.gain.setValueAtTime(velocity, startTime + duration);
     gain.gain.linearRampToValueAtTime(0.0001, startTime + duration + release);
 
-    // --- Routing ---
-    // Dry → track
-    gain.connect(window.trackGains[trackIndex]);
-
-    // Wet → reverb → track
-    gain.connect(this.reverb);
-    this.reverb.connect(this.reverbGain);
-    this.reverbGain.connect(window.trackGains[trackIndex]);
+    // --- Routing (per‑clip reverb) ---
+    gain.connect(window.trackGains[trackIndex]); // dry path
+    gain.connect(clip.reverb);                   // wet path (per‑clip)
+    // clip.reverb → clip.reverbGain → master is already connected in MidiClip constructor
 
     src.connect(gain);
 
-    // --- Start/stop ---
     src.start(startTime);
     src.stop(startTime + duration + release);
 
-    window.scheduledMidiVoices.push(src, gain);
+    window.scheduledMidiVoices.add(src);
+    window.scheduledMidiVoices.add(gain);
+
   }
 };

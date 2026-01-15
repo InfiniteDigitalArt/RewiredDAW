@@ -1,12 +1,34 @@
 window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+
+
+window.defaultMidiSampleBuffer = null;
+window.defaultMidiSampleName = "LD-1.wav";
+
+
+async function loadDefaultMidiSample() {
+  const url =
+    "https://dl.dropboxusercontent.com/scl/fi/kouvzt916w2y4bnqc4cva/LD-1.wav?rlkey=q4q2qz72p91b6ueaqo8gplws9&st=pdc37b5y";
+
+  const res = await fetch(url);
+  const arrayBuf = await res.arrayBuffer();
+  window.defaultMidiSampleBuffer = await audioContext.decodeAudioData(arrayBuf);
+
+  console.log("Default MIDI sample loaded", window.defaultMidiSampleBuffer);
+}
+
+loadDefaultMidiSample();
+
+
 window.PIXELS_PER_BAR = 80;
 window.BPM = 175;
 
 window.loopBuffers = new Map();
 window.clips = [];
 // near top of audioEngine.js
-window.scheduledSources = [];
-window.scheduledMidiVoices = [];
+window.scheduledSources = new Set();
+window.scheduledMidiVoices = new Set();
+
 
 window.isPlaying = false;
 window.transportStartTime = 0;
@@ -30,28 +52,28 @@ window.masterAnalyser.connect(audioContext.destination);
    TRACK GAIN + ANALYSER NODES
 ------------------------------------------------------- */
 window.trackGains = [];
+window.trackPanners = [];
 window.trackAnalysers = [];
 
 for (let i = 0; i < 16; i++) {
   const gain = audioContext.createGain();
   gain.gain.value = 0.8;
 
+  const panner = audioContext.createStereoPanner();
+  panner.pan.value = 0; // center
+
   const analyser = audioContext.createAnalyser();
   analyser.fftSize = 256;
 
-  // Track → analyser → master
-  gain.connect(analyser);
+  // Track → gain → panner → analyser → master
+  gain.connect(panner);
+  panner.connect(analyser);
   analyser.connect(window.masterGain);
 
   window.trackGains.push(gain);
+  window.trackPanners.push(panner);
   window.trackAnalysers.push(analyser);
 }
-
-/* -------------------------------------------------------
-   IMPORTANT:
-   ❌ DO NOT connect track gains directly to master again.
-   The analyser already feeds into master.
-------------------------------------------------------- */
 
 
 /* -------------------------------------------------------
@@ -225,72 +247,91 @@ window.scheduleClip = function(clip, seekBars = 0) {
 
   const trackGain = window.trackGains[clip.trackIndex];
   source.connect(trackGain);
+/* -------------------------------------------------------
+   4. Scheduling logic (correct + DAW-accurate)
+------------------------------------------------------- */
 
-  /* -------------------------------------------------------
-     4. Scheduling logic
-  ------------------------------------------------------- */
-  const relativeStartBars = clip.startBar - seekBars;
+const clipStart = clip.startBar;
+const clipEnd   = clip.startBar + clip.bars;
 
-  // CASE 1: Normal forward scheduling
-  if (relativeStartBars >= 0) {
-    const when = transportStartTime + barsToSeconds(relativeStartBars);
+// CASE A: Transport BEFORE the clip → schedule normally
+if (seekBars < clipStart) {
+  const when = transportStartTime + barsToSeconds(clipStart);
 
-    let dur = visibleDuration;
-    if (!isFinite(dur) || dur <= 0) dur = 0.001;
+  let dur = visibleDuration;
+  if (!isFinite(dur) || dur <= 0) dur = 0.001;
 
-    source.start(when, startOffset, dur);
-  } else {
-    // CASE 2: Starting in the middle of a clip (wrapped)
-    const barsIntoClip = -relativeStartBars;
+  window.scheduledSources.add(source);
+  source.onended = () => window.scheduledSources.delete(source);
 
-    // Use originalBars for wrapping, not clip.bars (UI length)
-    const loopLengthBars = clip.originalBars;
+  source.start(when, startOffset, dur);
+  return;
+}
 
-    // Safe modulo for fractional bars
-    const wrappedBarsIntoClip =
-      (barsIntoClip % loopLengthBars + loopLengthBars) % loopLengthBars;
+// CASE B: Transport INSIDE the clip → start from offset
+if (seekBars >= clipStart && seekBars < clipEnd) {
+  const barsIntoClip = seekBars - clipStart;
 
-    // Convert wrapped bars into SOURCE seconds
-    const secondsPerBarInSource = sourceDuration / clip.originalBars;
-    const offsetSeconds = wrappedBarsIntoClip * secondsPerBarInSource;
+  const secondsPerBarInSource = sourceDuration / clip.originalBars;
+  const offsetSeconds = barsIntoClip * secondsPerBarInSource;
 
-    // Trim duration safely
-    let safeDuration = sourceDuration - offsetSeconds;
-    if (!isFinite(safeDuration) || safeDuration <= 0) {
-      safeDuration = 0.001;
-    }
+  let safeDuration = sourceDuration - offsetSeconds;
+  if (!isFinite(safeDuration) || safeDuration <= 0) safeDuration = 0.001;
 
-    source.start(audioContext.currentTime, offsetSeconds, safeDuration);
-  }
+  window.scheduledSources.add(source);
+  source.onended = () => window.scheduledSources.delete(source);
+
+  source.start(audioContext.currentTime, offsetSeconds, safeDuration);
+  return;
+}
+
+// CASE C: Transport AFTER the clip → only play if looped
+if (clip.looped) {
+  const barsIntoClip = seekBars - clipStart;
+  const loopLengthBars = clip.originalBars;
+
+  const wrappedBarsIntoClip =
+    (barsIntoClip % loopLengthBars + loopLengthBars) % loopLengthBars;
+
+  const secondsPerBarInSource = sourceDuration / clip.originalBars;
+  const offsetSeconds = wrappedBarsIntoClip * secondsPerBarInSource;
+
+  let safeDuration = sourceDuration - offsetSeconds;
+  if (!isFinite(safeDuration) || safeDuration <= 0) safeDuration = 0.001;
+
+  window.scheduledSources.add(source);
+  source.onended = () => window.scheduledSources.delete(source);
+
+  source.start(audioContext.currentTime, offsetSeconds, safeDuration);
+}
+
+return;
+
+
 
   /* -------------------------------------------------------
      5. Track scheduled sources
   ------------------------------------------------------- */
-  scheduledSources.push(source);
+
+
 };
-
-
 
 
 // add this near the top of audioEngine.js
 window.onScheduleMidiClip = window.onScheduleMidiClip || null;
 
 window.playAll = function(seekBars = 0) {
-  scheduledSources = [];
-
-  const offsetSeconds = barsToSeconds(seekBars);
+  window.scheduledSources.clear();
+  window.scheduledMidiVoices.clear();
 
   // Seek: bar `seekBars` is "now"
-  transportStartTime = audioContext.currentTime - offsetSeconds;
+  transportStartTime = audioContext.currentTime - barsToSeconds(seekBars);
 
   clips.forEach(clip => {
     if (clip.type === "midi") {
       if (window.onScheduleMidiClip) {
-        // simple track object for now; you can evolve this later
-        const relativeStartBars = clip.startBar - seekBars;
-        const startTime = transportStartTime + barsToSeconds(relativeStartBars);
+        const startTime = transportStartTime + barsToSeconds(clip.startBar);
         const track = { instrument: "basic-saw" };
-
         window.onScheduleMidiClip(clip, track, startTime);
       }
     } else {
@@ -304,19 +345,22 @@ window.playAll = function(seekBars = 0) {
 
 
 
+
 window.stopAll = function() {
-  scheduledSources.forEach(s => {
+  window.scheduledSources.forEach(s => {
     try { s.stop(); } catch(e) {}
     try { s.disconnect(); } catch(e) {}
   });
-  scheduledSources = [];
+  window.scheduledSources.clear();
+
 
   // NEW: stop MIDI voices too
-  scheduledMidiVoices.forEach(v => {
+  window.scheduledMidiVoices.forEach(v => {
     try { v.stop(); } catch(e) {}
     try { v.disconnect(); } catch(e) {}
   });
-  scheduledMidiVoices = [];
+  window.scheduledMidiVoices.clear();
+
 
   isPlaying = false;
   stopPlayhead();
@@ -366,3 +410,41 @@ window.renderWaveform = function(audioBuffer, width, height = 40) {
 
   return canvas;
 };
+
+function updateTrackActiveState(trackIndex) {
+  const hasClips = window.clips.some(c => c.trackIndex === trackIndex);
+
+  if (!hasClips) {
+    // Silence the track
+    if (trackGains[trackIndex]) trackGains[trackIndex].gain.value = 0;
+
+    // Optionally disconnect reverb send
+    if (trackReverbSend[trackIndex]) trackReverbSend[trackIndex].disconnect();
+  } else {
+    // Restore normal gain
+    if (trackGains[trackIndex]) {
+      trackGains[trackIndex].gain.value =
+        Number(document.querySelectorAll(".track")[trackIndex]
+          .querySelector(".volume-knob").dataset.value);
+    }
+
+    // Restore reverb routing
+    if (trackReverbSend[trackIndex] && !trackReverbSend[trackIndex].numberOfOutputs) {
+      trackGains[trackIndex].connect(trackReverbSend[trackIndex]);
+    }
+  }
+}
+
+window.makeSmallReverbBuffer = function(ctx) {
+  const length = ctx.sampleRate * 3;
+  const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
+
+  for (let ch = 0; ch < 2; ch++) {
+    const channel = impulse.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      channel[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2);
+    }
+  }
+  return impulse;
+};
+

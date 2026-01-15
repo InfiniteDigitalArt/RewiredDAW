@@ -23,6 +23,9 @@ window.timeline = {
 
 window.initTimeline = function () {
   const tracksEl = document.getElementById("tracks");
+  const marker = document.getElementById("seekMarker");
+  marker.style.left = "106px";
+
 
   for (let i = 0; i < 16; i++) {
     const track = document.createElement("div");
@@ -42,6 +45,8 @@ window.initTimeline = function () {
     const label = document.createElement("div");
     label.className = "track-label";
     label.textContent = "Track " + (i + 1);
+    label.style.color = window.TRACK_COLORS[i % 10];
+
 
     // Horizontal knob row
     const knobRow = document.createElement("div");
@@ -73,6 +78,20 @@ window.initTimeline = function () {
     const panLabel = document.createElement("div");
     panLabel.className = "knob-label";
     panLabel.textContent = "PAN";
+
+// If project is loaded, apply saved values
+if (window.loadedProject && window.loadedProject.tracks[i]) {
+  const savedVol = window.loadedProject.tracks[i].volume;
+  const savedPan = window.loadedProject.tracks[i].pan;
+
+  // ⭐ Update knob UI without triggering events
+  vol.dataset.value = savedVol;
+  pan.dataset.value = savedPan;
+
+  updateKnobVisual(vol, savedVol);
+  updateKnobVisual(pan, savedPan);
+}
+
 
     panWrap.appendChild(pan);
     panWrap.appendChild(panLabel);
@@ -129,37 +148,100 @@ drop.addEventListener("drop", async (e) => {
   e.preventDefault();
   e.stopPropagation();
 
+  const isFileDrop = e.dataTransfer.files && e.dataTransfer.files.length > 0;
+  const isLoopDrop = !!window.draggedLoop;
+  const isClipDrop = !!window.draggedClipId;
+
+  if (!isFileDrop && !isLoopDrop && !isClipDrop) return;
+
+
+  // Continue with your existing logic...
+
+
+  // Continue with your existing logic
   const rect = drop.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const startBar = Math.floor(x / window.PIXELS_PER_BAR);
   const trackIndex = i;
 
-  // CASE 0: Dropping local audio files
-  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+  // CASE 0: Dropping local audio or MIDI files
+   
 
-    for (const file of e.dataTransfer.files) {
-      if (!file.type.startsWith("audio/")) continue;
+if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
 
-      const arrayBuffer = await file.arrayBuffer();
-      await window.audioContext.resume();
-      const audioBuffer = await window.audioContext.decodeAudioData(arrayBuffer);
-      const normalizedBuffer = normalizeBuffer(audioBuffer);
+  for (const file of e.dataTransfer.files) {
+    const name = file.name.toLowerCase();
 
-      const meta = window.parseLoopMetadata(file.name);
+/* ----------------------------------------------------
+   CASE 0A: Local MIDI file
+---------------------------------------------------- */
+if (
+  name.endsWith(".mid") ||
+  name.endsWith(".midi") ||
+  file.type === "audio/midi" ||
+  file.type === "audio/x-midi"
+) {
+  const arrayBuffer = await file.arrayBuffer();
 
-      // 1. Detect LOOP BPM (never use project BPM here)
-      const loopBpm = meta.bpm || 175; // or your default loop BPM
+  // Parse MIDI → notes[]
+  const midi = new Midi(arrayBuffer); // using tonejs/midi
+  const notes = [];
 
-      // 2. REAL duration from buffer
-      const durationSeconds = normalizedBuffer.duration;
+  midi.tracks.forEach(t => {
+    t.notes.forEach(n => {
+      notes.push({
+        pitch: n.midi,
+        start: n.ticks / midi.header.ppq,                     // ticks → beats (correct)
+        end: (n.ticks + n.durationTicks) / midi.header.ppq    // ticks → beats (correct)
+      });
+    });
+  });
 
-      // 3. REAL bars at LOOP BPM (correct)
-      const bars = (durationSeconds * loopBpm) / 240;
+  // Determine clip length in bars (4 beats per bar)
+  const maxEnd = Math.max(...notes.map(n => n.end));
+  const bars = Math.ceil(maxEnd / 4);
 
+  // Create MIDI clip
+  const clip = new MidiClip(startBar, bars);
+  clip.trackIndex = trackIndex;
+  clip.notes = notes;
+  clip.name = file.name.replace(/\.(mid|midi)$/i, "");
+
+  // Default sample
+  clip.sampleBuffer = window.defaultMidiSampleBuffer;
+  clip.sampleName = window.defaultMidiSampleName;
+
+  window.clips.push(clip);
+  resolveClipCollisions(clip);
+
+  drop.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === trackIndex)
+    .forEach(c => window.renderClip(c, drop));
+
+  continue; // move to next file
+}
+
+
+    /* ----------------------------------------------------
+       CASE 0B: Local audio file
+    ---------------------------------------------------- */
+    if (!file.type.startsWith("audio/")) continue;
+
+    const arrayBuffer = await file.arrayBuffer();
+    await window.audioContext.resume();
+    const audioBuffer = await window.audioContext.decodeAudioData(arrayBuffer);
+    const normalizedBuffer = normalizeBuffer(audioBuffer);
+
+    const meta = window.parseLoopMetadata(file.name);
+
+    const loopBpm = meta.bpm || 175;
+    const durationSeconds = normalizedBuffer.duration;
+    const bars = (durationSeconds * loopBpm) / 240;
 
     const clip = {
       id: crypto.randomUUID(),
-      type: "audio",          // ⭐ REQUIRED
+      type: "audio",
       loopId: null,
       fileName: meta.displayName || file.name,
       audioBuffer: normalizedBuffer,
@@ -172,20 +254,18 @@ drop.addEventListener("drop", async (e) => {
       durationSeconds,
     };
 
-
-
-
-      window.clips.push(clip);
-      resolveClipCollisions(clip);
-    }
-
-    drop.innerHTML = "";
-    window.clips
-      .filter(c => c.trackIndex === trackIndex)
-      .forEach(c => window.renderClip(c, drop));
-
-    return;
+    window.clips.push(clip);
+    resolveClipCollisions(clip);
   }
+
+  drop.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === trackIndex)
+    .forEach(c => window.renderClip(c, drop));
+
+  return;
+}
+
 
 
 
@@ -199,42 +279,57 @@ if (window.draggedLoop) {
   if (loop.type === "midi") {
 
     // BUILT-IN MIDI CLIP (already has notes)
-    if (loop.notes) {
-      const clip = new MidiClip(startBar, loop.bars);
-      clip.trackIndex = trackIndex;
-      clip.notes = JSON.parse(JSON.stringify(loop.notes));
+if (loop.notes) {
+  const clip = new MidiClip(startBar, loop.bars);
+  clip.trackIndex = trackIndex;
+  clip.notes = JSON.parse(JSON.stringify(loop.notes));
 
-      window.clips.push(clip);
-      resolveClipCollisions(clip);
+  // ⭐ Per‑clip sample fields
+  clip.sampleBuffer = window.defaultMidiSampleBuffer;
+  clip.sampleName = window.defaultMidiSampleName;
 
-      drop.innerHTML = "";
-      window.clips
-        .filter(c => c.trackIndex === trackIndex)
-        .forEach(c => window.renderClip(c, drop));
+  clip.name = generateMidiClipName();
 
-      return;
-    }
+
+  window.clips.push(clip);
+  resolveClipCollisions(clip);
+
+  drop.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === trackIndex)
+    .forEach(c => window.renderClip(c, drop));
+
+  return;
+}
+
 
     // DROPBOX MIDI (lazy-loaded)
-    if (loop.url) {
-      // Load + parse MIDI on demand
-      loadMidiFromDropbox(loop.url, loop.displayName).then(clip => {
-        if (!clip) return;
+if (loop.url) {
+  loadMidiFromDropbox(loop.url, loop.displayName).then(clip => {
+    if (!clip) return;
 
-        clip.startBar = startBar;
-        clip.trackIndex = trackIndex;
+    clip.startBar = startBar;
+    clip.trackIndex = trackIndex;
 
-        window.clips.push(clip);
-        resolveClipCollisions(clip);
+    // ⭐ Per‑clip sample fields
+    clip.sampleBuffer = window.defaultMidiSampleBuffer;
+    clip.sampleName = window.defaultMidiSampleName;
 
-        drop.innerHTML = "";
-        window.clips
-          .filter(c => c.trackIndex === trackIndex)
-          .forEach(c => window.renderClip(c, drop));
-      });
+    clip.name = generateMidiClipName();
 
-      return;
-    }
+
+    window.clips.push(clip);
+    resolveClipCollisions(clip);
+
+    drop.innerHTML = "";
+    window.clips
+      .filter(c => c.trackIndex === trackIndex)
+      .forEach(c => window.renderClip(c, drop));
+  });
+
+  return;
+}
+
   }
 
 
@@ -281,8 +376,17 @@ if (window.draggedLoop) {
 
 /* CASE 2: Moving or duplicating an existing clip */
 if (window.draggedClipId) {
-  const original = window.clips.find((c) => c.id === window.draggedClipId);
+  const original = window.clips.find(c => c.id === window.draggedClipId);
+
   if (original) {
+
+    const oldTrackIndex = original.trackIndex;
+
+    // ⭐ Force MOVE when dragging to a different track
+    if (oldTrackIndex !== trackIndex) {
+      window.isDuplicateDrag = false;
+    }
+
     if (window.isDuplicateDrag) {
       const newClip = {
         ...original,
@@ -296,21 +400,36 @@ if (window.draggedClipId) {
       original.trackIndex = trackIndex;
       original.startBar = startBar;
       resolveClipCollisions(original);
+      // ⭐ If this clip is currently open in the piano roll, update it
+      if (window.activeClip && window.activeClip.id === original.id) {
+        window.activeClip = original;            // update reference
+        window.activeTrackIndex = trackIndex;    // update track index
+        window.openPianoRoll(original);
+
+        window.renderPianoRoll(original);        // refresh colours + notes
+      }
+
     }
+
+    // ⭐ Remove old DOM element directly (no track refresh)
+    const oldEl = document.querySelector(`[data-clip-id="${original.id}"]`);
+    if (oldEl) oldEl.remove();
   }
 }
 
+/* Re-render NEW track */
+drop.innerHTML = "";
+window.clips
+  .filter(c => c.trackIndex === trackIndex)
+  .forEach(c => window.renderClip(c, drop));
 
-  // Re-render this track
-  drop.innerHTML = "";
-  window.clips
-    .filter((c) => c.trackIndex === trackIndex)
-    .forEach((c) => window.renderClip(c, drop));
+/* Reset drag state */
+window.draggedClipId = null;
+window.draggedLoop = null;
+window.isDuplicateDrag = false;
 
-  // Reset drag state
-  window.draggedLoop = null;
-  window.draggedClipId = null;
-  window.isDuplicateDrag = false;
+
+
 });
 
 
@@ -342,8 +461,6 @@ function renderGrid() {
     const totalWidth = totalBars * window.PIXELS_PER_BAR;
     grid.style.width = totalWidth + "px";
 
-
-    // Height of one track lane
     const trackHeight = grid.parentElement.offsetHeight;
 
     // Vertical bars + beats
@@ -353,6 +470,7 @@ function renderGrid() {
       bar.style.left = (i * window.PIXELS_PER_BAR) + "px";
       grid.appendChild(bar);
 
+      // Beat lines
       for (let b = 1; b < beatsPerBar; b++) {
         const beat = document.createElement("div");
         beat.className = "grid-beat";
@@ -362,16 +480,30 @@ function renderGrid() {
           "px";
         grid.appendChild(beat);
       }
+
+      // ⭐ NEW: 1/4-beat subdivision lines
+      const quarter = window.PIXELS_PER_BAR / (beatsPerBar * 4);
+      for (let q = 1; q < beatsPerBar * 4; q++) {
+        // Skip positions that coincide with full beats
+        if (q % 4 === 0) continue;
+
+        const sub = document.createElement("div");
+        sub.className = "grid-subbeat";
+        sub.style.left =
+          (i * window.PIXELS_PER_BAR) +
+          (q * quarter) +
+          "px";
+        grid.appendChild(sub);
+      }
     }
 
-        // Horizontal lines
-      for (let y = 12; y < trackHeight; y += 12) {
-        const row = document.createElement("div");
-        row.className = "grid-row";
-        row.style.top = y + "px";
-        grid.appendChild(row);
-      }
-
+    // Horizontal lines
+    for (let y = 12; y < trackHeight; y += 12) {
+      const row = document.createElement("div");
+      row.className = "grid-row";
+      row.style.top = y + "px";
+      grid.appendChild(row);
+    }
   });
 }
 
@@ -394,18 +526,29 @@ window.renderClip = function (clip, dropArea) {
   el.style.left = (clip.startBar * window.PIXELS_PER_BAR) + "px";
   el.style.width = width + "px";
 
-  /* -------------------------------------------------------
-     RIGHT-CLICK DELETE
-  ------------------------------------------------------- */
-  el.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    window.clips = window.clips.filter((c) => c.id !== clip.id);
+/* -------------------------------------------------------
+   RIGHT-CLICK DELETE
+------------------------------------------------------- */
+el.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
 
-    dropArea.innerHTML = "";
-    window.clips
-      .filter((c) => c.trackIndex === clip.trackIndex)
-      .forEach((c) => window.renderClip(c, dropArea));
-  });
+  const trackIndex = clip.trackIndex;
+
+  // 1. Remove the clip from the project
+  window.clips = window.clips.filter(c => c.id !== clip.id);
+
+  // 2. Re-render the track visually
+  dropArea.innerHTML = "";
+  window.clips
+    .filter(c => c.trackIndex === trackIndex)
+    .forEach(c => window.renderClip(c, dropArea));
+
+  // 3. Update audio engine state for this track
+  //updateTrackActiveState(trackIndex);
+
+
+});
+
 
 /* -------------------------------------------------------
    RESIZE HANDLE (right-edge trim) — snap to whole bars
@@ -488,20 +631,21 @@ handle.addEventListener("mousedown", (e) => {
   document.addEventListener("mouseup", up);
 });
 
-
 el.addEventListener("dblclick", () => {
   if (clip.type === "midi") {
-    window.openPianoRoll(clip);
+    const realClip = window.clips.find(c => c.id === el.dataset.clipId);
+    window.activeClip = realClip;
+
+    // ⭐ Update clip name in the piano roll header
+    const clipNameEl = document.getElementById("piano-roll-clip-name");
+    if (clipNameEl) {
+      clipNameEl.textContent = realClip.name || "MIDI Clip";
+    }
+
+    // ⭐ Open piano roll (this will update the sample name)
+    openPianoRoll(realClip);
   }
 });
-
-// ⭐ Open piano roll on double‑click
-el.addEventListener("dblclick", () => {
-  if (clip.type === "midi") {
-    openPianoRoll(clip);
-  }
-});
-
 
 
 /* -------------------------------------------------------
@@ -642,27 +786,33 @@ if (clip.type === "midi") {
 
 
 
-  /* -------------------------------------------------------
-     LABEL
-     - Local file: show filename
-     - Loop: show loopId
-  ------------------------------------------------------- */
-  const label = document.createElement("div");
-  label.style.position = "absolute";
-  label.style.top = "2px";
-  label.style.left = "4px";
-  label.style.fontSize = "10px";
-  label.style.color = "#fff";
-  label.style.pointerEvents = "none";
+/* -------------------------------------------------------
+   LABEL
+   - Local audio: fileName
+   - Loop audio: fileName
+   - MIDI: name
+------------------------------------------------------- */
+const label = document.createElement("div");
+label.style.position = "absolute";
+label.style.top = "2px";
+label.style.left = "4px";
+label.style.fontSize = "10px";
+label.style.color = "#fff";
+label.style.pointerEvents = "none";
 
+if (clip.type === "audio") {
+  // Works for both local audio and loop clips
+  label.textContent = clip.fileName || clip.loopId || "Audio";
+} 
+else if (clip.type === "midi") {
+  label.textContent = clip.name || "MIDI Clip";
+} 
+else {
+  label.textContent = "Clip";
+}
 
-  if (clip.audioBuffer) {
-    label.textContent = clip.fileName || "Audio File";
-  } else {
-    label.textContent = clip.loopId || "Clip";
-  }
+el.appendChild(label);
 
-  el.appendChild(label);
 
 /* -------------------------------------------------------
    DRAGGABLE CLIP (child-safe)
@@ -670,12 +820,14 @@ if (clip.type === "midi") {
 el.draggable = true;
 
 el.addEventListener("dragstart", (e) => {
-  // ensure drag always originates from the clip container
   if (e.target !== el) {
     e.stopPropagation();
   }
 
-  window.isDuplicateDrag = window.shiftDown;
+  // Set duplication state based on modifier keys
+  window.isDuplicateDrag = e.shiftKey || e.altKey || e.ctrlKey;
+
+  // Set which clip is being dragged
   window.draggedClipId = clip.id;
   window.draggedLoop = null;
 
@@ -740,6 +892,8 @@ el.addEventListener("touchend", () => {
 
 
   dropArea.appendChild(el);
+  
+
 };
 
 

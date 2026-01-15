@@ -52,18 +52,57 @@ body {
 ------------------------------------------------------- */
 .timeline {
   flex: 1;
-  overflow-x: auto; 
+
   white-space: nowrap;
   background: #0f0f14;
   position: relative;
+  pointer-events: auto;
+  height: calc(100vh - 60px);
   
 }
+
+/* Scrollable tracks area under the bar */
+#timeline-scroll {
+  position: absolute;
+  top: 24px; /* same as bar height */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto; /* vertical + horizontal scroll */
+}
+
+/* Scrollbars (Chrome / Edge / Safari) */
+#timeline-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#timeline-scroll::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+#timeline-scroll::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 6px;
+  border: 2px solid #1a1a1a;
+}
+
+#timeline-scroll::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+#timeline-scroll::-webkit-scrollbar-corner {
+  background: #1a1a1a;
+}
+
+
 
 .tracks {
   position: relative;
   min-width: 2000px;
   
 }
+
 
 /* -------------------------------------------------------
    TRACKS (FIXED)
@@ -134,6 +173,7 @@ body {
   inset: 0;
   left: 0;
   right: 0;
+  
 }
 
 
@@ -396,8 +436,9 @@ body {
 }
 
 .pan-knob[data-value]::after {
-  transform: translateX(-50%) rotate(calc((var(--val, 0.5) * 90deg) - 45deg));
+  transform: translateX(-50%) rotate(calc((var(--val, 0.5) * 270deg) - 135deg));
 }
+
 
 .knob-row {
   display: flex;
@@ -460,6 +501,9 @@ body {
   gap: 14px;
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+
+  position: relative;   /* ⭐ REQUIRED */
+  z-index: 1000;          /* ⭐ Ensures dropdown floats above timeline */
 }
 
 /* -------------------------------------------------------
@@ -555,7 +599,9 @@ body {
 }
 
 /* Slider styling */
-.tempo-slider {
+/* Shared slider styling */
+.tempo-slider,
+.reverb-slider {
   appearance: none;
   -webkit-appearance: none;
 
@@ -568,7 +614,8 @@ body {
   border: 1px solid #2b2b33;
 }
 
-.tempo-slider::-webkit-slider-thumb {
+.tempo-slider::-webkit-slider-thumb,
+.reverb-slider::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
 
@@ -582,11 +629,14 @@ body {
   transition: transform 0.1s ease;
 }
 
-.tempo-slider::-webkit-slider-thumb:active {
+.tempo-slider::-webkit-slider-thumb:active,
+.reverb-slider::-webkit-slider-thumb:active {
   transform: scale(1.2);
 }
 
+
 #timeline-bar {
+  
   height: 24px;
   background: #1a1a1f;
   border-bottom: 1px solid #2a2a30;
@@ -595,9 +645,10 @@ body {
   user-select: none;
   position: relative;
   padding-left: 107px;
-  z-index: 10;
+  z-index: 150;
   width: 100%; 
   min-width: 5120px;
+  pointer-events: auto;
   
 }
 
@@ -676,30 +727,104 @@ body {
   touch-action: none;
 }
 
+#timeline-bar {
+  position: relative;
+  height: 24px; /* or whatever your timebar height is */
+}
+
+.seek-marker {
+  position: absolute;
+  top: 14px;                 /* center vertically */
+  transform: translateY(-50%);
+  left: 100px;              /* TEMP: so you can see it */
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 10px solid var(--playhead);
+  pointer-events: none;
+  z-index: 998;
+}
+
+
+.menu-bar {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+
+.menu-item {
+  position: relative;
+  padding: 6px 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.menu-item:hover {
+  background: var(--bg-panel);
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-mid);
+  border-radius: 4px;
+  padding: 4px 0;
+  display: none;
+  min-width: 150px;
+  z-index: 9999;
+}
+
+.dropdown-item {
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background: var(--border-mid);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   PIANO ROLL CONTAINER
+   ============================================ */
+
 #piano-roll-container {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-
-  height: 260px; /* or whatever height you prefer */
+  height: 360px;
   background: #111;
   border-top: 1px solid #333;
-
-  display: none; /* hidden until a clip is opened */
   z-index: 100;
 }
 
-#piano-roll-scroll {
-  width: 100%;
-  height: 100%;
-  overflow: auto;
+
+#piano-roll-container.hidden {
+  display: none;
 }
 
 /* ============================================
-   DARK THEME SCROLLBARS (Chrome / Edge / Safari)
+   SCROLL AREA
    ============================================ */
 
+#piano-roll-scroll {
+  position: absolute;
+  top: 38px;        /* header height */
+  left: 60px;       /* piano width */
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+}
+
+
+/* Scrollbars (Chrome / Edge / Safari) */
 #piano-roll-scroll::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -712,7 +837,7 @@ body {
 #piano-roll-scroll::-webkit-scrollbar-thumb {
   background: #444;
   border-radius: 6px;
-  border: 2px solid #1a1a1a; /* inset effect */
+  border: 2px solid #1a1a1a;
 }
 
 #piano-roll-scroll::-webkit-scrollbar-thumb:hover {
@@ -723,24 +848,226 @@ body {
   background: #1a1a1a;
 }
 
-
 #piano-roll-canvas {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+#piano-roll-sample-header {
+  display: flex;
+  align-items: center;
+  background: var(--bg-panel);
+  padding: 0px 10px;
+  border: 1px solid var(--border-mid);
+
+  font-size: 14px;
+  color: var(--text-primary);
+  user-select: none;
+  position: relative;
+  height: 38px;
+}
+
+/* LEFT SECTION */
+.piano-roll-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+
+}
+
+/* CENTER SECTION — pinned to true center */
+.piano-roll-header-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* RIGHT SECTION */
+.piano-roll-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ============================================
+   CLIP NAME + SAMPLE NAME TAGS
+   ============================================ */
+
+#piano-roll-clip-name {
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  user-select: none;
+}
+
+#piano-roll-sample-name {
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* ============================================
+   LOAD SAMPLE BUTTON
+   ============================================ */
+
+#piano-roll-load-sample {
+  background: var(--bg-track-even);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#piano-roll-load-sample:hover {
+  background: var(--bg-track-odd);
+  border-color: var(--border-mid);
+}
+
+#piano-roll-load-sample:active {
+  background: var(--border-mid);
+}
+
+/* ============================================
+   CLOSE BUTTON
+   ============================================ */
+
+#piano-roll-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+#piano-roll-close:hover {
+  color: var(--text-primary);
+}
+
+/* ============================================
+   REVERB CONTROL
+   ============================================ */
+
+#piano-roll-reverb-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#piano-roll-reverb {
+  width: 120px;
+  --thumb-color: #fff;
+}
+
+#piano-roll-reverb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--thumb-color);
+  cursor: pointer;
+}
+
+#piano-roll-reverb::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--thumb-color);
+  cursor: pointer;
+}
+
+/* ============================================
+   TRANSPOSE CONTROLS
+   ============================================ */
+
+#piano-roll-transpose {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.transpose-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.transpose-label {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.transpose-btn {
+  width: 20px;
+  height: 20px;
+  background: #1c1c22;
+  border: 1px solid #2b2b33;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.transpose-btn:hover {
+  background: #2d2d35;
+}
+
+.transpose-btn:active {
+  background: #007aff;
+  border-color: #007aff;
+}
+
+/* ============================================
+   FIXED PIANO + SCROLLING GRID LAYOUT
+   ============================================ */
+
+/* Fixed piano column */
+#piano-roll-piano {
+  position: absolute;
+  top: 38px;            /* header height */
+  left: 0;
+  width: 60px;          /* pianoWidth */
+  bottom: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-mid);
+  z-index: 10;
+  overflow-y: hidden; /* no vertical scrollbar visible */ 
+  overflow-x: hidden;
+}
+
+/* Piano canvas fills its container */
+#piano-roll-piano-canvas {
+  width: 100%;
+  
   display: block;
 }
 
-#piano-roll-container.hidden {
-  display: none;
+/* Scrolling grid area */
+#piano-roll-scroll {
+  position: absolute;
+  top: 38px;            /* header height */
+  left: 60px;           /* piano width */
+  right: 0;
+  bottom: 0;
+  overflow: auto;
 }
 
-#piano-roll-close {
-  position: absolute;
-  top: 6px;
-  right: 16px;
-  background: none;
-  border: none;
-  color: #aaa;
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 30;
+/* Grid canvas must not shrink */
+#piano-roll-canvas {
+  display: block;
 }
 

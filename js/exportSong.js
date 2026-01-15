@@ -3,7 +3,7 @@
 // ======================================================
 
 // Prevent OfflineAudioContext fade-in at time 0
-const EXPORT_START_OFFSET = 0.005; // 5ms
+const EXPORT_START_OFFSET = 0.05;
 
 
 window.exportSong = async function() {
@@ -43,14 +43,28 @@ window.clips.forEach(clip => {
   // 4. Master chain: Gain → Limiter → Destination
   // ------------------------------------------------------
   const masterGain = offline.createGain();
-  masterGain.gain.value = 0.89; // -1 dB headroom
+
+  // Mute master at time 0
+  masterGain.gain.setValueAtTime(0, 0);
+
+  // Jump to full level at the offset
+  masterGain.gain.setValueAtTime(0.89, EXPORT_START_OFFSET);
+
+
 
   const limiter = offline.createDynamicsCompressor();
   limiter.threshold.value = -1.0;
   limiter.knee.value = 0;
   limiter.ratio.value = 20;
-  limiter.attack.value = 0.003;
   limiter.release.value = 0.050;
+
+  // Force attack = 0 at time 0
+  limiter.attack.setValueAtTime(0, 0);
+
+  // Restore your intended attack after the offset
+  limiter.attack.setValueAtTime(0.003, EXPORT_START_OFFSET);
+
+
 
   masterGain.connect(limiter);
   limiter.connect(offline.destination);
@@ -66,7 +80,8 @@ for (let i = 0; i < window.trackGains.length; i++) {
   g.gain.value = window.trackGains[i].gain.value;
 
   const p = offline.createStereoPanner();
-  p.pan.value = window.trackPans?.[i] || 0;
+  p.pan.value = window.trackPanners[i].pan.value;
+
 
   g.connect(p);
   p.connect(masterGain);
@@ -106,21 +121,14 @@ window.clips.forEach(clip => {
   src.buffer = buffer;
   src.playbackRate.value = window.BPM / bpm;
 
-  // Track gain + pan
-  const trackGain = offline.createGain();
-  trackGain.gain.value = window.trackGains[clip.trackIndex].gain.value;
-
-  const trackPan = offline.createStereoPanner();
-  trackPan.pan.value = window.trackPans?.[clip.trackIndex] || 0;
-
-  src.connect(trackGain);
-  trackGain.connect(trackPan);
-  trackPan.connect(masterGain);
+  // ⭐ Correct routing: use shared offline mixer
+  const trackIndex = clip.trackIndex ?? 0;
+  src.connect(offlineTrackGains[trackIndex]);
 
   const when = EXPORT_START_OFFSET + window.barsToSeconds(clip.startBar);
   src.start(when);
-
 });
+
 
 // ------------------------------------------------------
 // 5B. Schedule MIDI clips
@@ -134,8 +142,11 @@ window.clips.forEach(clip => {
 const synth = new BasicSawSynthForContext(
   offline,
   offlineTrackGains[trackIndex],
-  window.loadedLeadSample
+  clip.sampleBuffer,
+  window.makeSmallReverbBuffer(offline),     // ⭐ same impulse as realtime
+  clip.reverbGain.gain.value                 // ⭐ per‑clip wet amount
 );
+
 
 
 
