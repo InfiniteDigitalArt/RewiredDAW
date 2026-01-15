@@ -23,21 +23,24 @@ window.timeline = {
 
 window.initTimeline = function () {
   const tracksEl = document.getElementById("tracks");
-  const controlsContainer = document.getElementById("track-controls-container");
   const marker = document.getElementById("seekMarker");
-  marker.style.left = "160px";
+  marker.style.left = "106px";
 
-  // Clear containers
-  tracksEl.innerHTML = "";
-  controlsContainer.innerHTML = "";
 
   for (let i = 0; i < 16; i++) {
+    const track = document.createElement("div");
+    track.className = "track";
+    track.dataset.index = i;
     const color = window.TRACK_COLORS[i % 10];
 
+    track.style.setProperty("--track-color", color);
+
+
+    /* -------------------------------------------------------
+       LEFT CONTROL STRIP
+    ------------------------------------------------------- */
     const controls = document.createElement("div");
     controls.className = "track-controls";
-    controls.dataset.index = i; // ⭐ Add data-index for mapping
-    // Remove: controls.style.background = color;
 
     const label = document.createElement("div");
     label.className = "track-label";
@@ -48,8 +51,6 @@ window.initTimeline = function () {
     // Horizontal knob row
     const knobRow = document.createElement("div");
     knobRow.className = "knob-row";
-    knobRow.style.display = "flex";
-    knobRow.style.alignItems = "center"; // ⭐ Center vertically
 
     // Volume knob + label
     const volWrap = document.createElement("div");
@@ -58,7 +59,6 @@ window.initTimeline = function () {
     const vol = document.createElement("div");
     vol.className = "knob volume-knob";
     vol.dataset.value = 0.8;
-    vol.style.background = color; // ⭐ knob color
 
     const volLabel = document.createElement("div");
     volLabel.className = "knob-label";
@@ -74,7 +74,6 @@ window.initTimeline = function () {
     const pan = document.createElement("div");
     pan.className = "knob pan-knob";
     pan.dataset.value = 0.5;
-    pan.style.background = color; // ⭐ knob color
 
     const panLabel = document.createElement("div");
     panLabel.className = "knob-label";
@@ -106,40 +105,12 @@ if (window.loadedProject && window.loadedProject.tracks[i]) {
     // Create meter
     const meter = document.createElement("div");
     meter.className = "track-meter";
-    meter.style.background = "#222";
-    meter.style.position = "relative";
-    meter.style.overflow = "hidden";
-    meter.style.display = "flex";
-    meter.style.flexDirection = "column";
-    meter.style.justifyContent = "center";
-    meter.style.height = "18px"; // ⭐ Make taller for vertical centering
-    meter.style.marginLeft = "12px";
-    meter.style.marginRight = "0";
 
-    // Left channel
-    const meterFillL = document.createElement("div");
-    meterFillL.className = "track-meter-fill track-meter-fill-left";
-    meterFillL.style.background = color;
-    meterFillL.style.position = "absolute";
-    meterFillL.style.left = "0";
-    meterFillL.style.top = "0";
-    meterFillL.style.height = "45%";
-    meterFillL.style.width = "0%";
-    meterFillL.style.borderRadius = "4px 4px 0 0";
-    meter.appendChild(meterFillL);
+    const meterFill = document.createElement("div");
+    meterFill.className = "track-meter-fill";
+    meter.appendChild(meterFill);
 
-    // Right channel
-    const meterFillR = document.createElement("div");
-    meterFillR.className = "track-meter-fill track-meter-fill-right";
-    meterFillR.style.background = color;
-    meterFillR.style.position = "absolute";
-    meterFillR.style.left = "0";
-    meterFillR.style.bottom = "0";
-    meterFillR.style.height = "45%";
-    meterFillR.style.width = "0%";
-    meterFillR.style.borderRadius = "0 0 4px 4px";
-    meter.appendChild(meterFillR);
-
+    // Add meter to the knob row (NOT controls)
     knobRow.appendChild(meter);
 
 
@@ -190,10 +161,7 @@ drop.addEventListener("drop", async (e) => {
   // Continue with your existing logic
   const rect = drop.getBoundingClientRect();
   const x = e.clientX - rect.left;
-  const rawStartBar = x / window.PIXELS_PER_BAR;
-  
-  // ⭐ Snap to grid
-  const startBar = window.snapToGrid(rawStartBar);
+  const startBar = Math.floor(x / window.PIXELS_PER_BAR);
   const trackIndex = i;
 
   // CASE 0: Dropping local audio or MIDI files
@@ -472,20 +440,9 @@ window.isDuplicateDrag = false;
     /* -------------------------------------------------------
        BUILD TRACK
     ------------------------------------------------------- */
-    const track = document.createElement("div");
-    track.className = "track";
-    track.dataset.index = i;
-    track.style.setProperty("--track-color", window.TRACK_COLORS[i % 10]);
+    track.appendChild(controls);
     track.appendChild(inner);
-
-    controlsContainer.appendChild(controls);
     tracksEl.appendChild(track);
-  }
-
-  // Ensure grid/clip area starts after controls
-  const tracksScrollable = document.querySelector('.tracks-scrollable');
-  if (tracksScrollable) {
-    tracksScrollable.style.marginLeft = "160px";
   }
 
 /* -------------------------------------------------------
@@ -540,10 +497,8 @@ function renderGrid() {
       }
     }
 
-    // Horizontal lines: split into 4 equal sections
-    const sectionHeight = trackHeight / 4;
-    for (let s = 1; s < 4; s++) { // 3 lines to split into 4 sections
-      const y = s * sectionHeight;
+    // Horizontal lines
+    for (let y = 12; y < trackHeight; y += 12) {
       const row = document.createElement("div");
       row.className = "grid-row";
       row.style.top = y + "px";
@@ -554,20 +509,6 @@ function renderGrid() {
 
 renderGrid();
 window.renderTimelineBar(64);
-
-  // ⭐ Make timeline bar scroll horizontally with tracks
-  const timelineScroll = document.getElementById("timeline-scroll");
-  const timelineBar = document.getElementById("timeline-bar");
-  const playhead = document.getElementById("playhead");
-  const seekMarker = document.getElementById("seekMarker");
-
-  if (timelineScroll && timelineBar) {
-    timelineScroll.addEventListener("scroll", function () {
-      timelineBar.style.transform = `translateX(${-timelineScroll.scrollLeft}px)`;
-      if (playhead) playhead.style.transform = `translateX(${-timelineScroll.scrollLeft}px)`;
-      if (seekMarker) seekMarker.style.transform = `translateX(${-timelineScroll.scrollLeft}px)`;
-    });
-  }
 };
 
 /* -------------------------------------------------------
@@ -622,8 +563,13 @@ handle.addEventListener("mousedown", (e) => {
   e.preventDefault();
 
   const startX = e.clientX;
-  const startBarsInt = clip.bars; // ⭐ Use actual bars (may be fractional)
 
+  // Clean integer starting point for snapping
+  const startBarsInt = Math.max(1, Math.round(clip.bars));
+
+  /* -------------------------------------------------------
+     PREVIEW OVERLAY (glow + bar ruler)
+  ------------------------------------------------------- */
   const preview = document.createElement("div");
   preview.className = "clip-resize-preview";
 
@@ -637,47 +583,32 @@ handle.addEventListener("mousedown", (e) => {
     const deltaPx = ev.clientX - startX;
     const deltaBarsRaw = deltaPx / window.PIXELS_PER_BAR;
 
-    // ⭐ Calculate the raw new size first
-    let rawNewBars = startBarsInt + deltaBarsRaw;
-    
-    // ⭐ Snap the final size intelligently
-    const snapValue = window.getSnapValue();
-    
-    // Find the nearest snap grid line
-    const snappedNewBars = Math.round(rawNewBars / snapValue) * snapValue;
-    
-    // Use snapped value, but enforce minimum
-    let newBars = Math.max(snapValue, snappedNewBars);
+    // Snap delta to whole bars
+    const snappedDeltaBars = Math.round(deltaBarsRaw);
+
+    // New bar length
+    let newBars = Math.max(1, startBarsInt + snappedDeltaBars);
     clip.bars = newBars;
 
-    // ⭐ Update durationSeconds based on new bar length
-    if (clip.type === "audio") {
-      const barDuration = window.barsToSeconds(1);
-      clip.durationSeconds = newBars * barDuration;
-    }
-
+    // Update clip width
     const newWidth = newBars * window.PIXELS_PER_BAR;
     el.style.width = newWidth + "px";
 
-    preview.style.width = newWidth + "px";
-    preview.innerHTML = "";
-    preview.appendChild(glow);
+    /* -------------------------------------------------------
+       Update preview overlay
+    ------------------------------------------------------- */
 
-    // ⭐ Render preview bars (show fractional bars too)
-    const barCount = Math.floor(newBars);
-    for (let i = 0; i < barCount; i++) {
+    // Set preview width
+    preview.style.width = newWidth + "px";
+
+    // Rebuild bar ruler
+    preview.innerHTML = ""; // clear
+    preview.appendChild(glow); // keep glow on top
+
+    for (let i = 0; i < newBars; i++) {
       const bar = document.createElement("div");
       bar.className = "bar";
       preview.appendChild(bar);
-    }
-    
-    // ⭐ Show fractional bar if exists
-    const fraction = newBars - barCount;
-    if (fraction > 0.01) {
-      const fracBar = document.createElement("div");
-      fracBar.className = "bar";
-      fracBar.style.opacity = String(fraction);
-      preview.appendChild(fracBar);
     }
   }
 
@@ -743,23 +674,16 @@ if (clip.type === "audio" && bufferToDraw) {
   const barDuration = window.barsToSeconds(1);
   const projectBars = durationSeconds / barDuration;
 
-  // ⭐ CRITICAL: Set originalBars ONLY if it doesn't exist
-  // Never overwrite it after clip creation
-  if (!clip.originalBars || !isFinite(clip.originalBars) || clip.originalBars <= 0) {
+  if (!isFinite(clip.originalBars) || clip.originalBars <= 0) {
     clip.originalBars = projectBars;
   }
 
-  // ⭐ bars should never exceed originalBars
   if (!isFinite(clip.bars) || clip.bars <= 0) {
     clip.bars = clip.originalBars;
   }
 
   const originalBars = clip.originalBars;
   const playbackBars = clip.bars;
-
-  // ⭐ Calculate playback duration from trimmed bars
-  const playbackDurationSeconds = playbackBars * barDuration;
-  clip.durationSeconds = playbackDurationSeconds;
 
   const waveformWidth = originalBars * window.PIXELS_PER_BAR;
 
@@ -900,7 +824,10 @@ el.addEventListener("dragstart", (e) => {
     e.stopPropagation();
   }
 
+  // Set duplication state based on modifier keys
   window.isDuplicateDrag = e.shiftKey || e.altKey || e.ctrlKey;
+
+  // Set which clip is being dragged
   window.draggedClipId = clip.id;
   window.draggedLoop = null;
 
@@ -922,7 +849,7 @@ el.addEventListener("dragstart", (e) => {
 let touchDrag = null;
 
 el.addEventListener("touchstart", (e) => {
-  e.preventDefault();
+  e.preventDefault(); // stop scrolling / text selection
   const t = e.touches[0];
 
   touchDrag = {
@@ -940,10 +867,7 @@ el.addEventListener("touchmove", (e) => {
 
   const t = e.touches[0];
   const deltaPx = t.clientX - touchDrag.startX;
-  const deltaBarsRaw = deltaPx / window.PIXELS_PER_BAR;
-  
-  // ⭐ Snap delta to grid
-  const deltaBars = window.snapDeltaToGrid(deltaBarsRaw);
+  const deltaBars = Math.round(deltaPx / window.PIXELS_PER_BAR);
 
   touchDrag.clip.startBar = Math.max(0, touchDrag.originalStartBar + deltaBars);
   touchDrag.el.style.left = touchDrag.clip.startBar * window.PIXELS_PER_BAR + "px";
@@ -965,121 +889,6 @@ el.addEventListener("touchend", () => {
   touchDrag = null;
 });
 
-/* -------------------------------------------------------
-   MOUSE DRAG SUPPORT (real-time movement)
-------------------------------------------------------- */
-let mouseDrag = null;
-
-el.addEventListener("mousedown", (e) => {
-  // Don't drag if clicking on the resize handle
-  if (e.target.classList.contains("resize-handle")) return;
-
-  e.preventDefault();
-  const rect = el.getBoundingClientRect();
-  const dropRect = dropArea.getBoundingClientRect();
-
-  // ⭐ Check for shift key to enable duplication
-  const isDuplicateDrag = e.shiftKey || e.altKey || e.ctrlKey;
-
-  // ⭐ If duplicating, create a visual clone element
-  let dragElement = el;
-  let dragOffsetY = 0;
-  if (isDuplicateDrag) {
-    dragElement = el.cloneNode(true);
-    // Copy computed styles for perfect match
-    const computed = window.getComputedStyle(el);
-    dragElement.style.position = "absolute";
-    dragElement.style.zIndex = "1000";
-    dragElement.style.width = computed.width;
-    dragElement.style.height = computed.height;
-    dragElement.style.left = el.style.left;
-    dragElement.style.top = el.style.top;
-    dragElement.style.pointerEvents = "none";
-    dragElement.style.opacity = "0.7";
-    dragElement.classList.add("clip-dragging");
-    // Remove resize handle from clone (optional)
-    const cloneHandle = dragElement.querySelector(".resize-handle");
-    if (cloneHandle) cloneHandle.remove();
-    // Place clone at same vertical position as original
-    dragOffsetY = el.offsetTop;
-    dragElement.style.top = dragOffsetY + "px";
-    // ⭐ Copy waveform canvas bitmap if present
-    const origCanvas = el.querySelector("canvas");
-    const cloneCanvas = dragElement.querySelector("canvas");
-    if (origCanvas && cloneCanvas && origCanvas.width && origCanvas.height) {
-      cloneCanvas.width = origCanvas.width;
-      cloneCanvas.height = origCanvas.height;
-      cloneCanvas.getContext("2d").drawImage(origCanvas, 0, 0);
-    }
-    dropArea.appendChild(dragElement);
-  }
-
-  mouseDrag = {
-    clip,
-    el,
-    dragElement,
-    dropArea,
-    startX: e.clientX,
-    originalStartBar: clip.startBar,
-    dropAreaLeft: dropRect.left,
-    isDuplicateDrag,
-    dragOffsetY
-  };
-});
-
-document.addEventListener("mousemove", (e) => {
-  if (!mouseDrag) return;
-
-  const deltaPx = e.clientX - mouseDrag.startX;
-  const deltaBarsRaw = deltaPx / window.PIXELS_PER_BAR;
-  const deltaBars = window.snapDeltaToGrid(deltaBarsRaw);
-
-  const newStartBar = Math.max(0, mouseDrag.originalStartBar + deltaBars);
-
-  // ⭐ Update the drag element (clone during duplication, original during move)
-  mouseDrag.dragElement.style.left = newStartBar * window.PIXELS_PER_BAR + "px";
-  mouseDrag.dragElement.style.opacity = "0.7";
-  // Keep vertical position fixed
-  if (mouseDrag.isDuplicateDrag) {
-    mouseDrag.dragElement.style.top = mouseDrag.dragOffsetY + "px";
-  }
-});
-
-document.addEventListener("mouseup", () => {
-  if (!mouseDrag) return;
-
-  const { clip, el, dragElement, dropArea, isDuplicateDrag, originalStartBar } = mouseDrag;
-
-  dragElement.style.opacity = "1";
-
-  if (isDuplicateDrag) {
-    // Get position from the drag element (clone)
-    const newStartBar = parseInt(dragElement.style.left) / window.PIXELS_PER_BAR;
-    if (newStartBar !== originalStartBar) {
-      const newClip = {
-        ...clip,
-        id: crypto.randomUUID(),
-        startBar: newStartBar
-      };
-      window.clips.push(newClip);
-      resolveClipCollisions(newClip);
-    }
-    dragElement.remove();
-  } else {
-    const newStartBar = parseInt(dragElement.style.left) / window.PIXELS_PER_BAR;
-    clip.startBar = newStartBar;
-    resolveClipCollisions(clip);
-  }
-
-  // Re-render track to ensure clean state
-  dropArea.innerHTML = "";
-  window.clips
-    .filter(c => c.trackIndex === clip.trackIndex)
-    .forEach(c => window.renderClip(c, dropArea));
-
-  mouseDrag = null;
-});
-
 
 
   dropArea.appendChild(el);
@@ -1095,11 +904,6 @@ document.addEventListener("mousedown", (e) => {
   if (!e.target.classList.contains("knob")) return;
 
   const knob = e.target;
-  // ⭐ Find the parent .track-controls to get the track index
-  const controls = knob.closest('.track-controls');
-  if (!controls) return;
-  const trackIndex = Number(controls.dataset.index);
-
   const rect = knob.getBoundingClientRect();
   const centerY = rect.top + rect.height / 2;
 
@@ -1109,18 +913,6 @@ document.addEventListener("mousedown", (e) => {
     v = Math.max(0, Math.min(1, v));
     knob.dataset.value = v;
     knob.style.setProperty("--val", v);
-
-    // ⭐ Update audio engine in real time
-    if (knob.classList.contains("volume-knob")) {
-      if (window.trackGains && window.trackGains[trackIndex]) {
-        window.trackGains[trackIndex].gain.value = v;
-      }
-    }
-    if (knob.classList.contains("pan-knob")) {
-      if (window.trackPanners && window.trackPanners[trackIndex]) {
-        window.trackPanners[trackIndex].pan.value = v * 2 - 1;
-      }
-    }
   }
 
   function up() {

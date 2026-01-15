@@ -120,7 +120,7 @@ function startPlayhead(realStartTime) {
     const x = bars * window.PIXELS_PER_BAR;
 
     // Use the SAME offset everywhere (80px)
-    playhead.style.left = (x + 160) + "px";
+    playhead.style.left = (x + 104) + "px";
 
     window.playheadRAF = requestAnimationFrame(update);
   }
@@ -145,10 +145,8 @@ document.addEventListener("mousedown", (e) => {
   e.preventDefault();
 
   const knob = e.target;
-  // ⭐ Use .track-controls for index (not .track)
-  const controls = knob.closest(".track-controls");
-  if (!controls) return;
-  const trackIndex = parseInt(controls.dataset.index);
+  const trackEl = knob.closest(".track");
+  const trackIndex = parseInt(trackEl.dataset.index);
 
   let value = parseFloat(knob.dataset.value);
 
@@ -191,33 +189,31 @@ document.addEventListener("mousedown", (e) => {
 });
 
 
-// REMOVE or COMMENT OUT the old updateMeters function and its call:
+function updateMeters() {
+  const fills = document.querySelectorAll(".track-meter-fill");
 
-// function updateMeters() {
-//   const fills = document.querySelectorAll(".track-meter-fill");
+  for (let i = 0; i < window.trackAnalysers.length; i++) {
+    const analyser = window.trackAnalysers[i];
+    const fill = fills[i];
+    if (!fill) continue;
 
-//   for (let i = 0; i < window.trackAnalysers.length; i++) {
-//     const analyser = window.trackAnalysers[i];
-//     const fill = fills[i];
-//     if (!fill) continue;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteTimeDomainData(data);
 
-//     const data = new Uint8Array(analyser.frequencyBinCount);
-//     analyser.getByteTimeDomainData(data);
+    // Compute peak amplitude
+    let peak = 0;
+    for (let j = 0; j < data.length; j++) {
+      const v = Math.abs(data[j] - 128) / 128;
+      if (v > peak) peak = v;
+    }
 
-//     // Compute peak amplitude
-//     let peak = 0;
-//     for (let j = 0; j < data.length; j++) {
-//       const v = Math.abs(data[j] - 128) / 128;
-//       if (v > peak) peak = v;
-//     }
+    fill.style.height = (peak * 100) + "%";
+  }
 
-//     fill.style.height = (peak * 100) + "%";
-//   }
+  requestAnimationFrame(updateMeters);
+}
 
-//   requestAnimationFrame(updateMeters);
-// }
-
-// updateMeters();
+updateMeters();
 
 async function saveProjectZip() {
   const zip = new JSZip();
@@ -228,16 +224,11 @@ async function saveProjectZip() {
   // Deduplication map for samples
   const savedSamples = new Map();
 
-const tracks = [...document.querySelectorAll(".track-controls")].map(ctrl => {
-  const volKnob = ctrl.querySelector(".volume-knob");
-  const panKnob = ctrl.querySelector(".pan-knob");
-
-  return {
-    volume: volKnob ? Number(volKnob.dataset.value) : 1,
-    pan: panKnob ? Number(panKnob.dataset.value) : 0
-  };
-});
-
+  // Track mixer state
+  const tracks = [...document.querySelectorAll(".track")].map(track => ({
+    volume: Number(track.querySelector(".volume-knob").dataset.value),
+    pan: Number(track.querySelector(".pan-knob").dataset.value)
+  }));
 
   const serializedClips = [];
 
@@ -383,17 +374,21 @@ async function loadProjectZip(json, zip) {
     }
 
     // UI knobs
-    const trackEl = document.querySelector(`.track-controls[data-index="${index}"]`);
-
+    const trackEl = document.querySelector(`.track[data-index="${index}"]`);
     if (!trackEl) return;
 
 const volKnob = trackEl.querySelector(".volume-knob");
 const panKnob = trackEl.querySelector(".pan-knob");
 
-if (volKnob) updateKnobVisual(volKnob, t.volume);
-if (panKnob) updateKnobVisual(panKnob, t.pan);
+if (volKnob) {
+  volKnob.dataset.value = t.volume;
+  volKnob.style.setProperty("--val", t.volume);
+}
 
-
+if (panKnob) {
+  panKnob.dataset.value = t.pan;
+  panKnob.style.setProperty("--val", t.pan);
+}
 
   });
 
@@ -576,7 +571,7 @@ const x = barIndex * window.PIXELS_PER_BAR;
 
 // Move the triangle marker
 const marker = document.getElementById("seekMarker");
-marker.style.left = (x + 160) + "px";
+marker.style.left = (x + 104 + 2) + "px";
 
 
   if (window.isPlaying) {
@@ -586,7 +581,7 @@ marker.style.left = (x + 160) + "px";
     window.playAll(barIndex);
 
     const playhead = document.getElementById("playhead");
-    playhead.style.left = (x + 160) + "px";
+    playhead.style.left = (x + 104) + "px";
     playhead.classList.remove("hidden");
 
     startPlayhead(window.transportStartTime);
@@ -595,7 +590,7 @@ marker.style.left = (x + 160) + "px";
 
   // If stopped → just move the playhead visually
   const playhead = document.getElementById("playhead");
-  playhead.style.left = (x + 160) + "px";
+  playhead.style.left = (x + 104) + "px";
   playhead.classList.remove("hidden");
 
   // Update UI
@@ -676,15 +671,15 @@ const vuRight = document.getElementById("vuRight");
 const ctxL = vuLeft.getContext("2d");
 const ctxR = vuRight.getContext("2d");
 
-const leftData = new Uint8Array(window.masterAnalyserLeft.frequencyBinCount);
-const rightData = new Uint8Array(window.masterAnalyserRight.frequencyBinCount);
+const leftData = new Uint8Array(masterAnalyserLeft.frequencyBinCount);
+const rightData = new Uint8Array(masterAnalyserRight.frequencyBinCount);
 
 function drawVUMeters() {
   requestAnimationFrame(drawVUMeters);
 
   // Read true stereo data
-  window.masterAnalyserLeft.getByteTimeDomainData(leftData);
-  window.masterAnalyserRight.getByteTimeDomainData(rightData);
+  masterAnalyserLeft.getByteTimeDomainData(leftData);
+  masterAnalyserRight.getByteTimeDomainData(rightData);
 
   const leftLevel = getPeak(leftData);
   const rightLevel = getPeak(rightData);
@@ -706,15 +701,11 @@ function drawMeter(ctx, level) {
   const w = ctx.canvas.width;
   const h = ctx.canvas.height;
 
-  // Always clear the canvas fully
   ctx.clearRect(0, 0, w, h);
 
-  // Draw the VU bar if level > 0
-  if (level > 0) {
-    const barWidth = w * level;
-    ctx.fillStyle = level > 0.9 ? "#ff3b3b" : "#2aff2a";
-    ctx.fillRect(0, 0, barWidth, h);
-  }
+  const barWidth = w * level;
+  ctx.fillStyle = level > 0.9 ? "#ff3b3b" : "#2aff2a";
+  ctx.fillRect(0, 0, barWidth, h);
 }
 
 // Start drawing
@@ -866,26 +857,3 @@ document.addEventListener("click", (e) => {
     fileDropdown.style.display = "none";
   }
 });
-
-// Play button icon toggle logic
-const playToggleBtn = document.getElementById('playToggleBtn');
-if (playToggleBtn) {
-  playToggleBtn.addEventListener('click', function () {
-    const isPlaying = playToggleBtn.classList.toggle('playing');
-    const playIcon = playToggleBtn.querySelector('.play-icon');
-    const stopIcon = playToggleBtn.querySelector('.stop-icon');
-    if (isPlaying) {
-      if (playIcon) playIcon.style.display = 'none';
-      if (stopIcon) stopIcon.style.display = 'inline';
-    } else {
-      if (playIcon) playIcon.style.display = 'inline';
-      if (stopIcon) stopIcon.style.display = 'none';
-    }
-  });
-}
-
-function updateKnobVisual(knob, value) {
-  knob.dataset.value = value;
-  knob.style.setProperty("--val", value);
-}
-

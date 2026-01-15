@@ -20,6 +20,10 @@
 
 }
 
+
+
+
+
 /* -------------------------------------------------------
    GLOBAL LAYOUT
 ------------------------------------------------------- */
@@ -27,7 +31,7 @@ body {
   margin: 0;
   height: 100vh;
   display: flex;
-  background:#232323;
+  background: #0d0d0f;
   color: #e6e6e6;
   font-family: system-ui, sans-serif;
   overflow: hidden;
@@ -50,25 +54,21 @@ body {
   flex: 1;
 
   white-space: nowrap;
-  background: #232323;
+  background: #0f0f14;
   position: relative;
   pointer-events: auto;
   height: calc(100vh - 60px);
-  display: flex;
-  flex-direction: column;
+  
 }
 
 /* Scrollable tracks area under the bar */
 #timeline-scroll {
   position: absolute;
-  top: 0; /* same as bar height */
+  top: 24px; /* same as bar height */
   left: 0;
   right: 0;
   bottom: 0;
   overflow: auto; /* vertical + horizontal scroll */
-  overflow-x: auto;
-  flex: 1;
-  z-index: 99;
 }
 
 /* Scrollbars (Chrome / Edge / Safari) */
@@ -100,9 +100,7 @@ body {
 .tracks {
   position: relative;
   min-width: 2000px;
-  display: flex;
-  flex-direction: column;
-  position: relative;
+  
 }
 
 
@@ -112,7 +110,7 @@ body {
 .track {
   display: flex;
   flex-direction: row;
-  height: 64px;
+  height: 60px;
   position: relative;
   box-sizing: border-box;
   border-bottom: none; /* replaced by ::after separator */
@@ -153,17 +151,6 @@ body {
   z-index: 10; /* always above grid */
 }
 
-.track-controls-container {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  left: 0;
-  z-index: 200;
-  background: #181818;
-  min-width: 160px; /* adjust as needed */
-  max-width: 160px;
-}
-
 .track-label {
   font-size: 10px;
   color: #7aa0ff;
@@ -175,7 +162,7 @@ body {
 /* Clip area */
 .track-inner {
   position: relative;
-  height: 56px;
+  height: 60px;
   flex: 1;
   overflow: visible;
 }
@@ -208,7 +195,6 @@ body {
 ------------------------------------------------------- */
 
 .track-grid {
-  
   position: absolute;
   top: 0;
   bottom: 0;
@@ -256,7 +242,7 @@ body {
   box-sizing: border-box; /* FIX */
   position: absolute;
   top: 0;
-  height: 56px;
+  height: 59px;
   background: rgba(26, 26, 31, 0.6);
   border: 1px solid #2a2a30;
   border-radius: 4px;
@@ -267,7 +253,7 @@ body {
 }
 
 .clip:hover {
-  border: 1px solid #2a2a30;
+  border: 2px solid #2a2a30;
   border-color: #ffffff;
   background: #1c1c25;
 }
@@ -320,7 +306,7 @@ body {
   background: var(--playhead); 
   box-shadow: 0 0 8px var(--playhead);
   pointer-events: none;
-  z-index: 10;
+  z-index: 99;
   left: 0; /* now correct */
 }
 
@@ -429,6 +415,7 @@ body {
   cursor: pointer;
   flex-shrink: 0;
   --knob-color: var(--track-color); 
+  background: var(--knob-color);
   --pointer-color: rgb(0, 0, 0);
 }
 
@@ -480,80 +467,68 @@ body {
 
 /* Track meter container */
 .track-meter {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 2px;
+  width: 5px;
+  height: 32px;
   background: #222;
-  border-radius: 4px;
-  width: 60px;
-  height: 16px;
+  border: 1px solid #333;
+  border-radius: 2px;
+  overflow: hidden;
   position: relative;
-  margin-left: 12px;
-  margin-right: 0;
-  overflow: visible;
+  margin-left: 4px; /* small spacing from knobs */
 }
 
 /* The fill that rises with volume */
 .track-meter-fill {
   position: absolute;
-  left: 0;
-  height: 45%;
-  width: 0%;
-  border-radius: 4px;
-  transition: width 0.1s linear;
-  z-index: 1;
-}
-
-.track-meter-fill-left {
-  top: 0;
-  border-radius: 4px 4px 0 0;
-}
-
-.track-meter-fill-right {
   bottom: 0;
-  border-radius: 0 0 4px 4px;
-}
-
-.knob-row {
-  display: flex;
-  align-items: center; /* vertical centering for knobs + meter */
+  width: 100%;
+  height: 0%;
+  background: #00ff88;
+  background-color: var(--track-color);
+  transition: height 0.05s linear;
 }
 
 /* -------------------------------------------------------
    TRANSPORT BAR
 ------------------------------------------------------- */
 .top-bar {
+  height: 44px;
+  background: linear-gradient(to bottom, #1a1a1f, #141418); 
+  border-bottom: 1px solid var(--border-mid);
   display: flex;
   align-items: center;
-  background: #181818;
-  border-bottom: 1px solid #232323;
   padding: 0 16px;
-  height: 38px;
-  gap: 16px;
-  font-family: inherit;
+  gap: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+
+  position: relative;   /* ⭐ REQUIRED */
+  z-index: 1000;          /* ⭐ Ensures dropdown floats above timeline */
 }
 
 /* -------------------------------------------------------
    TRANSPORT BUTTONS
 ------------------------------------------------------- */
 .transport-btn {
-  background: #232323;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 7px 18px;
-  font-size: 15px;
-  font-weight: 500;
-  margin-right: 8px;
+  width: 60px;
+  background: #1a1a20;
+  border: 1px solid #2b2b33;
+  color: #007aff;             /* STOPPED text colour */
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
-  outline: none;
+  transition: 
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease,
+    color 0.15s ease;         /* smooth text colour change */
 }
 
-.transport-btn:hover, .transport-btn:focus {
-  background: #333;
+.transport-btn:hover {
+  background: #22222a;
+  border-color: #3a3a44;
 }
 
 /* When PLAYING (button shows "Stop") */
@@ -568,129 +543,6 @@ body {
 /* Optional: initial visual emphasis, but NO colour override */
 .transport-btn.play {
   border-color: #007aff;
-}
-
-/* --- Play/Stop Button --- */
-.transport-btn.play,
-.transport-btn.stop {
-  min-width: 72px;
-  max-width: 72px;
-  width: 72px;
-  text-align: center;
-  background: #232323;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 7px 0;
-  font-size: 15px;
-  font-weight: 500;
-  margin-right: 8px;
-  cursor: pointer;
-  transition: background 0.15s, box-shadow 0.18s;
-  outline: none;
-  box-shadow: 0 0 0 0 #4DD2FF;
-}
-.transport-btn.play {
-  box-shadow: 0 0 0 2px #4DD2FF, 0 0 8px 2px #4DD2FF80;
-  background: #232b3b;
-}
-.transport-btn.stop {
-  background: #232323;
-  box-shadow: none;
-}
-
-/* --- Sliders (Tempo & Master) --- */
-.tempo-slider,
-#masterVolumeSlider {
-  appearance: none;
-  width: 90px;
-  height: 6px;
-  background: #232323;
-  border-radius: 3px;
-  outline: none;
-  margin: 0 8px 0 0;
-  vertical-align: middle;
-  transition: background 0.15s;
-  border: none;
-  box-shadow: none;
-}
-.tempo-slider::-webkit-slider-thumb,
-#masterVolumeSlider::-webkit-slider-thumb {
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #4DD2FF;
-  border: none;
-  box-shadow: 0 0 4px #4DD2FF80;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.tempo-slider:focus,
-#masterVolumeSlider:focus {
-  background: #333;
-  border: none;
-  box-shadow: none;
-}
-.tempo-slider::-moz-range-thumb,
-#masterVolumeSlider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #4DD2FF;
-  border: none;
-  box-shadow: 0 0 4px #4DD2FF80;
-  cursor: pointer;
-}
-.tempo-slider::-ms-thumb,
-#masterVolumeSlider::-ms-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #4DD2FF;
-  border: none;
-  box-shadow: 0 0 4px #4DD2FF80;
-  cursor: pointer;
-}
-.tempo-slider::-ms-fill-lower,
-#masterVolumeSlider::-ms-fill-lower {
-  background: #232323;
-  border-radius: 3px;
-}
-.tempo-slider::-ms-fill-upper,
-#masterVolumeSlider::-ms-fill-upper {
-  background: #232323;
-  border-radius: 3px;
-}
-.tempo-slider:focus::-webkit-slider-thumb,
-#masterVolumeSlider:focus::-webkit-slider-thumb {
-  background: #4DD2FF;
-}
-.tempo-slider:focus::-ms-fill-lower,
-#masterVolumeSlider:focus::-ms-fill-lower {
-  background: #333;
-}
-.tempo-slider:focus::-ms-fill-upper,
-#masterVolumeSlider:focus::-ms-fill-upper {
-  background: #333;
-}
-.tempo-slider::-webkit-slider-thumb,
-#masterVolumeSlider::-webkit-slider-thumb {
-  border: none;
-}
-.tempo-slider::-moz-range-thumb,
-#masterVolumeSlider::-moz-range-thumb {
-  border: none;
-}
-.tempo-slider::-ms-thumb,
-#masterVolumeSlider::-ms-thumb {
-  border: none;
-}
-
-/* Remove default outline for sliders */
-.tempo-slider:focus,
-#masterVolumeSlider:focus {
-  outline: none;
 }
 
 .export-btn {
@@ -744,11 +596,6 @@ body {
 .tempo-value {
   font-size: 12px;
   color: #ccc;
-  display: inline-block;
-  min-width: 60px;
-  width: 60px;
-  text-align: left;
-  /* Prevent layout shift when BPM changes */
 }
 
 /* Slider styling */
@@ -779,7 +626,7 @@ body {
   border: 2px solid #1c1c22;
   box-shadow: 0 0 6px #007aff;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: transform 0.1s ease;
 }
 
 .tempo-slider::-webkit-slider-thumb:active,
@@ -790,13 +637,14 @@ body {
 
 #timeline-bar {
   
-  height: 20px;              /* Increased height */
-  position: relative;
-  background: #232323;
-  border-bottom: 1px solid #333;
+  height: 24px;
+  background: #1a1a1f;
+  border-bottom: 1px solid #2a2a30;
   display: flex;
   align-items: center;
   user-select: none;
+  position: relative;
+  padding-left: 107px;
   z-index: 150;
   width: 100%; 
   min-width: 5120px;
@@ -860,9 +708,10 @@ body {
 
 .master-vu-horizontal {
   display: flex;
-  align-items: center; /* Center vertically */
-  gap: 8px;
-  height: 24px; /* Adjust as needed for vertical centering */
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  margin-left: 15px;
 }
 
 .master-vu-horizontal canvas {
@@ -872,34 +721,20 @@ body {
   width: 80px;
 }
 
-.master-vu-vertical {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  height: 20px; /* Adjust as needed */
-  justify-content: center;
-}
-
-#vuLeft, #vuRight {
-  display: block;
-  margin: 0;
-  padding: 0;
-  background: #222;
-  border-radius: 4px;
-  /* Optionally add vertical centering if needed */
-}
-
 .clip {
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
 }
 
+#timeline-bar {
+  position: relative;
+  height: 24px; /* or whatever your timebar height is */
+}
 
 .seek-marker {
   position: absolute;
-  top: 4px;                 /* center vertically */
+  top: 14px;                 /* center vertically */
   transform: translateY(-50%);
   left: 100px;              /* TEMP: so you can see it */
   width: 0;
@@ -921,53 +756,38 @@ body {
 
 .menu-item {
   position: relative;
-  color: #fff;
-  background: #232323;
-  border-radius: 4px;
-  padding: 6px 14px;
-  margin-right: 8px;
+  padding: 6px 12px;
+  color: var(--text-primary);
   cursor: pointer;
-  font-size: 15px;
-  font-weight: 500;
-  transition: background 0.15s;
-  border: none;
-  outline: none;
   user-select: none;
 }
-.menu-item:hover, .menu-item:focus {
-  background: #333;
+
+.menu-item:hover {
+  background: var(--bg-panel);
 }
 
 .dropdown {
   position: absolute;
-  left: 0;
   top: 100%;
-  background: #232323;
-  border: 1px solid #333;
+  left: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-mid);
   border-radius: 4px;
-  min-width: 120px;
-  z-index: 10;
-  box-shadow: 0 2px 8px #000a;
+  padding: 4px 0;
   display: none;
+  min-width: 150px;
+  z-index: 9999;
 }
-.menu-item:focus .dropdown,
-.menu-item:active .dropdown {
-  display: block;
-}
+
 .dropdown-item {
-  color: #fff;
-  padding: 8px 14px;
+  padding: 8px 12px;
+  color: var(--text-secondary);
   cursor: pointer;
-  font-size: 14px;
-  border-bottom: 1px solid #292929;
-  background: none;
-  transition: background 0.12s;
 }
-.dropdown-item:last-child {
-  border-bottom: none;
-}
-.dropdown-item:hover, .dropdown-item:focus {
-  background: #333;
+
+.dropdown-item:hover {
+  background: var(--border-mid);
+  color: var(--text-primary);
 }
 
 /* ============================================
@@ -1249,392 +1069,5 @@ body {
 /* Grid canvas must not shrink */
 #piano-roll-canvas {
   display: block;
-}
-
-.timeline > div[style*="display: flex"] {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  height: 100%;
-}
-
-.track-controls {
-  width: 160px; /* match min/max above */
-  box-sizing: border-box;
-  background: #181818;
-  z-index: 101;
-}
-
-#playhead {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--playhead); 
-  box-shadow: 0 0 8px var(--playhead);
-  pointer-events: none;
-  z-index: 100;
-  left: 0; /* now correct */
-}
-
-/* Set a fixed height for both controls and track rows */
-.track-controls,
-.track {
-  height: 56px; /* or whatever matches your .track-inner height */
-  min-height: 56px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-/* If you use .track-inner for the grid/clip area, ensure it matches: */
-.track-inner {
-  height: 56px;
-  min-height: 56px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-}
-
-/* Remove extra vertical padding/margin from controls and children */
-.track-controls,
-.track-controls > *,
-.knob-row,
-.knob-wrap,
-.track-label {
-  margin-top: 0;
-  margin-bottom: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-/* --- Top Bar / Transport Bar Consistency --- */
-.top-bar {
-  display: flex;
-  align-items: center;
-  background: #181818;
-  border-bottom: 1px solid #232323;
-  padding: 0 16px;
-  height: 38px;
-  gap: 16px;
-  font-family: inherit;
-}
-
-.menu-item {
-  position: relative;
-  color: #fff;
-  background: #232323;
-  border-radius: 4px;
-  padding: 6px 14px;
-  margin-right: 8px;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 500;
-  transition: background 0.15s;
-  border: none;
-  outline: none;
-  user-select: none;
-}
-.menu-item:hover, .menu-item:focus {
-  background: #333;
-}
-
-.dropdown {
-  position: absolute;
-  left: 0;
-  top: 100%;
-  background: #232323;
-  border: 1px solid #333;
-  border-radius: 4px;
-  min-width: 120px;
-  z-index: 10;
-  box-shadow: 0 2px 8px #000a;
-  display: none;
-}
-.menu-item:focus .dropdown,
-.menu-item:active .dropdown {
-  display: block;
-}
-.dropdown-item {
-  color: #fff;
-  padding: 8px 14px;
-  cursor: pointer;
-  font-size: 14px;
-  border-bottom: 1px solid #292929;
-  background: none;
-  transition: background 0.12s;
-}
-.dropdown-item:last-child {
-  border-bottom: none;
-}
-.dropdown-item:hover, .dropdown-item:focus {
-  background: #333;
-}
-
-.transport-btn {
-  background: #232323;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 7px 18px;
-  font-size: 15px;
-  font-weight: 500;
-  margin-right: 8px;
-  cursor: pointer;
-  transition: background 0.15s;
-  outline: none;
-}
-.transport-btn:hover, .transport-btn:focus {
-  background: #333;
-}
-
-.tempo-text,
-.master-volume-text {
-  color: #bbb;
-  font-size: 14px;
-  margin-right: 4px;
-  font-weight: 400;
-}
-
-.tempo-slider,
-#masterVolumeSlider {
-  appearance: none;
-  width: 90px;
-  height: 6px;
-  background: #232323;
-  border-radius: 3px;
-  outline: none;
-  margin: 0 8px 0 0;
-  vertical-align: middle;
-  transition: background 0.15s;
-}
-.tempo-slider::-webkit-slider-thumb,
-#masterVolumeSlider::-webkit-slider-thumb {
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #4DD2FF;
-  border: 2px solid #fff;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.tempo-slider:focus,
-#masterVolumeSlider:focus {
-  background: #333;
-}
-.tempo-value {
-  color: #fff;
-  font-size: 14px;
-  margin-right: 8px;
-  font-weight: 500;
-}
-
-.master-vu-vertical {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  margin-left: 12px;
-  margin-right: 8px;
-}
-#vuLeft, #vuRight {
-  display: block;
-  width: 80px;
-  height: 6px;
-  background: #222;
-  border-radius: 4px;
-  margin: 0;
-  padding: 0;
-}
-
-.snap-control {
-  background: #232323;
-  border-radius: 4px;
-  padding: 4px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #bbb;
-  font-size: 14px;
-  font-weight: 400;
-}
-.snap-control select {
-  background: #181818;
-  color: #fff;
-  border: 1px solid #444;
-  border-radius: 3px;
-  padding: 4px 8px;
-  font-size: 14px;
-  outline: none;
-  transition: border 0.15s;
-}
-.snap-control select:focus {
-  border: 1.5px solid #4DD2FF;
-}
-
-.top-bar label {
-  margin: 0 4px 0 0;
-  color: #bbb;
-  font-size: 14px;
-  font-weight: 400;
-}
-
-.top-bar input[type="range"] {
-  vertical-align: middle;
-}
-
-.top-bar button,
-.top-bar select {
-  font-family: inherit;
-}
-
-.top-bar * {
-  box-sizing: border-box;
-}
-
-/* --- Transport & Menu Buttons: Pro Look, Compact, Consistent --- */
-.menu-item,
-.transport-btn,
-.transport-btn.play,
-.transport-btn.stop {
-  min-width: 72px;
-  max-width: 72px;
-  width: 72px;
-  height: 26px;
-  line-height: 26px;
-  padding: 0;
-  text-align: center;
-  background: #232323;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 15px;
-  font-weight: 500;
-  margin-right: 8px;
-  cursor: pointer;
-  transition: background 0.15s, box-shadow 0.18s;
-  outline: none;
-  box-shadow: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-}
-.menu-item {
-  min-width: 0;
-  max-width: none;
-  width: auto;
-  height: 32px;
-  line-height: 32px;
-  padding: 0 18px;
-  z-index: 2000;
-}
-.menu-item:hover, .menu-item:focus {
-  background: #333;
-}
-.transport-btn.play {
-  box-shadow: 0 0 0 2px #4DD2FF, 0 0 8px 2px #4DD2FF80;
-  background: #232b3b;
-}
-.transport-btn.stop {
-  background: #232323;
-  box-shadow: none;
-}
-.transport-btn:hover, .transport-btn:focus {
-  background: #333;
-}
-
-/* --- Sliders (Tempo & Master) --- */
-.tempo-slider,
-#masterVolumeSlider {
-  appearance: none;
-  width: 90px;
-  height: 6px;
-  background: #232323;
-  border-radius: 3px;
-  outline: none;
-  margin: 0 8px 0 0;
-  vertical-align: middle;
-  transition: background 0.15s;
-}
-.tempo-slider::-webkit-slider-thumb,
-#masterVolumeSlider::-webkit-slider-thumb {
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #4DD2FF;
-  border: none;
-  box-shadow: 0 0 4px #4DD2FF80;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.tempo-slider:focus,
-#masterVolumeSlider:focus {
-  background: #333;
-  border: none;
-  box-shadow: none;
-}
-.tempo-slider::-moz-range-thumb,
-#masterVolumeSlider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #4DD2FF;
-  border: none;
-  box-shadow: 0 0 4px #4DD2FF80;
-  cursor: pointer;
-}
-.tempo-slider::-ms-thumb,
-#masterVolumeSlider::-ms-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #4DD2FF;
-  border: none;
-  box-shadow: 0 0 4px #4DD2FF80;
-  cursor: pointer;
-}
-.tempo-slider::-ms-fill-lower,
-#masterVolumeSlider::-ms-fill-lower {
-  background: #232323;
-  border-radius: 3px;
-}
-.tempo-slider::-ms-fill-upper,
-#masterVolumeSlider::-ms-fill-upper {
-  background: #232323;
-  border-radius: 3px;
-}
-.tempo-slider:focus::-webkit-slider-thumb,
-#masterVolumeSlider:focus::-webkit-slider-thumb {
-  background: #4DD2FF;
-}
-.tempo-slider:focus::-ms-fill-lower,
-#masterVolumeSlider:focus::-ms-fill-lower {
-  background: #333;
-}
-.tempo-slider:focus::-ms-fill-upper,
-#masterVolumeSlider:focus::-ms-fill-upper {
-  background: #333;
-}
-.tempo-slider::-webkit-slider-thumb,
-#masterVolumeSlider::-webkit-slider-thumb {
-  border: none;
-}
-.tempo-slider::-moz-range-thumb,
-#masterVolumeSlider::-moz-range-thumb {
-  border: none;
-}
-.tempo-slider::-ms-thumb,
-#masterVolumeSlider::-ms-thumb {
-  border: none;
-}
-
-/* Remove default outline for sliders */
-.tempo-slider:focus,
-#masterVolumeSlider:focus {
-  outline: none;
 }
 
