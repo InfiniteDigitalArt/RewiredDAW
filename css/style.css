@@ -620,7 +620,8 @@ body {
 }
 
 .tempo-slider::-webkit-slider-thumb,
-.reverb-slider::-webkit-slider-thumb {
+.reverb-slider::-webkit-slider-thumb,
+.piano-roll-reverb::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
 
@@ -910,13 +911,13 @@ body {
 
 #piano-roll-clip-name {
   font-weight: 600;
-  padding: 2px 6px;
+  padding: 2px 2px;
   border-radius: 4px;
   user-select: none;
 }
 
 #piano-roll-sample-name {
-  padding: 2px 6px;
+  padding: 2px 2px;
   border-radius: 4px;
 }
 
@@ -974,23 +975,6 @@ body {
   --thumb-color: #fff;
 }
 
-#piano-roll-reverb::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--thumb-color);
-  cursor: pointer;
-}
-
-#piano-roll-reverb::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--thumb-color);
-  cursor: pointer;
-}
 
 /* ============================================
    TRANSPOSE CONTROLS
