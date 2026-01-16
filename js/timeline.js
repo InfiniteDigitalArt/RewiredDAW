@@ -444,6 +444,7 @@ window.isDuplicateDrag = false;
     track.appendChild(controls);
     track.appendChild(inner);
     tracksEl.appendChild(track);
+    
   }
 
 /* -------------------------------------------------------
@@ -578,6 +579,7 @@ window.renderClip = function (clip, dropArea) {
       dragClip.startBar = newBar;
       if (dropAreaEl) {
         dropAreaEl.innerHTML = "";
+        // ⚠️ This line will recursively call renderClip for all clips in the track:
         window.clips.filter(c => c.trackIndex === dragClip.trackIndex)
           .forEach(c => window.renderClip(c, dropAreaEl));
       }
@@ -594,11 +596,18 @@ window.renderClip = function (clip, dropArea) {
             .forEach(c => window.renderClip(c, dropAreaEl));
         }
       }
+      // Select this clip in the dropdown after drag ends
+      const dropdown = document.getElementById("clipListDropdown");
+      if (dropdown) dropdown.value = dragClip.id;
       // No simulated double-click. Only native dblclick will open piano roll.
     }
 
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
+
+    // Select this clip in the dropdown on mouse down
+    const dropdown = document.getElementById("clipListDropdown");
+    if (dropdown) dropdown.value = clip.id;
   });
 
   // Compute width fresh every render
@@ -627,7 +636,9 @@ el.addEventListener("contextmenu", (e) => {
   document.getElementById("piano-roll-container").classList.add("hidden"); // ⭐ hide using class toggle
   activeClip = null;
 
-
+  // Select this clip in the dropdown on right-click
+  const dropdown = document.getElementById("clipListDropdown");
+  if (dropdown) dropdown.value = clip.id;
 });
 
 
@@ -743,6 +754,10 @@ el.addEventListener("dblclick", () => {
     // ⭐ Open piano roll (this will update the sample name)
     openPianoRoll(realClip);
   }
+
+  // Select this clip in the dropdown on double-click
+  const dropdown = document.getElementById("clipListDropdown");
+  if (dropdown) dropdown.value = clip.id;
 });
 
 
@@ -873,8 +888,6 @@ if (clip.type === "midi") {
   });
 
 
-  
-
 
   el.appendChild(midiCanvas);
 }
@@ -965,6 +978,7 @@ if (clip.type === "midi") {
 
   dropdown.appendChild(makeUnique);
   labelWrap.appendChild(dropdown);
+  
 
   // Show/hide dropdown on triangle click
   triangle.addEventListener("click", (e) => {
@@ -1004,6 +1018,7 @@ else {
 labelWrap.appendChild(triangle);
 labelWrap.appendChild(label);
 el.appendChild(labelWrap);
+window.refreshClipDropdown(clips)
 
 
 /* -------------------------------------------------------

@@ -558,7 +558,7 @@ function onMouseMove(e) {
     extendClipIfNeeded(movingNote.end);
 
     updateClipPreview();
-    refreshClipInTimeline(activeClip);
+    //refreshClipInTimeline(activeClip);
     renderPianoRoll();
     return;
   }

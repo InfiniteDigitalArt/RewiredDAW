@@ -1,4 +1,3 @@
-
 window.playheadInterval = null;
 window.playheadStartTime = 0;
 window.playheadRAF = null;
@@ -426,6 +425,9 @@ if (panKnob) {
         window.renderClip(clip, dropArea);
       }
 
+      // Refresh dropdown after adding MIDI clip
+      window.refreshClipDropdown(window.clips);
+
       continue;
     }
 
@@ -448,6 +450,8 @@ if (panKnob) {
       }
 
       loadedClip.type = "audio";
+      // Add a name property for loop clips
+      loadedClip.name = loopInfo.displayName || loopInfo.id || "Audio Clip";
 
       resolveClipCollisions(loadedClip);
 
@@ -456,6 +460,9 @@ if (panKnob) {
         const dropArea = trackEl.querySelector(".track-drop-area");
         window.renderClip(loadedClip, dropArea);
       }
+
+      // Refresh dropdown after adding loop clip
+      window.refreshClipDropdown(window.clips);
 
       continue;
     }
@@ -476,7 +483,9 @@ if (panKnob) {
         fileName: raw.fileName,
         startOffset: raw.startOffset || 0,
         durationSeconds: raw.durationSeconds,
-        originalBars: raw.originalBars
+        originalBars: raw.originalBars,
+        // Add a name property for audio clips
+        name: raw.name || raw.fileName || `Audio Clip`
       };
 
       window.clips.push(clip);
@@ -487,6 +496,9 @@ if (panKnob) {
         const dropArea = trackEl.querySelector(".track-drop-area");
         window.renderClip(clip, dropArea);
       }
+
+      // Refresh dropdown after adding audio clip
+      window.refreshClipDropdown(window.clips);
 
       continue;
     }
@@ -857,3 +869,40 @@ document.addEventListener("click", (e) => {
     fileDropdown.style.display = "none";
   }
 });
+
+/**
+ * Populates the clip dropdown list in the top bar.
+ * @param {Array} clips - Array of all clips (audio and midi) in the project.
+ * Each clip should have at least: { id, name, type }
+ */
+window.refreshClipDropdown = function(clips) {
+  const dropdown = document.getElementById("clipListDropdown");
+  if (!dropdown) return;
+  dropdown.innerHTML = "";
+
+  if (!Array.isArray(clips) || clips.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No clips";
+    dropdown.appendChild(opt);
+    return;
+  }
+
+  // Make unique by id
+  const uniqueClips = [];
+  const seen = new Set();
+  for (const clip of clips) {
+    if (clip && clip.id && !seen.has(clip.id)) {
+      uniqueClips.push(clip);
+      seen.add(clip.id);
+    }
+  }
+
+  uniqueClips.forEach(clip => {
+    const opt = document.createElement("option");
+    // Prefer .name, then .displayName, then .fileName, then .id
+    opt.value = clip.id;
+    opt.textContent = clip.name || clip.displayName || clip.fileName || clip.id;
+    dropdown.appendChild(opt);
+  });
+};

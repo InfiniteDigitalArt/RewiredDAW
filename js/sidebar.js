@@ -63,6 +63,7 @@ window.populateSidebar = function(loops) {
 };
 
 
+
 window.addEventListener("DOMContentLoaded", () => {
 
   // ----------------------------------------------------
@@ -96,7 +97,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // ----------------------------------------------------
   // 3. Built-in MIDI clip (optional, pre-baked)
   // ----------------------------------------------------
-  const basicMidiClip = {
+  basicMidiClip = {
     id: "basic-midi-clip",
     type: "midi",
     displayName: "Basic MIDI Clip (C4 x4)",
