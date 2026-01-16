@@ -997,6 +997,11 @@ body {
   opacity: 0.7;
 }
 
+.strong-label {
+  font-size: 12px;
+  opacity: 1;
+}
+
 .transpose-btn {
   width: 20px;
   height: 20px;

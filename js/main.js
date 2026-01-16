@@ -742,14 +742,14 @@ const trackColor = window.TRACK_COLORS[clip.trackIndex % 10];
 const nameBox = document.getElementById("piano-roll-clip-name");
 nameBox.style.backgroundColor = trackColor;
 nameBox.style.color = "var(--border-dark)";
-nameBox.style.padding = "0px 5px";
+nameBox.style.padding = "2px 5px";
 nameBox.style.borderRadius = "4px";
 
 // Sample name tag
 const sampleNameBox = document.getElementById("piano-roll-sample-name");
 sampleNameBox.style.backgroundColor = trackColor;
 sampleNameBox.style.color = "var(--border-dark)";
-sampleNameBox.style.padding = "0px 5px";
+sampleNameBox.style.padding = "2px 5px";
 sampleNameBox.style.borderRadius = "4px";
 
 
