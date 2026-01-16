@@ -161,7 +161,8 @@ drop.addEventListener("drop", async (e) => {
   // Continue with your existing logic
   const rect = drop.getBoundingClientRect();
   const x = e.clientX - rect.left;
-  const startBar = Math.floor(x / window.PIXELS_PER_BAR);
+  // Use snap for startBar
+  const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
   const trackIndex = i;
 
   // CASE 0: Dropping local audio or MIDI files
@@ -509,6 +510,22 @@ function renderGrid() {
 
 renderGrid();
 window.renderTimelineBar(64);
+
+  // --- Timeline bar, playhead, and seekMarker horizontal sync ---
+  const timelineScroll = document.getElementById("timeline-scroll");
+  const timelineBar = document.getElementById("timeline-bar");
+  const playhead = document.getElementById("playhead");
+  const seekMarker = document.getElementById("seekMarker");
+
+  if (timelineScroll && timelineBar) {
+    timelineScroll.addEventListener("scroll", function () {
+      const scrollX = timelineScroll.scrollLeft;
+      timelineBar.style.transform = `translateX(${-scrollX}px)`;
+      if (seekMarker) seekMarker.style.transform = `translateX(${-scrollX}px)`;
+      // Fix: playhead is inside #tracks, so must use its parent scroll
+      if (playhead) playhead.style.left = (160 - scrollX) + "px";
+    });
+  }
 };
 
 /* -------------------------------------------------------
@@ -536,7 +553,8 @@ el.addEventListener("contextmenu", (e) => {
 
   // 1. Remove the clip from the project
   window.clips = window.clips.filter(c => c.id !== clip.id);
-
+  document.getElementById("piano-roll-container").classList.add("hidden"); // ⭐ hide using class toggle
+  activeClip = null;
   // 2. Re-render the track visually
   dropArea.innerHTML = "";
   window.clips
@@ -563,49 +581,30 @@ handle.addEventListener("mousedown", (e) => {
   e.preventDefault();
 
   const startX = e.clientX;
+  const startBars = clip.bars;
 
-  // Clean integer starting point for snapping
-  const startBarsInt = Math.max(1, Math.round(clip.bars));
-
-  /* -------------------------------------------------------
-     PREVIEW OVERLAY (glow + bar ruler)
-  ------------------------------------------------------- */
   const preview = document.createElement("div");
   preview.className = "clip-resize-preview";
-
   const glow = document.createElement("div");
   glow.className = "glow";
   preview.appendChild(glow);
-
   el.appendChild(preview);
 
   function move(ev) {
     const deltaPx = ev.clientX - startX;
     const deltaBarsRaw = deltaPx / window.PIXELS_PER_BAR;
-
-    // Snap delta to whole bars
-    const snappedDeltaBars = Math.round(deltaBarsRaw);
-
-    // New bar length
-    let newBars = Math.max(1, startBarsInt + snappedDeltaBars);
+    // Use snap for resizing
+    const snappedDeltaBars = window.snapDeltaToGrid(deltaBarsRaw);
+    // Minimum size: 1 beat (0.25 bars)
+    let newBars = Math.max(0.25, startBars + snappedDeltaBars);
     clip.bars = newBars;
 
-    // Update clip width
     const newWidth = newBars * window.PIXELS_PER_BAR;
     el.style.width = newWidth + "px";
-
-    /* -------------------------------------------------------
-       Update preview overlay
-    ------------------------------------------------------- */
-
-    // Set preview width
     preview.style.width = newWidth + "px";
-
-    // Rebuild bar ruler
-    preview.innerHTML = ""; // clear
-    preview.appendChild(glow); // keep glow on top
-
-    for (let i = 0; i < newBars; i++) {
+    preview.innerHTML = "";
+    preview.appendChild(glow);
+    for (let i = 0; i < Math.floor(newBars); i++) {
       const bar = document.createElement("div");
       bar.className = "bar";
       preview.appendChild(bar);
@@ -614,13 +613,9 @@ handle.addEventListener("mousedown", (e) => {
 
   function up() {
     preview.remove();
-
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
-
     resolveClipCollisions(clip);
-
-    // Re-render track
     dropArea.innerHTML = "";
     window.clips
       .filter(c => c.trackIndex === clip.trackIndex)
@@ -795,7 +790,7 @@ if (clip.type === "midi") {
 const label = document.createElement("div");
 label.style.position = "absolute";
 label.style.top = "2px";
-label.style.left = "4px";
+label.style.left = "14px";
 label.style.fontSize = "10px";
 label.style.color = "#fff";
 label.style.pointerEvents = "none";
@@ -813,6 +808,29 @@ else {
 
 el.appendChild(label);
 
+/* -------------------------------------------------------
+   DROPDOWN TRIANGLE
+------------------------------------------------------- */
+const triangle = document.createElement("div");
+triangle.style.position = "absolute";
+triangle.style.top = "6px";
+triangle.style.left = "4px";
+triangle.style.width = "0";
+triangle.style.height = "0";
+triangle.style.borderLeft = "4px solid transparent";
+triangle.style.borderRight = "4px solid transparent";
+triangle.style.borderTop = "6px solid #fff";
+triangle.style.pointerEvents = "none";
+
+el.appendChild(triangle);
+
+// Adjust label left padding to account for triangle
+label.style.left = "14px";
+
+el.appendChild(triangle);
+
+// Adjust label left padding to account for triangle
+label.style.left = "14px";
 
 /* -------------------------------------------------------
    DRAGGABLE CLIP (child-safe)
@@ -991,5 +1009,51 @@ window.renderWaveformSlice = function(samples, width, height = 40, color = "#2a6
 
   return canvas;
 };
+
+// Add snap settings utility functions
+window.getSnapValue = function () {
+  const snapSelect = document.getElementById("snapValue");
+  if (!snapSelect) return 1;
+  return parseFloat(snapSelect.value) || 1;
+};
+
+window.snapToGrid = function (rawBar) {
+  const snap = window.getSnapValue();
+  return Math.floor(rawBar / snap) * snap;
+};
+
+window.snapDeltaToGrid = function (deltaBarsRaw) {
+  const snap = window.getSnapValue();
+  return Math.floor(deltaBarsRaw / snap) * snap;
+};
+
+// Utility to show/hide playhead
+function setPlayheadVisible(visible) {
+  const playhead = document.getElementById("playhead");
+  if (playhead) {
+    if (visible) {
+      playhead.classList.remove("hidden");
+    } else {
+      playhead.classList.add("hidden");
+    }
+  }
+}
+
+// Attach play/stop button logic after DOMContentLoaded or in main.js
+document.addEventListener("DOMContentLoaded", () => {
+  const playBtn = document.getElementById("playToggleBtn");
+  if (!playBtn) return;
+
+  let isPlaying = false;
+
+  playBtn.addEventListener("click", () => {
+    isPlaying = !isPlaying;
+    setPlayheadVisible(isPlaying);
+    // Optionally update button text/icon
+    playBtn.textContent = isPlaying ? "Stop" : "Play";
+    // You may want to call your actual play/stop logic here as well
+    // e.g. window.playAll() / window.stopAll()
+  });
+});
 
 

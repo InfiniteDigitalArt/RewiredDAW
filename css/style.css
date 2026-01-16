@@ -1,7 +1,7 @@
 :root {
   --bg-main: #0f0f12;
   --bg-panel: #141418;
-  --bg-track-even: #16161b;
+  --bg-track-even: #19191d;
   --bg-track-odd: #131318;
 
   --border-light: #2a2a30;
@@ -241,8 +241,8 @@ body {
 .clip {
   box-sizing: border-box; /* FIX */
   position: absolute;
-  top: 0;
-  height: 59px;
+  top: 1px;
+  height: 58px;
   background: rgba(26, 26, 31, 0.6);
   border: 1px solid #2a2a30;
   border-radius: 4px;
@@ -253,7 +253,7 @@ body {
 }
 
 .clip:hover {
-  border: 2px solid #2a2a30;
+  border: 1px solid #2a2a30;
   border-color: #ffffff;
   background: #1c1c25;
 }
@@ -307,12 +307,13 @@ body {
   box-shadow: 0 0 8px var(--playhead);
   pointer-events: none;
   z-index: 99;
-  left: 0; /* now correct */
+  left: 104px; /* now correct */
 }
 
 
 #playhead.hidden {
   opacity: 0;
+  
 }
 
 /* -------------------------------------------------------
@@ -587,15 +588,19 @@ body {
 /* -------------------------------------------------------
    TEMPO SLIDER + LABEL
 ------------------------------------------------------- */
-.tempo-text {
+.tempo-text, .master-volume-text {
   font-size: 12px;
+  
   color: #7aa0ff;
   letter-spacing: 0.5px;
+  
 }
 
 .tempo-value {
   font-size: 12px;
   color: #ccc;
+  font-weight: 500;
+  width: 60px;
 }
 
 /* Slider styling */
@@ -605,7 +610,7 @@ body {
   appearance: none;
   -webkit-appearance: none;
 
-  width: 140px;
+  width: 100px;
   height: 4px;
   background: #1c1c22;
   border-radius: 4px;
@@ -615,7 +620,8 @@ body {
 }
 
 .tempo-slider::-webkit-slider-thumb,
-.reverb-slider::-webkit-slider-thumb {
+.reverb-slider::-webkit-slider-thumb,
+.piano-roll-reverb::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
 
@@ -702,7 +708,7 @@ body {
 
 
 .master-volume-slider {
-  width: 120px;
+  width: 100px;
   margin-left: 5px;
 }
 
@@ -736,7 +742,7 @@ body {
   position: absolute;
   top: 14px;                 /* center vertically */
   transform: translateY(-50%);
-  left: 100px;              /* TEMP: so you can see it */
+                /* TEMP: so you can see it */
   width: 0;
   height: 0;
   border-top: 6px solid transparent;
@@ -905,13 +911,13 @@ body {
 
 #piano-roll-clip-name {
   font-weight: 600;
-  padding: 2px 6px;
+  padding: 2px 2px;
   border-radius: 4px;
   user-select: none;
 }
 
 #piano-roll-sample-name {
-  padding: 2px 6px;
+  padding: 2px 2px;
   border-radius: 4px;
 }
 
@@ -969,23 +975,6 @@ body {
   --thumb-color: #fff;
 }
 
-#piano-roll-reverb::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--thumb-color);
-  cursor: pointer;
-}
-
-#piano-roll-reverb::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--thumb-color);
-  cursor: pointer;
-}
 
 /* ============================================
    TRANSPOSE CONTROLS
@@ -1069,5 +1058,60 @@ body {
 /* Grid canvas must not shrink */
 #piano-roll-canvas {
   display: block;
+}
+
+.snap-control {
+  background: #232323;
+  border-radius: 4px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #bbb;
+  font-size: 14px;
+  font-weight: 400;
+}
+.snap-control select {
+  background: #181818;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border 0.15s;
+}
+.snap-control select:focus {
+  border: 1.5px solid #4DD2FF;
+}
+
+/* ============================================
+   SCALE CONTROL
+   ============================================ */
+
+#piano-roll-scale-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#piano-roll-scale {
+  background: #1c1c22;
+  color: #fff;
+  border: 1px solid #2b2b33;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  outline: none;
+  transition: border 0.15s;
+}
+
+#piano-roll-scale:hover {
+  border-color: #444;
+}
+
+#piano-roll-scale:focus {
+  border-color: #007aff;
 }
 
