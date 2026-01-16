@@ -538,6 +538,71 @@ window.renderClip = function (clip, dropArea) {
   el.className = "clip";
   el.dataset.clipId = clip.id;
 
+  // --- Real-time drag/move with double-click threshold ---
+  el.addEventListener("mousedown", function (e) {
+    if (e.button !== 0) return; // Only left mouse
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Snap drag start to the nearest beat to the left of the mouse
+    const trackRect = el.parentElement.getBoundingClientRect();
+    const mouseX = e.clientX - trackRect.left;
+    // Calculate the bar position of the mouse
+    const mouseBar = mouseX / window.PIXELS_PER_BAR;
+    // Snap to the nearest beat to the left
+    const beatsPerBar = 4;
+    const beat = Math.floor(mouseBar * beatsPerBar) / beatsPerBar;
+    const startX = trackRect.left + (beat * window.PIXELS_PER_BAR);
+    const origBar = clip.startBar;
+    const dropAreaEl = dropArea;
+    let dragClip = clip;
+    let isDuplicate = false;
+    let moved = false;
+    let lastDx = 0;
+
+    // If shift is held, duplicate the clip and drag the duplicate
+    if (e.shiftKey) {
+      dragClip = { ...clip, id: crypto.randomUUID() };
+      window.clips.push(dragClip);
+      isDuplicate = true;
+    }
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      lastDx = dx;
+      if (Math.abs(dx) > (window.PIXELS_PER_BAR/8)) moved = true;
+      if (!moved) return;
+      let newBar = origBar + dx / window.PIXELS_PER_BAR;
+      newBar = window.snapToGrid(newBar);
+      newBar = Math.max(0, newBar);
+      dragClip.startBar = newBar;
+      if (dropAreaEl) {
+        dropAreaEl.innerHTML = "";
+        window.clips.filter(c => c.trackIndex === dragClip.trackIndex)
+          .forEach(c => window.renderClip(c, dropAreaEl));
+      }
+    }
+
+    function onUp(ev) {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      if (moved) {
+        resolveClipCollisions(dragClip);
+        if (dropAreaEl) {
+          dropAreaEl.innerHTML = "";
+          window.clips.filter(c => c.trackIndex === dragClip.trackIndex)
+            .forEach(c => window.renderClip(c, dropAreaEl));
+        }
+      } else {
+        // If not moved, simulate double-click if it was a quick click
+        el.dispatchEvent(new MouseEvent("dblclick", {bubbles:true}));
+      }
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+
   // Compute width fresh every render
   const width = clip.bars * window.PIXELS_PER_BAR;
   el.style.left = (clip.startBar * window.PIXELS_PER_BAR) + "px";
@@ -603,11 +668,11 @@ handle.addEventListener("mousedown", (e) => {
     preview.style.width = newWidth + "px";
     preview.innerHTML = "";
     preview.appendChild(glow);
-    for (let i = 0; i < Math.floor(newBars); i++) {
-      const bar = document.createElement("div");
-      bar.className = "bar";
-      preview.appendChild(bar);
-    }
+    //for (let i = 0; i < Math.floor(newBars); i++) {
+      //const bar = document.createElement("div");
+      //bar.className = "bar";
+      //preview.appendChild(bar);
+    //}
   }
 
   function up() {

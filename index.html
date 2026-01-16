@@ -86,8 +86,9 @@
   <div id="piano-roll-sample-header">
     <!-- LEFT -->
     <div class="piano-roll-header-left">
-      <span id="piano-roll-clip-name"></span>
-      <span id="piano-roll-sample-label">
+      
+      <span class="strong-label">
+        <span id="piano-roll-clip-name"></span>
         Sample: <strong id="piano-roll-sample-name">None</strong>
       </span>
       <button id="piano-roll-load-sample">Load Sample</button>
@@ -96,28 +97,59 @@
     <!-- CENTER -->
     <div class="piano-roll-header-center">
       <div id="piano-roll-reverb-control">
-        <label>Reverb:</label>
-        <input type="range" id="piano-roll-reverb" min="0" max="1" step="0.01">
+        <span class="soft-label"><label>Reverb:</label></span>
+        <input type="range" class="tempo-slider" id="piano-roll-reverb" min="0" max="1" step="0.01">
       </div>
+    </div>
+    <!-- RIGHT -->
+    <div class="piano-roll-header-right">
+
+
+      <!-- ⭐ NEW: Scale selector -->
 
       <div id="piano-roll-transpose">
         <div class="transpose-group">
-          <span class="transpose-label">Semi</span>
+          <span class="soft-label">Semi</span>
           <button class="transpose-btn" data-step="-1">▼</button>
           <button class="transpose-btn" data-step="1">▲</button>
         </div>
 
         <div class="transpose-group">
-          <span class="transpose-label">Oct</span>
+          <span class="soft-label">Oct</span>
           <button class="transpose-btn" data-step="-12">▼</button>
           <button class="transpose-btn" data-step="12">▲</button>
         </div>
       </div>
-    </div>
 
-    <!-- RIGHT -->
-    <div class="piano-roll-header-right">
+      <div id="piano-roll-scale-control">
+        <span class="soft-label"><label>Scale:</label></span>
+        <select id="piano-roll-scale">
+          <option value="chromatic">Chromatic</option>
+          <optgroup label="Major">
+            <option value="C-major">C Major</option>
+            <option value="D-major">D Major</option>
+            <option value="E-major">E Major</option>
+            <option value="F-major">F Major</option>
+            <option value="G-major">G Major</option>
+            <option value="A-major">A Major</option>
+            <option value="B-major">B Major</option>
+          </optgroup>
+          <optgroup label="Minor">
+            <option value="A-minor">A Minor</option>
+            <option value="B-minor">B Minor</option>
+            <option value="C-minor">C Minor</option>
+            <option value="D-minor">D Minor</option>
+            <option value="E-minor">E Minor</option>
+            <option value="F-minor">F Minor</option>
+            <option value="G-minor">G Minor</option>
+          </optgroup>
+        </select>
+      </div>
+
+
+    
       
+
       <button id="piano-roll-close">×</button>
     </div>
   </div>
