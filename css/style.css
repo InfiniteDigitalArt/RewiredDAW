@@ -241,8 +241,8 @@ body {
 .clip {
   box-sizing: border-box; /* FIX */
   position: absolute;
-  top: 0;
-  height: 59px;
+  top: 1px;
+  height: 58px;
   background: rgba(26, 26, 31, 0.6);
   border: 1px solid #2a2a30;
   border-radius: 4px;
@@ -253,7 +253,7 @@ body {
 }
 
 .clip:hover {
-  border: 2px solid #2a2a30;
+  border: 1px solid #2a2a30;
   border-color: #ffffff;
   background: #1c1c25;
 }
@@ -588,15 +588,19 @@ body {
 /* -------------------------------------------------------
    TEMPO SLIDER + LABEL
 ------------------------------------------------------- */
-.tempo-text {
+.tempo-text, .master-volume-text {
   font-size: 12px;
+  
   color: #7aa0ff;
   letter-spacing: 0.5px;
+  
 }
 
 .tempo-value {
   font-size: 12px;
   color: #ccc;
+  font-weight: 500;
+  width: 60px;
 }
 
 /* Slider styling */
@@ -606,7 +610,7 @@ body {
   appearance: none;
   -webkit-appearance: none;
 
-  width: 140px;
+  width: 100px;
   height: 4px;
   background: #1c1c22;
   border-radius: 4px;
@@ -703,7 +707,7 @@ body {
 
 
 .master-volume-slider {
-  width: 120px;
+  width: 100px;
   margin-left: 5px;
 }
 

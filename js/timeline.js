@@ -789,7 +789,7 @@ if (clip.type === "midi") {
 const label = document.createElement("div");
 label.style.position = "absolute";
 label.style.top = "2px";
-label.style.left = "4px";
+label.style.left = "14px";
 label.style.fontSize = "10px";
 label.style.color = "#fff";
 label.style.pointerEvents = "none";
@@ -807,6 +807,29 @@ else {
 
 el.appendChild(label);
 
+/* -------------------------------------------------------
+   DROPDOWN TRIANGLE
+------------------------------------------------------- */
+const triangle = document.createElement("div");
+triangle.style.position = "absolute";
+triangle.style.top = "6px";
+triangle.style.left = "4px";
+triangle.style.width = "0";
+triangle.style.height = "0";
+triangle.style.borderLeft = "4px solid transparent";
+triangle.style.borderRight = "4px solid transparent";
+triangle.style.borderTop = "6px solid #fff";
+triangle.style.pointerEvents = "none";
+
+el.appendChild(triangle);
+
+// Adjust label left padding to account for triangle
+label.style.left = "14px";
+
+el.appendChild(triangle);
+
+// Adjust label left padding to account for triangle
+label.style.left = "14px";
 
 /* -------------------------------------------------------
    DRAGGABLE CLIP (child-safe)
