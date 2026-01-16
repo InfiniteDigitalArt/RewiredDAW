@@ -74,6 +74,15 @@ window.clips.forEach(clip => {
 // ------------------------------------------------------
 const offlineTrackGains = [];
 const offlineTrackPans = [];
+const offlineTrackReverbSends = [];
+const offlineReverb = offline.createConvolver();
+offlineReverb.buffer = window.makeSmallReverbBuffer(offline);
+
+// Master reverb gain (wet level)
+const offlineReverbGain = offline.createGain();
+offlineReverbGain.gain.value = 1.0;
+offlineReverb.connect(offlineReverbGain);
+offlineReverbGain.connect(masterGain);
 
 for (let i = 0; i < window.trackGains.length; i++) {
   const g = offline.createGain();
@@ -82,12 +91,20 @@ for (let i = 0; i < window.trackGains.length; i++) {
   const p = offline.createStereoPanner();
   p.pan.value = window.trackPanners[i].pan.value;
 
+  // Per-track reverb send (default 0.2, or match your realtime value)
+  const reverbSend = offline.createGain();
+  reverbSend.gain.value = 0.2; // You may want to store per-track/clip reverb send in your project
 
   g.connect(p);
   p.connect(masterGain);
 
+  // Connect to reverb send
+  p.connect(reverbSend);
+  reverbSend.connect(offlineReverb);
+
   offlineTrackGains.push(g);
   offlineTrackPans.push(p);
+  offlineTrackReverbSends.push(reverbSend);
 }
 
 
@@ -139,13 +156,18 @@ window.clips.forEach(clip => {
 
   const trackIndex = clip.trackIndex ?? 0;
 
-const synth = new BasicSawSynthForContext(
-  offline,
-  offlineTrackGains[trackIndex],
-  clip.sampleBuffer,
-  window.makeSmallReverbBuffer(offline),     // ⭐ same impulse as realtime
-  clip.reverbGain.gain.value                 // ⭐ per‑clip wet amount
-);
+  // Use the offline reverb and per-clip reverb gain (if available)
+  const reverbGainValue = (clip.reverbGain && clip.reverbGain.gain && typeof clip.reverbGain.gain.value === "number")
+    ? clip.reverbGain.gain.value
+    : 0.2;
+
+  const synth = new BasicSawSynthForContext(
+    offline,
+    offlineTrackGains[trackIndex],
+    clip.sampleBuffer,
+    offlineReverb.buffer, // Use the same impulse as realtime
+    reverbGainValue       // Per-clip wet amount
+  );
 
 
 

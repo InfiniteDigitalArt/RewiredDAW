@@ -615,14 +615,13 @@ marker.style.left = (x + 104 + 2) + "px";
   }
 };
 
-  // Prevent parent containers from receiving timeline clicks
-  document.getElementById("timeline-bar").addEventListener("click", e => {
-    e.stopPropagation();
-  });
+document.getElementById("timeline-bar").addEventListener("mousedown", e => {
+  e.stopPropagation();
+});
 
-  document.querySelector(".timeline").addEventListener("click", e => {
-    e.stopPropagation();
-  });
+document.querySelector(".timeline").addEventListener("mousedown", e => {
+  e.stopPropagation();
+});
 
   document.getElementById("exportBtn").addEventListener("click", () => {
   window.exportSong();
@@ -851,9 +850,18 @@ fileMenu.addEventListener("click", () => {
   fileDropdown.style.display = isOpen ? "none" : "block";
 });
 
-// Close dropdown when clicking outside
 document.addEventListener("click", (e) => {
-  if (!fileMenu.contains(e.target)) {
+  const clickedInsideMenu = fileMenu.contains(e.target);
+  if (!clickedInsideMenu) {
     fileDropdown.style.display = "none";
   }
 });
+
+// Close dropdown when clicking any menu item
+document.querySelectorAll("#fileDropdown .dropdown-item").forEach(item => {
+  item.addEventListener("click", (e) => {
+    e.stopPropagation();        // ⬅ prevents reopening
+    fileDropdown.style.display = "none";
+  });
+});
+
