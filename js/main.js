@@ -85,6 +85,15 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Set activeClip when dropdown changes
+  const clipDropdown = document.getElementById("clipListDropdown");
+  if (clipDropdown) {
+    clipDropdown.addEventListener("change", function() {
+      const selectedId = this.value;
+      window.activeClip = window.clips.find(c => c.id === selectedId) || null;
+    });
+  }
+
 }); // ← only ONE closing brace
 
 

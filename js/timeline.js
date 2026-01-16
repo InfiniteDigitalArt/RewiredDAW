@@ -135,6 +135,54 @@ if (window.loadedProject && window.loadedProject.tracks[i]) {
 
     drop.addEventListener("dragover", (e) => e.preventDefault());
 
+    // Left-click to duplicate selected clip if clicking on empty area
+    drop.addEventListener("mousedown", function(e) {
+      // Only respond to left-click
+      if (e.button !== 0) return;
+      // Prevent if dragging or selecting
+      if (window.draggedClipId || window.draggedLoop) return;
+      // Find bar and track index
+      const rect = drop.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
+      const trackIndex = i;
+
+      // Check if a clip already exists at this bar/track
+      const overlap = window.clips.some(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
+      if (overlap) return;
+
+      // Only duplicate if a clip is selected
+      const selected = window.activeClip;
+      if (!selected) return;
+
+      // Deep clone the selected clip
+      let newClip;
+      if (selected.type === "midi") {
+        newClip = new MidiClip(startBar, selected.bars);
+        newClip.trackIndex = trackIndex;
+        newClip.notes = JSON.parse(JSON.stringify(selected.notes));
+        newClip.sampleBuffer = selected.sampleBuffer;
+        newClip.sampleName = selected.sampleName;
+        newClip.name = selected.name + " Copy";
+      } else if (selected.type === "audio") {
+        newClip = {
+          ...selected,
+          id: crypto.randomUUID(),
+          trackIndex,
+          startBar
+        };
+      } else {
+        return;
+      }
+
+      window.clips.push(newClip);
+      resolveClipCollisions(newClip);
+      drop.innerHTML = "";
+      window.clips
+        .filter(c => c.trackIndex === trackIndex)
+        .forEach(c => window.renderClip(c, drop));
+    });
+
     let playhead = document.getElementById("playhead");
     if (!playhead) {
       playhead = document.createElement("div");
