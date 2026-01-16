@@ -992,7 +992,7 @@ body {
   gap: 6px;
 }
 
-.transpose-label {
+.soft-label {
   font-size: 12px;
   opacity: 0.7;
 }
@@ -1095,7 +1095,8 @@ body {
   gap: 6px;
 }
 
-#piano-roll-scale {
+#piano-roll-scale,
+.piano-roll-load-sample {
   background: #1c1c22;
   color: #fff;
   border: 1px solid #2b2b33;

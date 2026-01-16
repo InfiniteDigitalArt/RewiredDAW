@@ -86,8 +86,9 @@
   <div id="piano-roll-sample-header">
     <!-- LEFT -->
     <div class="piano-roll-header-left">
-      <span id="piano-roll-clip-name"></span>
-      <span id="piano-roll-sample-label">
+      
+      <span class="soft-label">
+        <span id="piano-roll-clip-name"></span>
         Sample: <strong id="piano-roll-sample-name">None</strong>
       </span>
       <button id="piano-roll-load-sample">Load Sample</button>
@@ -96,7 +97,7 @@
     <!-- CENTER -->
     <div class="piano-roll-header-center">
       <div id="piano-roll-reverb-control">
-        <label>Reverb:</label>
+        <span class="soft-label"><label>Reverb:</label></span>
         <input type="range" class="tempo-slider" id="piano-roll-reverb" min="0" max="1" step="0.01">
       </div>
     </div>
@@ -108,20 +109,20 @@
 
       <div id="piano-roll-transpose">
         <div class="transpose-group">
-          <span class="transpose-label">Semi</span>
+          <span class="soft-label">Semi</span>
           <button class="transpose-btn" data-step="-1">▼</button>
           <button class="transpose-btn" data-step="1">▲</button>
         </div>
 
         <div class="transpose-group">
-          <span class="transpose-label">Oct</span>
+          <span class="soft-label">Oct</span>
           <button class="transpose-btn" data-step="-12">▼</button>
           <button class="transpose-btn" data-step="12">▲</button>
         </div>
       </div>
 
       <div id="piano-roll-scale-control">
-        <label>Scale:</label>
+        <span class="soft-label"><label>Scale:</label></span>
         <select id="piano-roll-scale">
           <option value="chromatic">Chromatic</option>
           <optgroup label="Major">
