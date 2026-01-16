@@ -589,9 +589,9 @@ marker.style.left = (x + 104 + 2) + "px";
   }
 
   // If stopped → just move the playhead visually
-  const playhead = document.getElementById("playhead");
-  playhead.style.left = (x + 104) + "px";
-  playhead.classList.remove("hidden");
+  //const playhead = document.getElementById("playhead");
+  //playhead.style.left = (x + 104) + "px";
+  //playhead.classList.remove("hidden");
 
   // Update UI
   const playToggleBtn = document.getElementById("playToggleBtn");

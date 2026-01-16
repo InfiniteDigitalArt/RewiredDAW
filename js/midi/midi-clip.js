@@ -17,11 +17,17 @@ window.MidiClip = class MidiClip {
     this.reverb.buffer = window.makeSmallReverbBuffer(audioContext);
 
 
+    // High pass filter for reverb (wet only)
+    this.reverbHighPass = audioContext.createBiquadFilter();
+    this.reverbHighPass.type = "highpass";
+    this.reverbHighPass.frequency.value = 300; // Remove bass below 300Hz (adjust as needed)
+
     this.reverbGain = audioContext.createGain();
     this.reverbGain.gain.value = 0; // default wet amount
 
-    // Connect clip reverb → reverbGain → master
-    this.reverb.connect(this.reverbGain);
+    // Connect clip reverb → highpass → reverbGain → master
+    this.reverb.connect(this.reverbHighPass);
+    this.reverbHighPass.connect(this.reverbGain);
     this.reverbGain.connect(audioContext.destination);
   }
 

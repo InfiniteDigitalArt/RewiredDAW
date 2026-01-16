@@ -593,10 +593,8 @@ window.renderClip = function (clip, dropArea) {
           window.clips.filter(c => c.trackIndex === dragClip.trackIndex)
             .forEach(c => window.renderClip(c, dropAreaEl));
         }
-      } else {
-        // If not moved, simulate double-click if it was a quick click
-        el.dispatchEvent(new MouseEvent("dblclick", {bubbles:true}));
       }
+      // No simulated double-click. Only native dblclick will open piano roll.
     }
 
     document.addEventListener("mousemove", onMove);
@@ -625,8 +623,9 @@ el.addEventListener("contextmenu", (e) => {
     .filter(c => c.trackIndex === trackIndex)
     .forEach(c => window.renderClip(c, dropArea));
 
-  // 3. Update audio engine state for this track
-  //updateTrackActiveState(trackIndex);
+  // 3. Close piano roll
+  document.getElementById("piano-roll-container").classList.add("hidden"); // ⭐ hide using class toggle
+  activeClip = null;
 
 
 });
@@ -668,11 +667,51 @@ handle.addEventListener("mousedown", (e) => {
     preview.style.width = newWidth + "px";
     preview.innerHTML = "";
     preview.appendChild(glow);
-    //for (let i = 0; i < Math.floor(newBars); i++) {
-      //const bar = document.createElement("div");
-      //bar.className = "bar";
-      //preview.appendChild(bar);
-    //}
+
+    // Live update MIDI preview during resize
+    if (clip.type === "midi") {
+      // Find or create the midi-preview canvas
+      let midiCanvas = el.querySelector(".midi-preview");
+      const beatsPerBar = 4;
+      const pxPerBar = window.PIXELS_PER_BAR;
+      const pxPerBeat = pxPerBar / beatsPerBar;
+      if (!midiCanvas) {
+        midiCanvas = document.createElement("canvas");
+        midiCanvas.className = "midi-preview";
+        midiCanvas.style.position = "absolute";
+        midiCanvas.style.bottom = "0";
+        midiCanvas.style.left = "0";
+        midiCanvas.style.pointerEvents = "none";
+        midiCanvas.style.zIndex = "2";
+        el.appendChild(midiCanvas);
+      }
+      midiCanvas.width = clip.bars * pxPerBar;
+      midiCanvas.height = 40;
+      const ctx = midiCanvas.getContext("2d");
+      ctx.clearRect(0, 0, midiCanvas.width, midiCanvas.height);
+      // Pitch range
+      let minPitch = Infinity;
+      let maxPitch = -Infinity;
+      clip.notes.forEach(n => {
+        if (n.pitch < minPitch) minPitch = n.pitch;
+        if (n.pitch > maxPitch) maxPitch = n.pitch;
+      });
+      minPitch -= 1;
+      maxPitch += 1;
+      const pitchRange = Math.max(1, maxPitch - minPitch);
+      const rowHeight = midiCanvas.height / pitchRange;
+      clip.notes.forEach(note => {
+        const gap = 1;
+        const x = note.start * pxPerBeat + gap;
+        const w = (note.end - note.start) * pxPerBeat - gap * 2;
+        const y = (maxPitch - note.pitch) * rowHeight;
+        const h = Math.max(3, rowHeight - 2);
+        ctx.fillStyle = window.TRACK_COLORS[clip.trackIndex % 10];
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(255,255,255,0.4)";
+        ctx.strokeRect(x, y, w, h);
+      });
+    }
   }
 
   function up() {
@@ -851,16 +890,108 @@ if (clip.type === "midi") {
    - Loop audio: fileName
    - MIDI: name
 ------------------------------------------------------- */
+// Create a container for the triangle and label
+const labelWrap = document.createElement("div");
+labelWrap.style.position = "absolute";
+labelWrap.style.top = "2px";
+labelWrap.style.left = "4px";
+labelWrap.style.display = "flex";
+labelWrap.style.alignItems = "center";
+labelWrap.style.pointerEvents = "none";
+
+// Downwards triangle (future menu button)
+const triangle = document.createElement("span");
+triangle.textContent = "▼";
+triangle.style.fontSize = "10px";
+triangle.style.marginRight = "4px";
+triangle.style.color = "#fff";
+triangle.style.pointerEvents = "auto";
+triangle.style.cursor = "pointer";
+
+// Only add dropdown for MIDI clips
+if (clip.type === "midi") {
+  const dropdown = document.createElement("div");
+  dropdown.style.position = "absolute";
+  dropdown.style.top = "16px";
+  dropdown.style.left = "0";
+  dropdown.style.background = "#222";
+  dropdown.style.color = "#fff";
+  dropdown.style.border = "1px solid #444";
+  dropdown.style.borderRadius = "4px";
+  dropdown.style.fontSize = "12px";
+  dropdown.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
+  dropdown.style.display = "none";
+  dropdown.style.zIndex = "10";
+  dropdown.style.minWidth = "100px";
+  dropdown.style.pointerEvents = "auto";
+
+  // Dropdown item: Make Unique
+  const makeUnique = document.createElement("div");
+  makeUnique.textContent = "Make Unique";
+  makeUnique.style.padding = "6px 12px";
+  makeUnique.style.cursor = "pointer";
+  makeUnique.style.pointerEvents = "auto";
+  makeUnique.addEventListener("mouseenter", () => makeUnique.style.background = "#333");
+  makeUnique.addEventListener("mouseleave", () => makeUnique.style.background = "#222");
+
+  makeUnique.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdown.style.display = "none";
+    // Find all clips with same name and data
+    let isUnique = true;
+    isUnique = window.clips.filter(c => c !== clip && c.type === "midi" && c.name === clip.name && JSON.stringify(c.notes) === JSON.stringify(clip.notes)).length === 0;
+    if (!isUnique) {
+      // Duplicate the clip with a new id and name
+      const newClip = { ...clip, id: crypto.randomUUID() };
+      // Find all clips with the same base name and count them for numbering
+      const baseName = (clip.name || "MIDI Clip").replace(/( #\d{2})$/, "");
+      const siblings = window.clips.filter(c => c !== clip && c.type === "midi" && c.name && c.name.startsWith(baseName));
+      const nextNum = siblings.length + 1;
+      newClip.name = `${baseName} #${String(nextNum).padStart(2, '0')}`;
+      newClip.notes = JSON.parse(JSON.stringify(clip.notes));
+      // Replace this clip in window.clips
+      const idx = window.clips.findIndex(c => c.id === clip.id);
+      if (idx !== -1) {
+        window.clips[idx] = newClip;
+        // Re-render the parent drop area
+        if (el.parentElement) {
+          const dropArea = el.parentElement;
+          dropArea.innerHTML = "";
+          window.clips.filter(c => c.trackIndex === newClip.trackIndex).forEach(c => window.renderClip(c, dropArea));
+        }
+      }
+    }
+  });
+
+  dropdown.appendChild(makeUnique);
+  labelWrap.appendChild(dropdown);
+
+  // Show/hide dropdown on triangle click
+  triangle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    // Hide any other open dropdowns
+    document.querySelectorAll('.clip-dropdown-open').forEach(el => {
+      el.classList.remove('clip-dropdown-open');
+      el.style.display = 'none';
+    });
+    dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+    if (dropdown.style.display === "block") dropdown.classList.add('clip-dropdown-open');
+    else dropdown.classList.remove('clip-dropdown-open');
+  });
+
+  // Hide dropdown when clicking elsewhere
+  document.addEventListener("click", () => {
+    dropdown.style.display = "none";
+    dropdown.classList.remove('clip-dropdown-open');
+  });
+}
+
 const label = document.createElement("div");
-label.style.position = "absolute";
-label.style.top = "2px";
-label.style.left = "4px";
 label.style.fontSize = "10px";
 label.style.color = "#fff";
 label.style.pointerEvents = "none";
 
 if (clip.type === "audio") {
-  // Works for both local audio and loop clips
   label.textContent = clip.fileName || clip.loopId || "Audio";
 } 
 else if (clip.type === "midi") {
@@ -870,7 +1001,9 @@ else {
   label.textContent = "Clip";
 }
 
-el.appendChild(label);
+labelWrap.appendChild(triangle);
+labelWrap.appendChild(label);
+el.appendChild(labelWrap);
 
 
 /* -------------------------------------------------------
