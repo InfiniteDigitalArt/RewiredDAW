@@ -553,7 +553,8 @@ el.addEventListener("contextmenu", (e) => {
 
   // 1. Remove the clip from the project
   window.clips = window.clips.filter(c => c.id !== clip.id);
-
+  document.getElementById("piano-roll-container").classList.add("hidden"); // ⭐ hide using class toggle
+  activeClip = null;
   // 2. Re-render the track visually
   dropArea.innerHTML = "";
   window.clips

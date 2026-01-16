@@ -1,7 +1,7 @@
 :root {
   --bg-main: #0f0f12;
   --bg-panel: #141418;
-  --bg-track-even: #16161b;
+  --bg-track-even: #19191d;
   --bg-track-odd: #131318;
 
   --border-light: #2a2a30;
@@ -1099,5 +1099,35 @@ body {
 }
 .snap-control select:focus {
   border: 1.5px solid #4DD2FF;
+}
+
+/* ============================================
+   SCALE CONTROL
+   ============================================ */
+
+#piano-roll-scale-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#piano-roll-scale {
+  background: #1c1c22;
+  color: #fff;
+  border: 1px solid #2b2b33;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  outline: none;
+  transition: border 0.15s;
+}
+
+#piano-roll-scale:hover {
+  border-color: #444;
+}
+
+#piano-roll-scale:focus {
+  border-color: #007aff;
 }
 
