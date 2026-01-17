@@ -1123,51 +1123,130 @@ if (clip.type === "midi") {
   rename.addEventListener("click", (e) => {
     e.stopPropagation();
     dropdown.style.display = "none";
-    
-    // Prompt for new name
+
+    // Custom modal for renaming
     const currentName = clip.name || "MIDI Clip";
-    const newName = prompt("Enter new name for this clip:", currentName);
-    
-    if (newName && newName.trim() !== "" && newName !== currentName) {
-      // Check if the active clip is one of the clips being renamed
-      const isActiveClipAffected = window.activeClip && window.activeClip.type === "midi" && window.activeClip.name === currentName;
-      
-      // Find all clips with the same name (linked clips)
-      const linkedClips = window.clips.filter(c => c.type === "midi" && c.name === currentName);
-      
-      // Update all linked clips
-      linkedClips.forEach(c => {
-        c.name = newName;
-      });
-      
-      // Re-render all affected tracks
-      const affectedTracks = new Set(linkedClips.map(c => c.trackIndex));
-      affectedTracks.forEach(trackIndex => {
-        const track = document.querySelector(`.track[data-index="${trackIndex}"]`);
-        if (track) {
-          const dropArea = track.querySelector(".track-drop-area");
-          if (dropArea) {
-            dropArea.innerHTML = "";
-            window.clips
-              .filter(c => c.trackIndex === trackIndex)
-              .forEach(c => window.renderClip(c, dropArea));
+    const modal = document.createElement("div");
+    modal.style.position = "fixed";
+    modal.style.top = "0";
+    modal.style.left = "0";
+    modal.style.width = "100vw";
+    modal.style.height = "100vh";
+    modal.style.background = "rgba(0,0,0,0.35)";
+    modal.style.display = "flex";
+    modal.style.alignItems = "center";
+    modal.style.justifyContent = "center";
+    modal.style.zIndex = "10001";
+
+    const box = document.createElement("div");
+    box.style.background = "#222";
+    box.style.border = "1px solid #444";
+    box.style.borderRadius = "8px";
+    box.style.padding = "24px 24px 16px 24px";
+    box.style.minWidth = "280px";
+    box.style.boxShadow = "0 4px 24px rgba(0,0,0,0.4)";
+    box.style.display = "flex";
+    box.style.flexDirection = "column";
+    box.style.alignItems = "stretch";
+
+    const title = document.createElement("div");
+    title.textContent = "Rename Clip";
+    title.style.fontSize = "18px";
+    title.style.fontWeight = "bold";
+    title.style.color = "#fff";
+    title.style.marginBottom = "12px";
+    box.appendChild(title);
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = currentName;
+    input.style.fontSize = "15px";
+    input.style.padding = "8px";
+    input.style.border = "1px solid #444";
+    input.style.borderRadius = "4px";
+    input.style.background = "#111";
+    input.style.color = "#fff";
+    input.style.marginBottom = "16px";
+    box.appendChild(input);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.display = "flex";
+    btnRow.style.justifyContent = "flex-end";
+    btnRow.style.gap = "8px";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.style.background = "#333";
+    cancelBtn.style.color = "#fff";
+    cancelBtn.style.border = "none";
+    cancelBtn.style.borderRadius = "4px";
+    cancelBtn.style.padding = "6px 16px";
+    cancelBtn.style.cursor = "pointer";
+    cancelBtn.addEventListener("click", () => {
+      document.body.removeChild(modal);
+    });
+
+    const okBtn = document.createElement("button");
+    okBtn.textContent = "OK";
+    okBtn.style.background = "#4D88FF";
+    okBtn.style.color = "#fff";
+    okBtn.style.border = "none";
+    okBtn.style.borderRadius = "4px";
+    okBtn.style.padding = "6px 16px";
+    okBtn.style.cursor = "pointer";
+    okBtn.addEventListener("click", () => {
+      const newName = input.value.trim();
+      if (newName && newName !== currentName) {
+        // Check if the active clip is one of the clips being renamed
+        const isActiveClipAffected = window.activeClip && window.activeClip.type === "midi" && window.activeClip.name === currentName;
+        // Find all clips with the same name (linked clips)
+        const linkedClips = window.clips.filter(c => c.type === "midi" && c.name === currentName);
+        // Update all linked clips
+        linkedClips.forEach(c => {
+          c.name = newName;
+        });
+        // Re-render all affected tracks
+        const affectedTracks = new Set(linkedClips.map(c => c.trackIndex));
+        affectedTracks.forEach(trackIndex => {
+          const track = document.querySelector(`.track[data-index="${trackIndex}"]`);
+          if (track) {
+            const dropArea = track.querySelector(".track-drop-area");
+            if (dropArea) {
+              dropArea.innerHTML = "";
+              window.clips
+                .filter(c => c.trackIndex === trackIndex)
+                .forEach(c => window.renderClip(c, dropArea));
+            }
+          }
+        });
+        // Update the clip list dropdown
+        const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+        window.refreshClipDropdown(uniqueClips);
+        // Update the piano roll header if the active clip was renamed
+        if (isActiveClipAffected) {
+          const clipNameEl = document.getElementById("piano-roll-clip-name");
+          if (clipNameEl) {
+            clipNameEl.textContent = newName;
           }
         }
-      });
-      
-      // Update the clip list dropdown
-      const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
-      window.refreshClipDropdown(uniqueClips);
-      
-      // Update the piano roll header if the active clip was renamed
-      if (isActiveClipAffected) {
-        const clipNameEl = document.getElementById("piano-roll-clip-name");
-        if (clipNameEl) {
-          clipNameEl.textContent = newName;
-        }
       }
-    }
+      document.body.removeChild(modal);
+    });
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(okBtn);
+    box.appendChild(btnRow);
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+    input.focus();
+    input.select();
+    // Allow Enter to confirm, Esc to cancel
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") okBtn.click();
+      if (ev.key === "Escape") cancelBtn.click();
+    });
   });
+  
 
   dropdown.appendChild(rename);
   document.body.appendChild(dropdown);
@@ -1200,9 +1279,6 @@ if (clip.type === "midi") {
       dropdown.classList.remove('clip-dropdown-open');
     }
   });
-
-  // Hide dropdown when clicking elsewhere
-  // (using global handler attached at top of timeline.js)
 }
 
 const label = document.createElement("div");

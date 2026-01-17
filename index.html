@@ -276,19 +276,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.js"></script>
 
 <script defer src="js/midi/piano-roll.js"></script>
-<script>
-  // Magnet toggle logic
-  document.addEventListener('DOMContentLoaded', function() {
-    const magnetBtn = document.getElementById('piano-roll-magnet-toggle');
-    if (magnetBtn) {
-      magnetBtn.addEventListener('click', function() {
-        const pressed = magnetBtn.getAttribute('aria-pressed') === 'true';
-        magnetBtn.setAttribute('aria-pressed', String(!pressed));
-        magnetBtn.classList.toggle('active', !pressed);
-      });
-    }
-  });
-</script>
+
 
 <!-- MAIN APP (must be last) -->
 <script defer src="js/main.js"></script>

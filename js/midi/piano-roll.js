@@ -45,13 +45,91 @@ const maxPxPerBeat = 400;
 const snap = 0.25; // quarter-beat snapping
 const pianoWidth = 60; // width of vertical piano
 
+let snapEnabled = false;
 
+// --- SCALE NOTE MAPS ---
+const SCALE_MAPS = {
+  'chromatic': [0,1,2,3,4,5,6,7,8,9,10,11],
+  'C-major':    [0,2,4,5,7,9,11],
+  'D-major':    [2,4,6,7,9,11,1],
+  'E-major':    [4,6,8,9,11,1,3],
+  'F-major':    [5,7,9,10,0,2,4],
+  'G-major':    [7,9,11,0,2,4,6],
+  'A-major':    [9,11,1,2,4,6,8],
+  'B-major':    [11,1,3,4,6,8,10],
+  'A-minor':    [9,11,0,2,4,5,7],
+  'B-minor':    [11,1,2,4,6,7,9],
+  'C-minor':    [0,2,3,5,7,8,10],
+  'D-minor':    [2,4,5,7,9,10,0],
+  'E-minor':    [4,6,7,9,11,0,2],
+  'F-minor':    [5,7,8,10,0,1,3],
+  'G-minor':    [7,9,10,0,2,3,5],
+};
+let currentScale = 'chromatic';
+
+function isNoteInScale(pitch, scaleName) {
+  const scale = SCALE_MAPS[scaleName] || SCALE_MAPS['chromatic'];
+  return scale.includes((pitch % 12));
+}
 
 // ======================================================
 //  INITIALIZATION
 // ======================================================
 
 window.initPianoRoll = function () {
+  // Magnet toggle button (independent from tool buttons)
+  const magnetBtn = document.getElementById('piano-roll-magnet-toggle');
+  if (magnetBtn) {
+    // Helper to shift a pitch up to the next in-scale pitch
+    function shiftUpToScale(pitch) {
+      let p = pitch;
+      while (p <= pitchMax) {
+        if (isNoteInScale(p, currentScale)) return p;
+        p++;
+      }
+      // If no valid pitch found, clamp to max
+      return pitchMax;
+    }
+    magnetBtn.addEventListener('click', () => {
+      const wasEnabled = snapEnabled;
+      snapEnabled = !snapEnabled;
+      magnetBtn.setAttribute('aria-pressed', snapEnabled ? 'true' : 'false');
+      magnetBtn.classList.toggle('active', snapEnabled);
+      // If enabling snap, shift all out-of-scale notes up to the next in-scale pitch
+      if (!wasEnabled && snapEnabled && activeClip) {
+        activeClip.notes.forEach(n => {
+          if (!isNoteInScale(n.pitch, currentScale)) {
+            n.pitch = shiftUpToScale(n.pitch);
+          }
+        });
+        renderPianoRoll();
+      }
+    });
+    // Initialize state (disabled by default)
+    //magnetBtn.setAttribute('aria-pressed', 'false');
+    //magnetBtn.classList.remove('active');
+  }
+
+  // Tool selector buttons (do not include magnet button)
+  const toolButtons = Array.from(document.querySelectorAll('.piano-roll-tool-btn')).filter(btn => btn.id !== 'piano-roll-magnet-toggle');
+  // Set pencil as default active tool
+  if (toolButtons.length > 0) {
+    toolButtons[0].classList.add('active');
+  }
+  toolButtons.forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+      // Remove active class from all tool buttons
+      toolButtons.forEach(b => b.classList.remove('active'));
+      
+      // Add active class to clicked button
+      btn.classList.add('active');
+      
+      // Update current tool based on button index (0: pencil, 1: select, 2: slice)
+      const tools = ['pencil', 'select', 'slice'];
+      currentTool = tools[index];
+    });
+  });
+
 
   // Keyboard Delete key removes selected notes
   window.addEventListener('keydown', function(e) {
@@ -179,27 +257,7 @@ window.initPianoRoll = function () {
     activeClip.reverbGain.gain.value = Number(reverbSlider.value);
   });
 
-  // Tool selector buttons
-  const toolButtons = document.querySelectorAll('.piano-roll-tool-btn');
-  
-  // Set pencil as default active tool
-  if (toolButtons.length > 0) {
-    toolButtons[0].classList.add('active');
-  }
-  
-  toolButtons.forEach((btn, index) => {
-    btn.addEventListener('click', () => {
-      // Remove active class from all tool buttons
-      toolButtons.forEach(b => b.classList.remove('active'));
-      
-      // Add active class to clicked button
-      btn.classList.add('active');
-      
-      // Update current tool based on button index (0: pencil, 1: select, 2: slice)
-      const tools = ['pencil', 'select', 'slice'];
-      currentTool = tools[index];
-    });
-  });
+
 
   // Transpose buttons
   document.addEventListener("click", e => {
@@ -208,15 +266,50 @@ window.initPianoRoll = function () {
 
     const step = Number(e.target.dataset.step);
 
+    // Helper to snap a pitch up to the next in-scale pitch (or itself if already in scale)
+    function snapUpToScale(pitch) {
+      let p = pitch;
+      while (p <= pitchMax) {
+        if (isNoteInScale(p, currentScale)) return p;
+        p++;
+      }
+      return pitchMax;
+    }
+    // Helper to snap a pitch down to the next in-scale pitch (or itself if already in scale)
+    function snapDownToScale(pitch) {
+      let p = pitch;
+      while (p >= pitchMin) {
+        if (isNoteInScale(p, currentScale)) return p;
+        p--;
+      }
+      return pitchMin;
+    }
+
     // If notes are selected, only transpose selected notes
     if (selectedNotes.length > 0) {
       selectedNotes.forEach(n => {
-        n.pitch += step;
+        let newPitch = n.pitch + step;
+        if (snapEnabled) {
+          if (step > 0) {
+            newPitch = snapUpToScale(newPitch);
+          } else {
+            newPitch = snapDownToScale(newPitch);
+          }
+        }
+        n.pitch = newPitch;
       });
     } else {
       // Otherwise transpose all notes
       activeClip.notes.forEach(n => {
-        n.pitch += step;
+        let newPitch = n.pitch + step;
+        if (snapEnabled) {
+          if (step > 0) {
+            newPitch = snapUpToScale(newPitch);
+          } else {
+            newPitch = snapDownToScale(newPitch);
+          }
+        }
+        n.pitch = newPitch;
       });
     }
 
@@ -245,6 +338,35 @@ window.initPianoRoll = function () {
     e.stopPropagation();
     onMidiDrop(e);
   });
+
+  // Scale selector
+  const scaleSelect = document.getElementById('piano-roll-scale');
+  if (scaleSelect) {
+    // Helper to shift a pitch up to the next in-scale pitch
+    function shiftUpToScale(pitch) {
+      let p = pitch;
+      while (p <= pitchMax) {
+        if (isNoteInScale(p, currentScale)) return p;
+        p++;
+      }
+      // If no valid pitch found, clamp to max
+      return pitchMax;
+    }
+    scaleSelect.addEventListener('change', e => {
+      currentScale = e.target.value;
+      // If snap is enabled, shift all out-of-scale notes up to the next in-scale pitch
+      if (snapEnabled && activeClip) {
+        activeClip.notes.forEach(n => {
+          if (!isNoteInScale(n.pitch, currentScale)) {
+            n.pitch = shiftUpToScale(n.pitch);
+          }
+        });
+      }
+      renderPianoRoll();
+    });
+    // Set initial value
+    currentScale = scaleSelect.value;
+  }
 
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
@@ -380,14 +502,11 @@ function drawGrid(ctx) {
   const lineOctave  = styles.getPropertyValue('--border-light');
   const beatLine    = styles.getPropertyValue('--accent-beat');
 
-  // Background shading (black/white keys)
+  // Background shading (scale-aware)
   for (let i = 0; i < pitchRange; i++) {
     const pitch = pitchMax - i;
     const y = i * rowHeight;
-
-    const isBlack = [1,3,6,8,10].includes(pitch % 12);
-
-    ctx.fillStyle = isBlack ? bgDark : bgLight;
+    ctx.fillStyle = isNoteInScale(pitch, currentScale) ? bgLight : bgDark;
     ctx.fillRect(0, y, gridCanvas.width, rowHeight);
   }
 
@@ -546,13 +665,15 @@ let duplicatedNotes = [];
 let duplicateOriginMap = new Map();
 let selectionStartPositions = new Map();
 
+// Right-click deletion state
+let isDeletingWithRightClick = false;
+
 
 function onMouseDown(e) {
   if (!activeClip) return;
 
-const scroll = document.getElementById("piano-roll-scroll");
-const rect = scroll.getBoundingClientRect();   // ⭐ correct origin
-
+  const scroll = document.getElementById("piano-roll-scroll");
+  const rect = scroll.getBoundingClientRect();
 
   // Convert mouse position → grid coordinates
   const x = e.clientX - rect.left + scroll.scrollLeft;
@@ -581,6 +702,7 @@ const rect = scroll.getBoundingClientRect();   // ⭐ correct origin
   // ---------------------------------------------
   if (e.button === 2) {
     if (currentTool === 'pencil') {
+      isDeletingWithRightClick = true;
       const idx = activeClip.notes.findIndex(n =>
         pitch === n.pitch &&
         rawBeat >= n.start &&
@@ -776,12 +898,28 @@ function onMouseMove(e) {
   if (!activeClip) return;
 
   const scroll = document.getElementById("piano-roll-scroll");
-  const rect = scroll.getBoundingClientRect();   // ⭐ correct origin
-
+  const rect = scroll.getBoundingClientRect();
 
   // Convert mouse → grid coordinates
   const x = e.clientX - rect.left + scroll.scrollLeft;
   const y = e.clientY - rect.top  + scroll.scrollTop;
+
+  // ---------------------------------------------
+  // RIGHT-CLICK DELETION (continuous)
+  // ---------------------------------------------
+  if (isDeletingWithRightClick && currentTool === 'pencil') {
+    const hit = findNoteAt(x, y);
+    if (hit) {
+      const idx = activeClip.notes.indexOf(hit.note);
+      if (idx !== -1) {
+        activeClip.notes.splice(idx, 1);
+        shrinkClipIfNeeded();
+        renderPianoRoll();
+        updateClipPreview();
+      }
+    }
+    return;
+  }
 
   // ---------------------------------------------
   // 0. DRAWING SELECTION BOX
@@ -851,23 +989,51 @@ function onMouseMove(e) {
     const deltaBeats = (x - moveStartX) / pxPerBeat;
     const snapped = Math.round(deltaBeats / snap) * snap;
 
+    // Helper to find the nearest pitch in scale
+    function getNearestScalePitch(targetPitch) {
+      // Find all scale pitches in the visible range
+      let minDist = Infinity;
+      let bestPitch = targetPitch;
+      for (let p = pitchMin; p <= pitchMax; p++) {
+        if (isNoteInScale(p, currentScale)) {
+          const dist = Math.abs(p - targetPitch);
+          if (dist < minDist) {
+            minDist = dist;
+            bestPitch = p;
+          }
+        }
+      }
+      return bestPitch;
+    }
+
     // If this note is part of a selection, move all selected notes
     if (selectedNotes.includes(movingNote)) {
       // use global rowHeight
-      const currentPitch = pitchMax - Math.floor(y / rowHeight);
-      const pitchDelta = currentPitch - moveStartPitch;
+      let currentPitch = pitchMax - Math.floor(y / rowHeight);
+      let pitchDelta;
+      if (snapEnabled) {
+        // Snap to nearest scale pitch
+        currentPitch = getNearestScalePitch(currentPitch);
+        pitchDelta = currentPitch - moveStartPitch;
+      } else {
+        pitchDelta = currentPitch - moveStartPitch;
+      }
 
       selectedNotes.forEach(note => {
         const original = selectionStartPositions.get(note);
         if (original) {
           let newStart = original.start + snapped;
           newStart = Math.max(0, newStart);
-          
+
           const duration = original.end - original.start;
+          let newPitch = original.pitch + pitchDelta;
+          if (snapEnabled) {
+            newPitch = getNearestScalePitch(newPitch);
+          }
           note.start = newStart;
           note.end = newStart + duration;
-          note.pitch = original.pitch + pitchDelta;
-          
+          note.pitch = newPitch;
+
           extendClipIfNeeded(note.end);
         }
       });
@@ -895,7 +1061,10 @@ function onMouseMove(e) {
 
       // Vertical movement (pitch)
       // use global rowHeight
-      const newPitch = pitchMax - Math.floor(y / rowHeight);
+      let newPitch = pitchMax - Math.floor(y / rowHeight);
+      if (snapEnabled) {
+        newPitch = getNearestScalePitch(newPitch);
+      }
 
       if (newPitch !== movingNote.pitch) {
         const pitchCollision = activeClip.notes.some(n =>
@@ -1024,8 +1193,8 @@ function onMouseUp() {
   resizingNote = null;
   movingNote = null;
   movingSelection = false;
+  isDeletingWithRightClick = false;
 }
-
 
 // ======================================================
 //  NOTE HIT TEST
@@ -1083,6 +1252,7 @@ function updateClipPreview() {
     .filter(c => c.trackIndex === activeClip.trackIndex)
     .forEach(c => window.renderClip(c, dropArea));
 }
+
 
 
 
@@ -1144,7 +1314,7 @@ async function onMidiDrop(e) {
     const visibleBars = Math.ceil(visibleBeats / 4);
 
     activeClip.bars = Math.max(1, midiBars);
-
+    
 
 
     resizeCanvas();
