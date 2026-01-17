@@ -20,6 +20,14 @@ window.timeline = {
   onStop: null
 };
 
+// Global click handler to close clip dropdowns
+document.addEventListener("click", () => {
+  document.querySelectorAll('.clip-dropdown-open').forEach(el => {
+    el.classList.remove('clip-dropdown-open');
+    el.style.display = 'none';
+  });
+}, true); // Use capture phase to ensure it runs
+
 
 window.initTimeline = function () {
   const tracksEl = document.getElementById("tracks");
@@ -1021,9 +1029,7 @@ triangle.style.cursor = "pointer";
 // Only add dropdown for MIDI clips
 if (clip.type === "midi") {
   const dropdown = document.createElement("div");
-  dropdown.style.position = "absolute";
-  dropdown.style.top = "16px";
-  dropdown.style.left = "0";
+  dropdown.style.position = "fixed";
   dropdown.style.background = "#222";
   dropdown.style.color = "#fff";
   dropdown.style.border = "1px solid #444";
@@ -1031,7 +1037,7 @@ if (clip.type === "midi") {
   dropdown.style.fontSize = "12px";
   dropdown.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
   dropdown.style.display = "none";
-  dropdown.style.zIndex = "10";
+  dropdown.style.zIndex = "1000";
   dropdown.style.minWidth = "100px";
   dropdown.style.pointerEvents = "auto";
 
@@ -1104,27 +1110,97 @@ if (clip.type === "midi") {
   });
 
   dropdown.appendChild(makeUnique);
-  labelWrap.appendChild(dropdown);
+
+  // Dropdown item: Rename
+  const rename = document.createElement("div");
+  rename.textContent = "Rename";
+  rename.style.padding = "6px 12px";
+  rename.style.cursor = "pointer";
+  rename.style.pointerEvents = "auto";
+  rename.addEventListener("mouseenter", () => rename.style.background = "#333");
+  rename.addEventListener("mouseleave", () => rename.style.background = "#222");
+
+  rename.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdown.style.display = "none";
+    
+    // Prompt for new name
+    const currentName = clip.name || "MIDI Clip";
+    const newName = prompt("Enter new name for this clip:", currentName);
+    
+    if (newName && newName.trim() !== "" && newName !== currentName) {
+      // Find all clips with the same name (linked clips)
+      const linkedClips = window.clips.filter(c => c.type === "midi" && c.name === currentName);
+      
+      // Update all linked clips
+      linkedClips.forEach(c => {
+        c.name = newName;
+      });
+      
+      // Re-render all affected tracks
+      const affectedTracks = new Set(linkedClips.map(c => c.trackIndex));
+      affectedTracks.forEach(trackIndex => {
+        const track = document.querySelector(`.track[data-index="${trackIndex}"]`);
+        if (track) {
+          const dropArea = track.querySelector(".track-drop-area");
+          if (dropArea) {
+            dropArea.innerHTML = "";
+            window.clips
+              .filter(c => c.trackIndex === trackIndex)
+              .forEach(c => window.renderClip(c, dropArea));
+          }
+        }
+      });
+      
+      // Update the clip list dropdown
+      const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+      window.refreshClipDropdown(uniqueClips);
+      
+      // Update the active clip name if it's the one being renamed
+      if (window.activeClip && window.activeClip.name === currentName) {
+        window.activeClip.name = newName;
+        const clipNameEl = document.getElementById("piano-roll-clip-name");
+        if (clipNameEl) {
+          clipNameEl.textContent = newName;
+        }
+      }
+    }
+  });
+
+  dropdown.appendChild(rename);
+  document.body.appendChild(dropdown);
   
+  // Prevent dropdown from closing when clicking inside it
+  dropdown.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
 
   // Show/hide dropdown on triangle click
   triangle.addEventListener("click", (e) => {
     e.stopPropagation();
     // Hide any other open dropdowns
     document.querySelectorAll('.clip-dropdown-open').forEach(el => {
-      el.classList.remove('clip-dropdown-open');
-      el.style.display = 'none';
+      if (el !== dropdown) {
+        el.classList.remove('clip-dropdown-open');
+        el.style.display = 'none';
+      }
     });
-    dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
-    if (dropdown.style.display === "block") dropdown.classList.add('clip-dropdown-open');
-    else dropdown.classList.remove('clip-dropdown-open');
+    
+    if (dropdown.style.display === "none") {
+      // Calculate position relative to viewport
+      const triangleRect = triangle.getBoundingClientRect();
+      dropdown.style.top = (triangleRect.bottom + 4) + "px";
+      dropdown.style.left = triangleRect.left + "px";
+      dropdown.style.display = "block";
+      dropdown.classList.add('clip-dropdown-open');
+    } else {
+      dropdown.style.display = "none";
+      dropdown.classList.remove('clip-dropdown-open');
+    }
   });
 
   // Hide dropdown when clicking elsewhere
-  document.addEventListener("click", () => {
-    dropdown.style.display = "none";
-    dropdown.classList.remove('clip-dropdown-open');
-  });
+  // (using global handler attached at top of timeline.js)
 }
 
 const label = document.createElement("div");
