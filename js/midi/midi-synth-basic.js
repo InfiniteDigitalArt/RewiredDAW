@@ -24,7 +24,7 @@ window.BasicSawSynth = class BasicSawSynth {
     src.buffer = clip.sampleBuffer;
 
     // MIDI pitch → playbackRate
-    const semitone = pitch - 69;
+    const semitone = pitch - 72;
     src.playbackRate.value = Math.pow(2, semitone / 12);
 
     const gain = this.audioCtx.createGain();

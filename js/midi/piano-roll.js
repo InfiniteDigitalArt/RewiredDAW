@@ -162,7 +162,7 @@ window.initPianoRoll = function () {
         // Calculate pitch under mouse before zoom
         const pitchUnderMouse = pitchMax - (mouseY / rowHeight);
         const delta = Math.sign(e.deltaY);
-        let newHeight = rowHeight - delta * 2;
+        let newHeight = rowHeight - delta * 1.2;
         newHeight = Math.max(minRowHeight, Math.min(maxRowHeight, newHeight));
         if (newHeight !== rowHeight) {
           // After zoom, keep the same pitch under the mouse pointer
@@ -198,7 +198,7 @@ window.initPianoRoll = function () {
       // Calculate beat under mouse before zoom
       const beatUnderMouse = mouseX / pxPerBeat;
       const delta = Math.sign(e.deltaY);
-      let newHeight = rowHeight - delta * 2;
+      let newHeight = rowHeight - delta * 1.2;
       newHeight = Math.max(minRowHeight, Math.min(maxRowHeight, newHeight));
       let newPxPerBeat = pxPerBeat - delta * 10;
       newPxPerBeat = Math.max(minPxPerBeat, Math.min(maxPxPerBeat, newPxPerBeat));

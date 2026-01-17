@@ -20,6 +20,14 @@ window.timeline = {
   onStop: null
 };
 
+// Right-click deletion state
+let isDeletingClipsWithRightClick = false;
+let deletedClipIds = new Set();
+
+// Paint mode state
+let isPainting = false;
+let paintedBars = new Set();
+
 // Global click handler to close clip dropdowns
 document.addEventListener("click", () => {
   document.querySelectorAll('.clip-dropdown-open').forEach(el => {
@@ -143,40 +151,109 @@ if (window.loadedProject && window.loadedProject.tracks[i]) {
 
     drop.addEventListener("dragover", (e) => e.preventDefault());
 
-    // Left-click to duplicate selected clip if clicking on empty area
+    // Left-click to paint/duplicate selected clip
     drop.addEventListener("mousedown", function(e) {
       // Only respond to left-click
       if (e.button !== 0) return;
       // Prevent if dragging or selecting
       if (window.draggedClipId || window.draggedLoop) return;
+      
+      const selected = window.activeClip;
+      if (!selected) return;
+
       // Find bar and track index
       const rect = drop.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
       const trackIndex = i;
 
+      // Check if clicking on an existing clip - if so, let the clip handle it
+      const clickedOnClip = e.target.closest('.clip');
+      if (clickedOnClip) return;
+
       // Check if a clip already exists at this bar/track
       const overlap = window.clips.some(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
       if (overlap) return;
 
-      // Only duplicate if a clip is selected
-      const selected = window.activeClip;
-      if (!selected) return;
+      // Prevent event from bubbling to prevent any drag handlers
+      e.preventDefault();
+      e.stopPropagation();
 
-      // --- Use the same method as CASE 2 for duplicating ---
-      let newClip = {
+      // Start paint mode
+      isPainting = true;
+      paintedBars.clear();
+
+      // Paint first clip
+      const newClip = {
         ...selected,
         id: crypto.randomUUID(),
         trackIndex,
         startBar
       };
 
+      // Share references for MIDI clips (NOT deep copy)
+      if (selected.type === "midi") {
+        newClip.notes = selected.notes; // Share the same notes array
+        newClip.sampleBuffer = selected.sampleBuffer;
+        newClip.sampleName = selected.sampleName;
+        if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
+      }
+      if (selected.type === "audio") {
+        if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
+      }
+
       window.clips.push(newClip);
       resolveClipCollisions(newClip);
-      window.activeClip = newClip;
+      paintedBars.add(startBar);
 
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
+
+      drop.innerHTML = "";
+      window.clips
+        .filter(c => c.trackIndex === trackIndex)
+        .forEach(c => window.renderClip(c, drop));
+    }, true); // Use capture phase to intercept before clip handlers
+
+    // Paint on mouse move
+    drop.addEventListener("mousemove", function(e) {
+      if (!isPainting) return;
+
+      const selected = window.activeClip;
+      if (!selected) return;
+
+      const rect = drop.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
+      const trackIndex = i;
+
+      // Skip if already painted at this bar or if clip exists
+      if (paintedBars.has(startBar)) return;
+      const overlap = window.clips.some(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
+      if (overlap) return;
+
+      // Paint new clip
+      const newClip = {
+        ...selected,
+        id: crypto.randomUUID(),
+        trackIndex,
+        startBar
+      };
+
+      // Share references for MIDI clips (NOT deep copy)
+      if (selected.type === "midi") {
+        newClip.notes = selected.notes; // Share the same notes array
+        newClip.sampleBuffer = selected.sampleBuffer;
+        newClip.sampleName = selected.sampleName;
+        if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
+      }
+      if (selected.type === "audio") {
+        if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
+      }
+
+      window.clips.push(newClip);
+      resolveClipCollisions(newClip);
+      paintedBars.add(startBar);
 
       drop.innerHTML = "";
       window.clips
@@ -606,9 +683,68 @@ window.renderClip = function (clip, dropArea) {
   el.className = "clip";
   el.dataset.clipId = clip.id;
 
+  // --- MOUSE MOVE FOR CONTINUOUS DELETION ---
+  el.addEventListener("mousemove", function (e) {
+    if (isDeletingClipsWithRightClick && !deletedClipIds.has(clip.id)) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const trackIndex = clip.trackIndex;
+      window.clips = window.clips.filter(c => c.id !== clip.id);
+      deletedClipIds.add(clip.id);
+      
+      // Re-render the track
+      dropArea.innerHTML = "";
+      window.clips
+        .filter(c => c.trackIndex === trackIndex)
+        .forEach(c => window.renderClip(c, dropArea));
+      
+      // Close piano roll if this clip was active
+      if (window.activeClip && window.activeClip.id === clip.id) {
+        document.getElementById("piano-roll-container").classList.add("hidden");
+        window.activeClip = null;
+      }
+      
+      // Refresh dropdown
+      const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+      window.refreshClipDropdown(uniqueClips);
+    }
+  });
+
   // --- Real-time drag/move with double-click threshold ---
   el.addEventListener("mousedown", function (e) {
-    if (e.button !== 0) return; // Only left mouse
+    // --- RIGHT CLICK → START DELETION ---
+    if (e.button === 2) {
+      e.preventDefault();
+      e.stopPropagation();
+      isDeletingClipsWithRightClick = true;
+      deletedClipIds.clear();
+      
+      // Delete the clicked clip
+      const trackIndex = clip.trackIndex;
+      window.clips = window.clips.filter(c => c.id !== clip.id);
+      deletedClipIds.add(clip.id);
+      
+      // Re-render the track
+      dropArea.innerHTML = "";
+      window.clips
+        .filter(c => c.trackIndex === trackIndex)
+        .forEach(c => window.renderClip(c, dropArea));
+      
+      // Close piano roll if this clip was active
+      if (window.activeClip && window.activeClip.id === clip.id) {
+        document.getElementById("piano-roll-container").classList.add("hidden");
+        window.activeClip = null;
+      }
+      
+      // Refresh dropdown
+      const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+      window.refreshClipDropdown(uniqueClips);
+      
+      return;
+    }
+
+    if (e.button !== 0) return; // Only left mouse for normal operations
     e.preventDefault();
     e.stopPropagation();
 
@@ -720,6 +856,10 @@ window.renderClip = function (clip, dropArea) {
 ------------------------------------------------------- */
 el.addEventListener("contextmenu", (e) => {
   e.preventDefault();
+  e.stopPropagation(); // Prevent menu from showing
+  
+  // Don't re-delete if already deleted during drag
+  if (deletedClipIds.has(clip.id)) return;
 
   const trackIndex = clip.trackIndex;
 
@@ -733,7 +873,7 @@ el.addEventListener("contextmenu", (e) => {
     .forEach(c => window.renderClip(c, dropArea));
 
   // 3. Close piano roll
-  document.getElementById("piano-roll-container").classList.add("hidden"); // ⭐ hide using class toggle
+  document.getElementById("piano-roll-container").classList.add("hidden");
   activeClip = null;
 
   // Refresh the dropdown after deletion
@@ -1522,9 +1662,31 @@ document.addEventListener("DOMContentLoaded", () => {
     setPlayheadVisible(isPlaying);
     // Optionally update button text/icon
     playBtn.textContent = isPlaying ? "Stop" : "Play";
-    // You may want to call your actual play/stop logic here as well
+    // you may want to call your actual play/stop logic here as well
     // e.g. window.playAll() / window.stopAll()
   });
 });
+
+// --- GLOBAL MOUSEUP TO RESET DELETION STATE ---
+document.addEventListener("mouseup", function (e) {
+  if (e.button === 2) {
+    isDeletingClipsWithRightClick = false;
+    deletedClipIds.clear();
+  }
+  if (e.button === 0) {
+    // Reset paint mode and refresh dropdown
+    if (isPainting) {
+      isPainting = false;
+      paintedBars.clear();
+      const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+      window.refreshClipDropdown(uniqueClips);
+    }
+  }
+});
+
+// --- DISABLE CONTEXT MENU GLOBALLY FOR THE ENTIRE APPLICATION ---
+document.addEventListener("contextmenu", function (e) {
+  e.preventDefault();
+}, true);
 
 

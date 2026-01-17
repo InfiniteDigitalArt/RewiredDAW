@@ -791,18 +791,7 @@ sampleNameBox.style.borderRadius = "4px";
 
     // ⭐ Auto-scroll to highest note
     const notes = activeClip.notes || [];
-    if (notes.length > 0) {
-      const highest = Math.max(...notes.map(n => n.pitch));
 
-      const rowHeight = 16;
-      const y = (pitchMax - highest) * rowHeight;
-
-      const scrollContainer = document.getElementById("piano-roll-scroll");
-
-      const extraOffset = 8 * rowHeight; // scroll down by a few notes
-      scrollContainer.scrollTop =
-        y - scrollContainer.clientHeight / 2 + extraOffset;
-    }
   });
 
   // Always use the real clip object from window.clips
