@@ -4,6 +4,7 @@
 
 let canvas, ctx;
 let activeClip = null;
+let currentTool = 'pencil'; // Track selected tool: 'pencil', 'select', or 'slice'
 
 
 
@@ -61,6 +62,28 @@ window.initPianoRoll = function () {
     activeClip.reverbGain.gain.value = Number(reverbSlider.value);
   });
 
+  // Tool selector buttons
+  const toolButtons = document.querySelectorAll('.piano-roll-tool-btn');
+  
+  // Set pencil as default active tool
+  if (toolButtons.length > 0) {
+    toolButtons[0].classList.add('active');
+  }
+  
+  toolButtons.forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+      // Remove active class from all tool buttons
+      toolButtons.forEach(b => b.classList.remove('active'));
+      
+      // Add active class to clicked button
+      btn.classList.add('active');
+      
+      // Update current tool based on button index (0: pencil, 1: select, 2: slice)
+      const tools = ['pencil', 'select', 'slice'];
+      currentTool = tools[index];
+    });
+  });
+
   // Transpose buttons
   document.addEventListener("click", e => {
     if (!e.target.classList.contains("transpose-btn")) return;
@@ -68,9 +91,17 @@ window.initPianoRoll = function () {
 
     const step = Number(e.target.dataset.step);
 
-    activeClip.notes.forEach(n => {
-      n.pitch += step;
-    });
+    // If notes are selected, only transpose selected notes
+    if (selectedNotes.length > 0) {
+      selectedNotes.forEach(n => {
+        n.pitch += step;
+      });
+    } else {
+      // Otherwise transpose all notes
+      activeClip.notes.forEach(n => {
+        n.pitch += step;
+      });
+    }
 
     renderPianoRoll();
   });
@@ -163,6 +194,11 @@ function renderPianoRoll() {
   // Draw grid + notes on scrollable canvas
   drawGrid(gridCtx);
   drawNotes(gridCtx);
+  
+  // Draw selection box if active
+  if (selectBoxStart && selectBoxCurrent) {
+    drawSelectionBox(gridCtx);
+  }
 }
 
 
@@ -328,6 +364,14 @@ function drawNotes(ctx) {
     roundRect(ctx, x, y, w, h, radius);
     ctx.stroke();
 
+    // Selected note highlight
+    if (selectedNotes.includes(note)) {
+      ctx.strokeStyle = "rgba(0, 122, 255, 0.8)";
+      ctx.lineWidth = 2;
+      roundRect(ctx, x - 1, y - 1, w + 2, h + 2, radius + 1);
+      ctx.stroke();
+    }
+
     // Hover glow
     if (hoverNote === note) {
       ctx.strokeStyle = "rgba(255,255,255,0.6)";
@@ -337,11 +381,31 @@ function drawNotes(ctx) {
     }
 
     // Resize handle
-    if (hoverNote === note) {
+    if (hoverNote === note && currentTool === 'pencil') {
       ctx.fillStyle = "rgba(255,255,255,0.9)";
       ctx.fillRect(x + w - 5, y + 3, 4, h - 6);
     }
   });
+}
+
+function drawSelectionBox(ctx) {
+  if (!selectBoxStart || !selectBoxCurrent) return;
+  
+  const minX = Math.min(selectBoxStart.x, selectBoxCurrent.x);
+  const minY = Math.min(selectBoxStart.y, selectBoxCurrent.y);
+  const width = Math.abs(selectBoxCurrent.x - selectBoxStart.x);
+  const height = Math.abs(selectBoxCurrent.y - selectBoxStart.y);
+  
+  // Draw selection box
+  ctx.strokeStyle = "rgba(0, 122, 255, 0.8)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 3]);
+  ctx.strokeRect(minX, minY, width, height);
+  ctx.setLineDash([]);
+  
+  // Fill with semi-transparent blue
+  ctx.fillStyle = "rgba(0, 122, 255, 0.1)";
+  ctx.fillRect(minX, minY, width, height);
 }
 
 // ======================================================
@@ -360,6 +424,13 @@ let moveStartBeat = 0;
 let moveStartPitch = 0;
 
 let hoverNote = null;
+
+// Selection state
+let selectedNotes = [];
+let selectBoxStart = null;
+let selectBoxCurrent = null;
+let movingSelection = false;
+let selectionStartPositions = new Map();
 
 
 // ======================================================
@@ -396,20 +467,22 @@ const rect = scroll.getBoundingClientRect();   // ⭐ correct origin
 
 
   // ---------------------------------------------
-  // RIGHT CLICK → DELETE
+  // RIGHT CLICK → DELETE (only with pencil tool)
   // ---------------------------------------------
   if (e.button === 2) {
-    const idx = activeClip.notes.findIndex(n =>
-      pitch === n.pitch &&
-      rawBeat >= n.start &&
-      rawBeat <= n.end
-    );
+    if (currentTool === 'pencil') {
+      const idx = activeClip.notes.findIndex(n =>
+        pitch === n.pitch &&
+        rawBeat >= n.start &&
+        rawBeat <= n.end
+      );
 
-    if (idx !== -1) {
-      activeClip.notes.splice(idx, 1);
-      renderPianoRoll();
-      updateClipPreview();
-      refreshClipInTimeline(activeClip);
+      if (idx !== -1) {
+        activeClip.notes.splice(idx, 1);
+        renderPianoRoll();
+        updateClipPreview();
+        refreshClipInTimeline(activeClip);
+      }
     }
     return;
   }
@@ -425,9 +498,80 @@ if (beat < 0) return; // optional, but NO pianoWidth check
   const clicked = findNoteAt(x, y);
 
   // ---------------------------------------------
-  // RESIZE HANDLE
+  // SELECT TOOL → Box selection or move selection
   // ---------------------------------------------
-  if (clicked && clicked.onRightEdge) {
+  if (currentTool === 'select' && e.button === 0) {
+    if (clicked && selectedNotes.includes(clicked.note)) {
+      // Start moving selected notes
+      movingSelection = true;
+      moveStartX = x;
+      moveStartBeat = beat;
+      
+      // Store initial positions of all selected notes
+      selectionStartPositions.clear();
+      selectedNotes.forEach(note => {
+        selectionStartPositions.set(note, {
+          start: note.start,
+          end: note.end,
+          pitch: note.pitch
+        });
+      });
+    } else {
+      // Start drawing selection box
+      selectBoxStart = { x, y };
+      selectBoxCurrent = { x, y };
+      // Clear selection if not holding shift
+      if (!e.shiftKey) {
+        selectedNotes = [];
+      }
+    }
+    return;
+  }
+
+  // ---------------------------------------------
+  // SLICE TOOL → Split note at click position
+  // ---------------------------------------------
+  if (currentTool === 'slice' && clicked && e.button === 0) {
+    const note = clicked.note;
+    const slicePoint = Math.floor(rawBeat / snap) * snap;
+    
+    // Only slice if click is within note bounds (not at edges)
+    if (slicePoint > note.start && slicePoint < note.end) {
+      // Create two new notes
+      const firstNote = {
+        pitch: note.pitch,
+        start: note.start,
+        end: slicePoint,
+        velocity: note.velocity
+      };
+      
+      const secondNote = {
+        pitch: note.pitch,
+        start: slicePoint,
+        end: note.end,
+        velocity: note.velocity
+      };
+      
+      // Remove original note
+      const idx = activeClip.notes.indexOf(note);
+      if (idx !== -1) {
+        activeClip.notes.splice(idx, 1);
+      }
+      
+      // Add the two sliced notes
+      activeClip.notes.push(firstNote, secondNote);
+      
+      renderPianoRoll();
+      updateClipPreview();
+      refreshClipInTimeline(activeClip);
+    }
+    return;
+  }
+
+  // ---------------------------------------------
+  // RESIZE HANDLE (only with pencil tool)
+  // ---------------------------------------------
+  if (clicked && clicked.onRightEdge && currentTool === 'pencil') {
     resizingNote = clicked.note;
     resizeStartX = x;
     originalEnd = clicked.note.end;
@@ -435,19 +579,33 @@ if (beat < 0) return; // optional, but NO pianoWidth check
   }
 
   // ---------------------------------------------
-  // MOVE EXISTING NOTE
+  // MOVE EXISTING NOTE (only with pencil tool)
   // ---------------------------------------------
-  if (clicked && !clicked.onRightEdge) {
+  if (clicked && !clicked.onRightEdge && currentTool === 'pencil') {
     movingNote = clicked.note;
     moveStartX = x;
     moveStartBeat = clicked.note.start;
     moveStartPitch = clicked.note.pitch;
+    
+    // If moving a selected note, prepare to move all selected notes
+    if (selectedNotes.includes(clicked.note)) {
+      selectionStartPositions.clear();
+      selectedNotes.forEach(note => {
+        selectionStartPositions.set(note, {
+          start: note.start,
+          end: note.end,
+          pitch: note.pitch
+        });
+      });
+    }
     return;
   }
 
   // ---------------------------------------------
-  // DRAW NEW NOTE
+  // DRAW NEW NOTE (only with pencil tool)
   // ---------------------------------------------
+  if (currentTool !== 'pencil') return;
+  
   drawingStartBeat = beat;
 
   const newNote = {
@@ -488,6 +646,46 @@ function onMouseMove(e) {
   const y = e.clientY - rect.top  + scroll.scrollTop;
 
   // ---------------------------------------------
+  // 0. DRAWING SELECTION BOX
+  // ---------------------------------------------
+  if (selectBoxStart && currentTool === 'select') {
+    selectBoxCurrent = { x, y };
+    renderPianoRoll();
+    return;
+  }
+
+  // ---------------------------------------------
+  // 0b. MOVING SELECTED NOTES (in select mode)
+  // ---------------------------------------------
+  if (movingSelection && currentTool === 'select') {
+    const deltaBeats = (x - moveStartX) / pxPerBeat;
+    const snapped = Math.round(deltaBeats / snap) * snap;
+    
+    const rowHeight = 16;
+    const currentPitch = pitchMax - Math.floor(y / rowHeight);
+    const pitchDelta = currentPitch - (pitchMax - Math.floor((selectBoxStart?.y || 0) / rowHeight));
+
+    selectedNotes.forEach(note => {
+      const original = selectionStartPositions.get(note);
+      if (original) {
+        let newStart = original.start + snapped;
+        newStart = Math.max(0, newStart);
+        
+        const duration = original.end - original.start;
+        note.start = newStart;
+        note.end = newStart + duration;
+        note.pitch = original.pitch + pitchDelta;
+        
+        extendClipIfNeeded(note.end);
+      }
+    });
+
+    updateClipPreview();
+    renderPianoRoll();
+    return;
+  }
+
+  // ---------------------------------------------
   // 1. RESIZING EXISTING NOTE
   // ---------------------------------------------
   if (resizingNote) {
@@ -517,45 +715,68 @@ function onMouseMove(e) {
     const deltaBeats = (x - moveStartX) / pxPerBeat;
     const snapped = Math.round(deltaBeats / snap) * snap;
 
-    let newStart = moveStartBeat + snapped;
-    newStart = Math.max(0, newStart); // prevent before bar 0
+    // If this note is part of a selection, move all selected notes
+    if (selectedNotes.includes(movingNote)) {
+      const rowHeight = 16;
+      const currentPitch = pitchMax - Math.floor(y / rowHeight);
+      const pitchDelta = currentPitch - moveStartPitch;
 
-    const newEnd = newStart + (movingNote.end - movingNote.start);
+      selectedNotes.forEach(note => {
+        const original = selectionStartPositions.get(note);
+        if (original) {
+          let newStart = original.start + snapped;
+          newStart = Math.max(0, newStart);
+          
+          const duration = original.end - original.start;
+          note.start = newStart;
+          note.end = newStart + duration;
+          note.pitch = original.pitch + pitchDelta;
+          
+          extendClipIfNeeded(note.end);
+        }
+      });
+    } else {
+      // Move single note
+      let newStart = moveStartBeat + snapped;
+      newStart = Math.max(0, newStart); // prevent before bar 0
 
-    // Prevent overlap on same pitch
-    const collision = activeClip.notes.some(n =>
-      n !== movingNote &&
-      n.pitch === movingNote.pitch &&
-      (
-        (newStart >= n.start && newStart < n.end) ||
-        (newEnd > n.start && newEnd <= n.end)
-      )
-    );
+      const newEnd = newStart + (movingNote.end - movingNote.start);
 
-    if (!collision) {
-      movingNote.start = newStart;
-      movingNote.end = newEnd;
-    }
-
-    // Vertical movement (pitch)
-    const rowHeight = 16;
-    const newPitch = pitchMax - Math.floor(y / rowHeight);
-
-    if (newPitch !== movingNote.pitch) {
-      const pitchCollision = activeClip.notes.some(n =>
+      // Prevent overlap on same pitch
+      const collision = activeClip.notes.some(n =>
         n !== movingNote &&
-        n.pitch === newPitch &&
+        n.pitch === movingNote.pitch &&
         (
-          (movingNote.start >= n.start && movingNote.start < n.end) ||
-          (movingNote.end > n.start && movingNote.end <= n.end)
+          (newStart >= n.start && newStart < n.end) ||
+          (newEnd > n.start && newEnd <= n.end)
         )
       );
 
-      if (!pitchCollision) {
-        movingNote.pitch = newPitch;
+      if (!collision) {
+        movingNote.start = newStart;
+        movingNote.end = newEnd;
       }
+
+      // Vertical movement (pitch)
+      const rowHeight = 16;
+      const newPitch = pitchMax - Math.floor(y / rowHeight);
+
+      if (newPitch !== movingNote.pitch) {
+        const pitchCollision = activeClip.notes.some(n =>
+          n !== movingNote &&
+          n.pitch === newPitch &&
+          (
+            (movingNote.start >= n.start && movingNote.start < n.end) ||
+            (movingNote.end > n.start && movingNote.end <= n.end)
+          )
+        );
+
+        if (!pitchCollision) {
+          movingNote.pitch = newPitch;
+        }
+      }
+      extendClipIfNeeded(movingNote.end);
     }
-    extendClipIfNeeded(movingNote.end);
 
     updateClipPreview();
     //refreshClipInTimeline(activeClip);
@@ -582,13 +803,20 @@ if (drawingNote) {
 
 
 // ---------------------------------------------
-// 4. HOVER DETECTION
+// 4. HOVER DETECTION (pencil and slice tools)
 // ---------------------------------------------
 const hit = findNoteAt(x, y);
 let needsRedraw = false;
 
-if (hit) {
+if (hit && currentTool === 'pencil') {
   gridCanvas.style.cursor = hit.onRightEdge ? "ew-resize" : "pointer";
+
+  if (hoverNote !== hit.note) {
+    hoverNote = hit.note;
+    needsRedraw = true;
+  }
+} else if (hit && currentTool === 'slice') {
+  gridCanvas.style.cursor = "text";
 
   if (hoverNote !== hit.note) {
     hoverNote = hit.note;
@@ -607,15 +835,53 @@ if (needsRedraw) renderPianoRoll();
 
 
 function onMouseUp() {
+  // Finalize selection box
+  if (selectBoxStart && selectBoxCurrent && currentTool === 'select') {
+    const minX = Math.min(selectBoxStart.x, selectBoxCurrent.x);
+    const maxX = Math.max(selectBoxStart.x, selectBoxCurrent.x);
+    const minY = Math.min(selectBoxStart.y, selectBoxCurrent.y);
+    const maxY = Math.max(selectBoxStart.y, selectBoxCurrent.y);
+    
+    const rowHeight = 16;
+    
+    // Find notes within selection box
+    activeClip.notes.forEach(note => {
+      const noteX = note.start * pxPerBeat;
+      const noteWidth = (note.end - note.start) * pxPerBeat;
+      const noteY = (pitchMax - note.pitch) * rowHeight;
+      const noteHeight = rowHeight;
+      
+      // Check if note overlaps with selection box
+      const overlaps = !(noteX + noteWidth < minX || 
+                        noteX > maxX || 
+                        noteY + noteHeight < minY || 
+                        noteY > maxY);
+      
+      if (overlaps && !selectedNotes.includes(note)) {
+        selectedNotes.push(note);
+      }
+    });
+    
+    selectBoxStart = null;
+    selectBoxCurrent = null;
+    renderPianoRoll();
+  }
+
   if (drawingNote) {
     updateClipPreview();
     resizeCanvas();
     renderPianoRoll();
   }
 
+  if (movingSelection) {
+    updateClipPreview();
+    refreshClipInTimeline(activeClip);
+  }
+
   drawingNote = null;
   resizingNote = null;
   movingNote = null;
+  movingSelection = false;
 }
 
 
