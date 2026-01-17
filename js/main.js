@@ -748,6 +748,7 @@ function attachClipHandlers(clipElement, clip, track) {
 
 function openPianoRoll(clip) {
   activeClip = clip;
+  window.activeClip = clip;
   updatePianoRollSampleHeader();
 
   reverbSlider.value = clip.reverbGain.gain.value;

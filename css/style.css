@@ -1020,9 +1020,18 @@ body {
   background: #2d2d35;
 }
 
+
 .transpose-btn:active {
   background: #007aff;
   border-color: #007aff;
+}
+
+/* Piano roll tool button active state (magnet toggle) */
+.piano-roll-tool-btn.active {
+  background: #007aff;
+  border-color: #007aff;
+  color: #fff;
+  box-shadow: 0 0 4px #007aff;
 }
 
 /* ============================================
