@@ -667,7 +667,7 @@ window.renderClip = function (clip, dropArea) {
       }
       // Select this clip in the dropdown after drag ends
       const dropdown = document.getElementById("clipListDropdown");
-      if (dropdown) dropdown.value = dragClip.id;
+      if (dropdown) dropdown.value = dragClip.name || dragClip.fileName || dragClip.id;
       // No simulated double-click. Only native dblclick will open piano roll.
     }
 
@@ -675,8 +675,6 @@ window.renderClip = function (clip, dropArea) {
     document.addEventListener("mouseup", onUp);
 
     // Select this clip in the dropdown on mouse down
-    const dropdown = document.getElementById("clipListDropdown");
-    if (dropdown) dropdown.value = clip.id;
     window.activeClip = clip;  // Set as active on interaction
     const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
     window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
@@ -708,9 +706,8 @@ el.addEventListener("contextmenu", (e) => {
   document.getElementById("piano-roll-container").classList.add("hidden"); // ⭐ hide using class toggle
   activeClip = null;
 
-  // Select this clip in the dropdown on right-click
-  const dropdown = document.getElementById("clipListDropdown");
-  if (dropdown) dropdown.value = clip.id;
+  // Refresh the dropdown after deletion
+  window.refreshClipDropdown(window.clips);
 });
 
 

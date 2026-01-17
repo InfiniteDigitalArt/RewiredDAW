@@ -89,8 +89,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const clipDropdown = document.getElementById("clipListDropdown");
   if (clipDropdown) {
     clipDropdown.addEventListener("change", function() {
-      const selectedId = this.value;
-      window.activeClip = window.clips.find(c => c.id === selectedId) || null;
+      const selectedName = this.value;
+      window.activeClip = window.clips.find(c => (c.name || c.fileName || c.id) === selectedName) || null;
     });
   }
 
@@ -897,21 +897,28 @@ window.refreshClipDropdown = function(clips) {
     return;
   }
 
-  // Make unique by id
+  // Make unique by name
   const uniqueClips = [];
   const seen = new Set();
   for (const clip of clips) {
-    if (clip && clip.id && !seen.has(clip.id)) {
+    const key = clip.name || clip.fileName || clip.id;
+    if (clip && key && !seen.has(key)) {
       uniqueClips.push(clip);
-      seen.add(clip.id);
+      seen.add(key);
     }
   }
 
   uniqueClips.forEach(clip => {
     const opt = document.createElement("option");
-    // Prefer .name, then .displayName, then .fileName, then .id
-    opt.value = clip.id;
+    // Use name as value for uniqueness
+    opt.value = clip.name || clip.fileName || clip.id;
     opt.textContent = clip.name || clip.displayName || clip.fileName || clip.id;
     dropdown.appendChild(opt);
   });
+
+  // Set the dropdown to the current active clip if it exists
+  if (window.activeClip) {
+    const key = window.activeClip.name || window.activeClip.fileName || window.activeClip.id;
+    dropdown.value = key;
+  }
 };
