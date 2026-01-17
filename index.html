@@ -110,6 +110,61 @@
 
     <!-- CENTER -->
     <div class="piano-roll-header-center">
+      <!-- ⭐ TOOL ICON BUTTONS (Pencil, Select, Slice) -->
+      <div id="piano-roll-tools" style="display: flex; align-items: center; gap: 8px; margin-right: 18px;">
+        <!-- Pencil -->
+        <button class="transpose-btn piano-roll-tool-btn" title="Draw (Pencil)">
+          <svg id="Pencil_24" width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" stroke="none" fill="#000000" opacity="0"/>
+            <g transform="matrix(0.78 0 0 0.78 12 12)">
+              <path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: currentColor; fill-rule: nonzero; opacity: 1;" transform=" translate(-12.93, -13.07)" d="M 20.09375 0.25 C 19.5 0.246094 18.917969 0.457031 18.46875 0.90625 L 17.46875 1.9375 L 24.0625 8.5625 L 25.0625 7.53125 C 25.964844 6.628906 25.972656 5.164063 25.0625 4.25 L 21.75 0.9375 C 21.292969 0.480469 20.6875 0.253906 20.09375 0.25 Z M 16.34375 2.84375 L 14.78125 4.34375 L 21.65625 11.21875 L 23.25 9.75 Z M 13.78125 5.4375 L 2.96875 16.15625 C 2.71875 16.285156 2.539063 16.511719 2.46875 16.78125 L 0.15625 24.625 C 0.0507813 24.96875 0.144531 25.347656 0.398438 25.601563 C 0.652344 25.855469 1.03125 25.949219 1.375 25.84375 L 9.21875 23.53125 C 9.582031 23.476563 9.882813 23.222656 10 22.875 L 20.65625 12.3125 L 18 9.65625 L 17.96875 9.65625 L 16.1875 7.84375 Z M 4.15625 17.9375 L 4.6875 18.46875 L 7.28125 18.6875 L 7.40625 21.21875 L 8.0625 21.875 L 3.84375 23.09375 L 2.90625 22.15625 Z" stroke-linecap="round" />
+            </g>
+          </svg>
+        </button>
+        <!-- Select Box -->
+        <button class="transpose-btn piano-roll-tool-btn" title="Select (Box)">
+          <svg id="Interface_Edit_Select_Area_Rectangle_Dash_24" width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" stroke="none" fill="#000000" opacity="0"/>
+            <g transform="matrix(1.43 0 0 1.43 12 12)">
+              <g>
+                <g transform="matrix(1 0 0 1 5.5 -5.5)">
+                  <path style="stroke: currentColor; stroke-width: 1; stroke-dasharray: none; stroke-linecap: round; stroke-dashoffset: 0; stroke-linejoin: round; stroke-miterlimit: 4; fill: none; fill-rule: nonzero; opacity: 1;" transform=" translate(-12.5, -1.5)" d="M 11.5 0.5 L 12.5 0.5 C 13.052284749830793 0.5 13.5 0.9477152501692063 13.5 1.4999999999999998 L 13.5 2.5" stroke-linecap="round" />
+                </g>
+                <g transform="matrix(1 0 0 1 -5.5 -5.5)">
+                  <path style="stroke: currentColor; stroke-width: 1; stroke-dasharray: none; stroke-linecap: round; stroke-dashoffset: 0; stroke-linejoin: round; stroke-miterlimit: 4; fill: none; fill-rule: nonzero; opacity: 1;" transform=" translate(-1.5, -1.5)" d="M 0.5 2.5 L 0.5 1.5 C 0.5 0.9477152501692065 0.9477152501692065 0.5 1.5 0.5 L 2.5 0.5" stroke-linecap="round" />
+                </g>
+                <g transform="matrix(1 0 0 1 0 -6.5)">
+                  <line style="stroke: currentColor; stroke-width: 1; stroke-dasharray: none; stroke-linecap: round; stroke-dashoffset: 0; stroke-linejoin: round; stroke-miterlimit: 4; fill: none; fill-rule: nonzero; opacity: 1;" x1="-1.5" y1="0" x2="1.5" y2="0" />
+                </g>
+                <g transform="matrix(1 0 0 1 6.5 0)">
+                  <line style="stroke: currentColor; stroke-width: 1; stroke-dasharray: none; stroke-linecap: round; stroke-dashoffset: 0; stroke-linejoin: round; stroke-miterlimit: 4; fill: none; fill-rule: nonzero; opacity: 1;" x1="0" y1="-1.5" x2="0" y2="1.5" />
+                </g>
+                <g transform="matrix(1 0 0 1 -6.5 0)">
+                  <line style="stroke: currentColor; stroke-width: 1; stroke-dasharray: none; stroke-linecap: round; stroke-dashoffset: 0; stroke-linejoin: round; stroke-miterlimit: 4; fill: none; fill-rule: nonzero; opacity: 1;" x1="0" y1="-1.5" x2="0" y2="1.5" />
+                </g>
+                <g transform="matrix(1 0 0 1 5.5 5.5)">
+                  <path style="stroke: currentColor; stroke-width: 1; stroke-dasharray: none; stroke-linecap: round; stroke-dashoffset: 0; stroke-linejoin: round; stroke-miterlimit: 4; fill: none; fill-rule: nonzero; opacity: 1;" transform=" translate(-12.5, -12.5)" d="M 11.5 13.5 L 12.5 13.5 C 13.052284749830793 13.5 13.5 13.052284749830793 13.5 12.5 L 13.5 11.5" stroke-linecap="round" />
+                </g>
+                <g transform="matrix(1 0 0 1 -5.5 5.5)">
+                  <path style="stroke: currentColor; stroke-width: 1; stroke-dasharray: none; stroke-linecap: round; stroke-dashoffset: 0; stroke-linejoin: round; stroke-miterlimit: 4; fill: none; fill-rule: nonzero; opacity: 1;" transform=" translate(-1.5, -12.5)" d="M 0.5 11.5 L 0.5 12.5 C 0.5 13.052284749830793 0.9477152501692065 13.5 1.5 13.5 L 2.5 13.5" stroke-linecap="round" />
+                </g>
+                <g transform="matrix(1 0 0 1 0 6.5)">
+                  <line style="stroke: currentColor; stroke-width: 1; stroke-dasharray: none; stroke-linecap: round; stroke-dashoffset: 0; stroke-linejoin: round; stroke-miterlimit: 4; fill: none; fill-rule: nonzero; opacity: 1;" x1="-1.5" y1="0" x2="1.5" y2="0" />
+                </g>
+              </g>
+            </g>
+          </svg>
+        </button>
+        <!-- Slice -->
+        <button class="transpose-btn piano-roll-tool-btn" title="Slice">
+          <svg id="Scissors_24" width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" stroke="none" fill="#000000" opacity="0"/>
+            <g transform="matrix(0.77 0 0 0.77 12 12)">
+              <path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: currentColor; fill-rule: nonzero; opacity: 1;" transform=" translate(-15, -15)" d="M 15.195312 2.0019531 C 15.059656 2.011375 14.924281 2.0576406 14.800781 2.1503906 L 13.199219 3.3515625 C 12.444219 3.9185625 12 4.8079531 12 5.7519531 L 12 12 L 16 12 L 16 2.7519531 C 16 2.2884531 15.602281 1.9736875 15.195312 2.0019531 z M 25 4 C 24.447715250169207 4 24 4.447715250169207 24 5 C 24 5.552284749830793 24.447715250169207 6 25 6 C 25.552284749830793 6 26 5.552284749830793 26 5 C 26 4.447715250169207 25.552284749830793 4 25 4 z M 22 7 C 21.447715250169207 7 21 7.447715250169207 21 8 C 21 8.552284749830793 21.447715250169207 9 22 9 C 22.552284749830793 9 23 8.552284749830793 23 8 C 23 7.447715250169207 22.552284749830793 7 22 7 z M 19 10 C 18.447715250169207 10 18 10.447715250169207 18 11 C 18 11.552284749830793 18.447715250169207 12 19 12 C 19.552284749830793 12 20 11.552284749830793 20 11 C 20 10.447715250169207 19.552284749830793 10 19 10 z M 6 12 C 3.829 12 2 13.829 2 16 C 2 18.171 3.829 20 6 20 C 7.4445819 20 8.7240824 19.181518 9.4277344 18 L 12 18 L 12 20.572266 C 10.818482 21.275918 10 22.555418 10 24 C 10 26.171 11.829 28 14 28 C 16.171 28 18 26.171 18 24 C 18 22.555418 17.181518 21.275918 16 20.572266 L 16 18 L 24.248047 18 C 25.192047 18 26.081438 17.555781 26.648438 16.800781 L 27.849609 15.199219 C 28.220609 14.705219 27.866047 14 27.248047 14 L 9.4277344 14 C 8.7240824 12.818482 7.4445819 12 6 12 z M 6 14 C 7.067 14 8 14.933 8 16 C 8 17.067 7.067 18 6 18 C 4.933 18 4 17.067 4 16 C 4 14.933 4.933 14 6 14 z M 14 15 C 14.552 15 15 15.448 15 16 C 15 16.552 14.552 17 14 17 C 13.448 17 13 16.552 13 16 C 13 15.448 13.448 15 14 15 z M 14 22 C 15.067 22 16 22.933 16 24 C 16 25.067 15.067 26 14 26 C 12.933 26 12 25.067 12 24 C 12 22.933 12.933 22 14 22 z" stroke-linecap="round" />
+            </g>
+          </svg>
+        </button>
+      </div>
       <div id="piano-roll-reverb-control">
         <span class="soft-label"><label>Reverb:</label></span>
         <input type="range" class="tempo-slider" id="piano-roll-reverb" min="0" max="1" step="0.01">
@@ -135,7 +190,7 @@
         </div>
       </div>
 
-      <div id="piano-roll-scale-control">
+      <div id="piano-roll-scale-control" style="display: flex; align-items: center; gap: 8px;">
         <span class="soft-label"><label>Scale:</label></span>
         <select id="piano-roll-scale">
           <option value="chromatic">Chromatic</option>
@@ -158,6 +213,15 @@
             <option value="G-minor">G Minor</option>
           </optgroup>
         </select>
+        <!-- Magnet Toggle Button (moved here) -->
+        <button id="piano-roll-magnet-toggle" class="transpose-btn piano-roll-tool-btn" title="Snap (Magnet)" aria-pressed="false" style="margin-left: 8px;">
+          <svg id="Magnet_24" width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" stroke="none" fill="#000000" opacity="0"/>
+            <g transform="matrix(0.87 0 0 0.87 12 12)">
+              <path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: currentColor; fill-rule: nonzero; opacity: 1;" transform=" translate(-15, -14.5)" d="M 15 3 C 14.877437426322079 3.0019810306976975 14.756283244581198 3.0264766678885078 14.642578 3.0722656000000006 C 8.7535588 3.2725798 4 8.0632579 4 14 L 4 25 C 4.0000552179053495 25.55226187620846 4.447738123791541 25.99994478209465 5 26 L 11 26 C 11.552261876208458 25.99994478209465 11.999944782094651 25.55226187620846 12 25 L 12 14 C 12 12.331516 13.331516 11 15 11 C 16.668484 11 18 12.331516 18 14 L 18 25 C 18.00005521790535 25.55226187620846 18.44773812379154 25.99994478209465 19 26 L 25 26 C 25.55226187620846 25.99994478209465 25.99994478209465 25.55226187620846 26 25 L 26 14 C 26 7.9365932 21.063407 3 15 3 z M 6 21 L 10 21 L 10 24 L 6 24 L 6 21 z M 20 21 L 24 21 L 24 24 L 20 24 L 20 21 z" stroke-linecap="round" />
+            </g>
+          </svg>
+        </button>
       </div>
 
 
@@ -212,6 +276,19 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.js"></script>
 
 <script defer src="js/midi/piano-roll.js"></script>
+<script>
+  // Magnet toggle logic
+  document.addEventListener('DOMContentLoaded', function() {
+    const magnetBtn = document.getElementById('piano-roll-magnet-toggle');
+    if (magnetBtn) {
+      magnetBtn.addEventListener('click', function() {
+        const pressed = magnetBtn.getAttribute('aria-pressed') === 'true';
+        magnetBtn.setAttribute('aria-pressed', String(!pressed));
+        magnetBtn.classList.toggle('active', !pressed);
+      });
+    }
+  });
+</script>
 
 <!-- MAIN APP (must be last) -->
 <script defer src="js/main.js"></script>
