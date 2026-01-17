@@ -177,6 +177,9 @@ if (window.loadedProject && window.loadedProject.tracks[i]) {
 
       window.clips.push(newClip);
       resolveClipCollisions(newClip);
+      window.activeClip = newClip;  // Set as active immediately after creation
+      const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+      window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
       drop.innerHTML = "";
       window.clips
         .filter(c => c.trackIndex === trackIndex)
@@ -262,6 +265,9 @@ if (
 
   window.clips.push(clip);
   resolveClipCollisions(clip);
+  window.activeClip = clip;  // Set as active immediately after creation
+  const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+  window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
 
   drop.innerHTML = "";
   window.clips
@@ -305,7 +311,13 @@ if (
 
     window.clips.push(clip);
     resolveClipCollisions(clip);
+    // Note: Missing activeClip and refreshClipDropdown for audio files in the loop - add if needed
+    // But since it's in a loop, perhaps handle after all files
   }
+
+  // After processing all files, refresh once
+  const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+  window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
 
   drop.innerHTML = "";
   window.clips
@@ -315,14 +327,11 @@ if (
   return;
 }
 
+  /* CASE 1: Dropping a loop from sidebar */
+  if (window.draggedLoop) {
+    const loop = window.draggedLoop;
 
-
-
-/* CASE 1: Dropping a loop from sidebar */
-if (window.draggedLoop) {
-  const loop = window.draggedLoop;
-
-  /* -------------------------
+    /* -------------------------
      CASE 1A: MIDI CLIP
   ------------------------- */
   if (loop.type === "midi") {
@@ -342,6 +351,9 @@ if (loop.notes) {
 
   window.clips.push(clip);
   resolveClipCollisions(clip);
+  window.activeClip = clip;  // Set as active immediately after creation
+  const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+  window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
 
   drop.innerHTML = "";
   window.clips
@@ -369,6 +381,9 @@ if (loop.url) {
 
     window.clips.push(clip);
     resolveClipCollisions(clip);
+    window.activeClip = clip;  // Set as active immediately after creation
+    const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+    window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
 
     drop.innerHTML = "";
     window.clips
@@ -412,6 +427,9 @@ if (loop.url) {
 
         window.clips.push(clip);
         resolveClipCollisions(clip);
+        window.activeClip = clip;  // Set as active immediately after creation
+        const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+        window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
 
         drop.innerHTML = "";
         window.clips
@@ -445,6 +463,9 @@ if (window.draggedClipId) {
       };
       window.clips.push(newClip);
       resolveClipCollisions(newClip);
+      window.activeClip = newClip;  // Set as active immediately after duplication
+      const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+      window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
     } else {
       original.trackIndex = trackIndex;
       original.startBar = startBar;
@@ -656,6 +677,9 @@ window.renderClip = function (clip, dropArea) {
     // Select this clip in the dropdown on mouse down
     const dropdown = document.getElementById("clipListDropdown");
     if (dropdown) dropdown.value = clip.id;
+    window.activeClip = clip;  // Set as active on interaction
+    const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+    window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
   });
 
   // Compute width fresh every render
@@ -1066,7 +1090,8 @@ else {
 labelWrap.appendChild(triangle);
 labelWrap.appendChild(label);
 el.appendChild(labelWrap);
-window.refreshClipDropdown(clips)
+const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips at end of render
 
 
 /* -------------------------------------------------------
