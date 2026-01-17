@@ -1,3 +1,27 @@
+// Shrink the clip if the last notes are deleted
+function shrinkClipIfNeeded() {
+  if (!activeClip) return;
+  if (!activeClip.notes.length) {
+    activeClip.bars = 1;
+    updateClipPreview();
+    refreshClipInTimeline(activeClip);
+    return;
+  }
+  let maxEnd = 0;
+  for (const n of activeClip.notes) {
+    if (n.end > maxEnd) maxEnd = n.end;
+  }
+  const beatsPerBar = 4;
+  const newBars = Math.ceil(maxEnd / beatsPerBar);
+  if (newBars !== activeClip.bars) {
+    activeClip.bars = Math.max(1, newBars);
+    updateClipPreview();
+    refreshClipInTimeline(activeClip);
+  }
+}
+let rowHeight = 16;
+const minRowHeight = 6;
+const maxRowHeight = 48;
 // ======================================================
 //  PIANO ROLL — FULL DAW-STYLE IMPLEMENTATION
 // ======================================================
@@ -15,7 +39,9 @@ const pitchMin = 12; // C1
 const pitchMax = 96; // C8
 const pitchRange = pitchMax - pitchMin;
 
-const pxPerBeat = 100;
+let pxPerBeat = 100;
+const minPxPerBeat = 30;
+const maxPxPerBeat = 400;
 const snap = 0.25; // quarter-beat snapping
 const pianoWidth = 60; // width of vertical piano
 
@@ -27,6 +53,17 @@ const pianoWidth = 60; // width of vertical piano
 
 window.initPianoRoll = function () {
 
+  // Keyboard Delete key removes selected notes
+  window.addEventListener('keydown', function(e) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNotes.length > 0 && activeClip) {
+      // Remove selected notes from activeClip
+      activeClip.notes = activeClip.notes.filter(n => !selectedNotes.includes(n));
+      selectedNotes = [];
+      shrinkClipIfNeeded();
+      renderPianoRoll();
+      e.preventDefault();
+    }
+  });
 
 
   // ⭐ Two canvases now
@@ -35,6 +72,86 @@ window.initPianoRoll = function () {
 
   pianoCanvas = document.getElementById("piano-roll-piano-canvas");
   pianoCtx = pianoCanvas.getContext("2d");
+
+    // Mouse wheel zoom for vertical row height (Shift + Scroll)
+    gridCanvas.addEventListener('wheel', function(e) {
+      if (e.shiftKey) {
+        e.preventDefault();
+        const scroll = document.getElementById("piano-roll-scroll");
+        const rect = gridCanvas.getBoundingClientRect();
+        // Mouse Y relative to gridCanvas content (including scroll)
+        const mouseY = e.clientY - rect.top + scroll.scrollTop;
+        // Calculate pitch under mouse before zoom
+        const pitchUnderMouse = pitchMax - (mouseY / rowHeight);
+        const delta = Math.sign(e.deltaY);
+        let newHeight = rowHeight - delta * 2;
+        newHeight = Math.max(minRowHeight, Math.min(maxRowHeight, newHeight));
+        if (newHeight !== rowHeight) {
+          // After zoom, keep the same pitch under the mouse pointer
+          // Calculate mouse offset within the visible scroll area
+          const mouseOffset = e.clientY - rect.top;
+          rowHeight = newHeight;
+          resizeCanvas();
+          // After resize, calculate new scrollTop so the same pitch is under the mouse pointer
+          const newMouseY = (pitchMax - pitchUnderMouse) * rowHeight;
+          let newScrollTop = newMouseY - mouseOffset;
+          // Clamp scrollTop to valid range
+          const maxScroll = scroll.scrollHeight - scroll.clientHeight;
+          newScrollTop = Math.max(0, Math.min(maxScroll, newScrollTop));
+          scroll.scrollTop = newScrollTop;
+        }
+      }
+      // else: let normal scroll behavior happen
+    }, { passive: false });
+
+
+  // Mouse wheel zoom for vertical row height and grid width (Shift + Scroll)
+  gridCanvas.addEventListener('wheel', function(e) {
+    if (e.shiftKey) {
+      e.preventDefault();
+      const scroll = document.getElementById("piano-roll-scroll");
+      const rect = gridCanvas.getBoundingClientRect();
+      // Mouse Y relative to gridCanvas content (including scroll)
+      const mouseY = e.clientY - rect.top + scroll.scrollTop;
+      // Mouse X relative to gridCanvas content (including scroll)
+      const mouseX = e.clientX - rect.left + scroll.scrollLeft;
+      // Calculate pitch under mouse before zoom
+      const pitchUnderMouse = pitchMax - (mouseY / rowHeight);
+      // Calculate beat under mouse before zoom
+      const beatUnderMouse = mouseX / pxPerBeat;
+      const delta = Math.sign(e.deltaY);
+      let newHeight = rowHeight - delta * 2;
+      newHeight = Math.max(minRowHeight, Math.min(maxRowHeight, newHeight));
+      let newPxPerBeat = pxPerBeat - delta * 10;
+      newPxPerBeat = Math.max(minPxPerBeat, Math.min(maxPxPerBeat, newPxPerBeat));
+      const heightChanged = newHeight !== rowHeight;
+      const widthChanged = newPxPerBeat !== pxPerBeat;
+      if (heightChanged || widthChanged) {
+        // Calculate mouse offsets within the visible scroll area
+        const mouseYOffset = e.clientY - rect.top;
+        const mouseXOffset = e.clientX - rect.left;
+        rowHeight = newHeight;
+        pxPerBeat = newPxPerBeat;
+        resizeCanvas();
+        // After resize, calculate new scrollTop and scrollLeft so the same pitch and beat are under the mouse pointer
+        const newMouseY = (pitchMax - pitchUnderMouse) * rowHeight;
+        let newScrollTop = newMouseY - mouseYOffset;
+        const newMouseX = beatUnderMouse * pxPerBeat;
+        let newScrollLeft = newMouseX - mouseXOffset;
+        // Clamp scrollTop and scrollLeft to valid range
+        const maxScrollTop = scroll.scrollHeight - scroll.clientHeight;
+        newScrollTop = Math.max(0, Math.min(maxScrollTop, newScrollTop));
+        const maxScrollLeft = scroll.scrollWidth - scroll.clientWidth;
+        newScrollLeft = Math.max(0, Math.min(maxScrollLeft, newScrollLeft));
+        scroll.scrollTop = newScrollTop;
+        scroll.scrollLeft = newScrollLeft;
+      }
+    }
+    // else: let normal scroll behavior happen
+  }, { passive: false });
+
+
+
 
   const piano = document.getElementById("piano-roll-piano");
   const scroll = document.getElementById("piano-roll-scroll");
@@ -164,18 +281,22 @@ function resizeCanvas() {
   const container = document.getElementById("piano-roll-container");
   if (container.classList.contains("hidden")) return;
 
-  const rowHeight = 16;
+  // use global rowHeight
 
-  // ⭐ Resize piano canvas (fixed)
-  pianoCanvas.width = pianoWidth; // e.g. 60px
+  // ⭐ Resize piano canvas (fixed width)
+  pianoCanvas.width = pianoWidth;
   pianoCanvas.height = pitchRange * rowHeight;
 
-  // ⭐ Resize grid canvas (scrollable)
+  // ⭐ Resize grid canvas (scrollable, zoomable width)
   const pxPerBar = pxPerBeat * 4;
   const endBars = getClipEndInBars(activeClip);
   const totalBars = endBars + 4;
 
-  gridCanvas.width = totalBars * pxPerBar;
+  // Ensure grid always fills the visible scroll area
+  const scroll = document.getElementById("piano-roll-scroll");
+  const minGridWidth = scroll ? scroll.clientWidth : 0;
+  const gridWidth = Math.max(totalBars * pxPerBar, minGridWidth);
+  gridCanvas.width = gridWidth;
   gridCanvas.height = pitchRange * rowHeight;
 
   renderPianoRoll();
@@ -207,7 +328,7 @@ function renderPianoRoll() {
 // ======================================================
 
 function drawPiano(ctx) {
-  const rowHeight = 16;
+  // use global rowHeight
   const styles = getComputedStyle(document.documentElement);
 
   const blackKey = styles.getPropertyValue('--bg-track-odd');
@@ -219,13 +340,11 @@ function drawPiano(ctx) {
   for (let i = 0; i < pitchRange; i++) {
     const pitch = pitchMax - i;
     const y = i * rowHeight;
-
     const isBlack = [1,3,6,8,10].includes(pitch % 12);
-
     ctx.fillStyle = isBlack ? blackKey : whiteKey;
     ctx.fillRect(0, y, pianoWidth, rowHeight);
-
-    if (!isBlack) {
+    // Only draw label if rowHeight is large enough for text
+    if (!isBlack && rowHeight >= 12) {
       ctx.fillStyle = textColor;
       ctx.font = "12px sans-serif";
       ctx.fillText(midiToNoteName(pitch), 5, y + rowHeight * 0.7);
@@ -252,7 +371,7 @@ function midiToNoteName(pitch) {
 }
 
 function drawGrid(ctx) {
-  const rowHeight = 16;
+  // use global rowHeight
   const styles = getComputedStyle(document.documentElement);
 
   const bgDark     = styles.getPropertyValue('--bg-panel');
@@ -274,31 +393,23 @@ function drawGrid(ctx) {
 
   // Vertical beat lines
   const totalBeats = Math.ceil(gridCanvas.width / pxPerBeat);
-
   for (let b = 0; b <= totalBeats; b++) {
     const x = b * pxPerBeat;
-
     ctx.strokeStyle = beatLine;
     ctx.lineWidth = 1;
-
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, gridCanvas.height);
     ctx.stroke();
   }
-
   // Vertical 1/4-beat subdivision lines
   const quarterPx = pxPerBeat / 4;
   const totalQuarters = Math.ceil(gridCanvas.width / quarterPx);
-
   ctx.strokeStyle = lineRegular;
   ctx.lineWidth = 1;
-
   for (let q = 0; q <= totalQuarters; q++) {
     if (q % 4 === 0) continue;
-
     const x = q * quarterPx;
-
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, gridCanvas.height);
@@ -323,13 +434,13 @@ function drawGrid(ctx) {
 }
 
 function drawNotes(ctx) {
-  const rowHeight = 16;
+  // use global rowHeight
   const radius = 4;
   const trackColor = window.TRACK_COLORS[activeClip.trackIndex % 10];
 
   activeClip.notes.forEach(note => {
     const y = (pitchMax - note.pitch) * rowHeight;
-    const x = note.start * pxPerBeat;               // ⭐ no pianoWidth offset now
+    const x = note.start * pxPerBeat; // grid only, piano is fixed width
     const w = (note.end - note.start) * pxPerBeat;
     const h = rowHeight - 2;
 
@@ -430,12 +541,11 @@ let selectedNotes = [];
 let selectBoxStart = null;
 let selectBoxCurrent = null;
 let movingSelection = false;
+let duplicatingSelection = false;
+let duplicatedNotes = [];
+let duplicateOriginMap = new Map();
 let selectionStartPositions = new Map();
 
-
-// ======================================================
-//  MOUSE HANDLERS
-// ======================================================
 
 function onMouseDown(e) {
   if (!activeClip) return;
@@ -448,7 +558,7 @@ const rect = scroll.getBoundingClientRect();   // ⭐ correct origin
   const x = e.clientX - rect.left + scroll.scrollLeft;
   const y = e.clientY - rect.top  + scroll.scrollTop;
 
-  const rowHeight = 16;
+  // use global rowHeight
 
   // Convert Y → pitch
   const pitch = pitchMax - Math.floor(y / rowHeight);
@@ -476,12 +586,11 @@ const rect = scroll.getBoundingClientRect();   // ⭐ correct origin
         rawBeat >= n.start &&
         rawBeat <= n.end
       );
-
       if (idx !== -1) {
         activeClip.notes.splice(idx, 1);
+        shrinkClipIfNeeded();
         renderPianoRoll();
         updateClipPreview();
-        refreshClipInTimeline(activeClip);
       }
     }
     return;
@@ -500,14 +609,13 @@ if (beat < 0) return; // optional, but NO pianoWidth check
   // ---------------------------------------------
   // SELECT TOOL → Box selection or move selection
   // ---------------------------------------------
+  // Shift+drag duplicate only in pencil mode and if notes are already selected
   if (currentTool === 'select' && e.button === 0) {
     if (clicked && selectedNotes.includes(clicked.note)) {
-      // Start moving selected notes
+      // Start moving selected notes (no duplication)
       movingSelection = true;
       moveStartX = x;
       moveStartBeat = beat;
-      
-      // Store initial positions of all selected notes
       selectionStartPositions.clear();
       selectedNotes.forEach(note => {
         selectionStartPositions.set(note, {
@@ -528,13 +636,43 @@ if (beat < 0) return; // optional, but NO pianoWidth check
     return;
   }
 
+  // Pencil mode: shift+drag to duplicate selected notes
+  if (currentTool === 'pencil' && e.button === 0 && e.shiftKey && selectedNotes.length > 0 && clicked && selectedNotes.includes(clicked.note)) {
+    duplicatingSelection = true;
+    duplicatedNotes = [];
+    duplicateOriginMap = new Map();
+    // Duplicate all selected notes, preserving their relative positions
+    selectedNotes.forEach(note => {
+      const copy = { ...note };
+      activeClip.notes.push(copy);
+      duplicatedNotes.push(copy);
+      duplicateOriginMap.set(copy, note); // map duplicate to original
+    });
+    selectedNotes = duplicatedNotes.slice();
+    movingSelection = true;
+    moveStartX = x;
+    moveStartBeat = beat;
+    selectionStartPositions.clear();
+    duplicatedNotes.forEach(dup => {
+      const orig = duplicateOriginMap.get(dup);
+      selectionStartPositions.set(dup, {
+        start: orig.start,
+        end: orig.end,
+        pitch: orig.pitch
+      });
+    });
+    return;
+  }
+
   // ---------------------------------------------
   // SLICE TOOL → Split note at click position
   // ---------------------------------------------
   if (currentTool === 'slice' && clicked && e.button === 0) {
     const note = clicked.note;
-    const slicePoint = Math.floor(rawBeat / snap) * snap;
-    
+    // Offset the clickable area by 1/8 beat to the left
+    const offset = snap / 2; // 1/8 beat if snap is 1/4
+    const adjustedRawBeat = rawBeat + offset;
+    const slicePoint = Math.floor(adjustedRawBeat / snap) * snap;
     // Only slice if click is within note bounds (not at edges)
     if (slicePoint > note.start && slicePoint < note.end) {
       // Create two new notes
@@ -655,31 +793,33 @@ function onMouseMove(e) {
   }
 
   // ---------------------------------------------
-  // 0b. MOVING SELECTED NOTES (in select mode)
+  // 0b. MOVING SELECTED NOTES (in select mode or duplicating in pencil mode)
   // ---------------------------------------------
-  if (movingSelection && currentTool === 'select') {
+  if (movingSelection && (currentTool === 'select' || (currentTool === 'pencil' && duplicatingSelection))) {
     const deltaBeats = (x - moveStartX) / pxPerBeat;
     const snapped = Math.round(deltaBeats / snap) * snap;
-    
-    const rowHeight = 16;
+    // use global rowHeight
     const currentPitch = pitchMax - Math.floor(y / rowHeight);
-    const pitchDelta = currentPitch - (pitchMax - Math.floor((selectBoxStart?.y || 0) / rowHeight));
-
+    let pitchDelta;
+    if (currentTool === 'select') {
+      pitchDelta = currentPitch - (pitchMax - Math.floor((selectBoxStart?.y || 0) / rowHeight));
+    } else {
+      // In pencil mode, use the difference from the original pitch of the first selected note
+      const orig = duplicateOriginMap.get(duplicatedNotes[0]);
+      pitchDelta = currentPitch - orig.pitch;
+    }
     selectedNotes.forEach(note => {
       const original = selectionStartPositions.get(note);
       if (original) {
         let newStart = original.start + snapped;
         newStart = Math.max(0, newStart);
-        
         const duration = original.end - original.start;
         note.start = newStart;
         note.end = newStart + duration;
         note.pitch = original.pitch + pitchDelta;
-        
         extendClipIfNeeded(note.end);
       }
     });
-
     updateClipPreview();
     renderPianoRoll();
     return;
@@ -704,10 +844,6 @@ function onMouseMove(e) {
     return;
   }
 
-  // ...rest of your logic...
-
-
-
   // ---------------------------------------------
   // 2. MOVING EXISTING NOTE
   // ---------------------------------------------
@@ -717,7 +853,7 @@ function onMouseMove(e) {
 
     // If this note is part of a selection, move all selected notes
     if (selectedNotes.includes(movingNote)) {
-      const rowHeight = 16;
+      // use global rowHeight
       const currentPitch = pitchMax - Math.floor(y / rowHeight);
       const pitchDelta = currentPitch - moveStartPitch;
 
@@ -758,7 +894,7 @@ function onMouseMove(e) {
       }
 
       // Vertical movement (pitch)
-      const rowHeight = 16;
+      // use global rowHeight
       const newPitch = pitchMax - Math.floor(y / rowHeight);
 
       if (newPitch !== movingNote.pitch) {
@@ -842,7 +978,7 @@ function onMouseUp() {
     const minY = Math.min(selectBoxStart.y, selectBoxCurrent.y);
     const maxY = Math.max(selectBoxStart.y, selectBoxCurrent.y);
     
-    const rowHeight = 16;
+    // use global rowHeight
     
     // Find notes within selection box
     activeClip.notes.forEach(note => {
@@ -876,6 +1012,12 @@ function onMouseUp() {
   if (movingSelection) {
     updateClipPreview();
     refreshClipInTimeline(activeClip);
+    // If we were duplicating, keep only the duplicates selected
+    if (duplicatingSelection) {
+      selectedNotes = duplicatedNotes.slice();
+      duplicatingSelection = false;
+      duplicatedNotes = [];
+    }
   }
 
   drawingNote = null;
@@ -890,7 +1032,7 @@ function onMouseUp() {
 // ======================================================
 
 function findNoteAt(x, y) {
-  const rowHeight = 16;
+  // use global rowHeight
 
   for (let note of activeClip.notes) {
     const ny = (pitchMax - note.pitch) * rowHeight;
