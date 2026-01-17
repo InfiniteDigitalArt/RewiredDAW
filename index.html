@@ -50,7 +50,7 @@
   <input type="file" id="projectFileInput" accept=".zip" style="display:none;">
 
   <!-- SNAP AND CLIP CONTROLS -->
-  <div style="margin-left: 20px; background: #232323; border-radius: 4px; padding: 4px 10px; display: flex; align-items: center; gap: 12px;">
+  <div style="margin-left: 20px; background: #232323; border-radius: 4px; padding: 4px 14px 4px 10px; display: flex; align-items: center; gap: 12px;">
     <!-- SNAP CONTROL -->
     <div id="snapControl" style="display: flex; align-items: center; gap: 8px;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #888;">
@@ -66,12 +66,12 @@
     </div>
 
     <!-- CLIP LIST DROPDOWN -->
-    <div id="clipListControl" style="display: flex; align-items: center; gap: 8px;">
+    <div id="clipListControl" style="display: flex; align-items: center; gap: 8px; min-width: 140px; max-width: 140px;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #888;">
         <circle cx="12" cy="12" r="10"/>
         <rect x="8" y="8" width="8" height="8" rx="2"/>
       </svg>
-      <select id="clipListDropdown" style="padding: 4px 8px; background: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 3px; cursor: pointer;">
+      <select id="clipListDropdown" style="padding: 4px 8px; background: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 3px; cursor: pointer; width: 120px; min-width: 120px; max-width: 120px;">
         <option value="">No clips</option>
       </select>
     </div>

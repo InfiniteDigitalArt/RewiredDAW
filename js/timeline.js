@@ -155,31 +155,21 @@ if (window.loadedProject && window.loadedProject.tracks[i]) {
       const selected = window.activeClip;
       if (!selected) return;
 
-      // Deep clone the selected clip
-      let newClip;
-      if (selected.type === "midi") {
-        newClip = new MidiClip(startBar, selected.bars);
-        newClip.trackIndex = trackIndex;
-        newClip.notes = JSON.parse(JSON.stringify(selected.notes));
-        newClip.sampleBuffer = selected.sampleBuffer;
-        newClip.sampleName = selected.sampleName;
-        newClip.name = selected.name + " Copy";
-      } else if (selected.type === "audio") {
-        newClip = {
-          ...selected,
-          id: crypto.randomUUID(),
-          trackIndex,
-          startBar
-        };
-      } else {
-        return;
-      }
+      // --- Use the same method as CASE 2 for duplicating ---
+      let newClip = {
+        ...selected,
+        id: crypto.randomUUID(),
+        trackIndex,
+        startBar
+      };
 
       window.clips.push(newClip);
       resolveClipCollisions(newClip);
-      window.activeClip = newClip;  // Set as active immediately after creation
+      window.activeClip = newClip;
+
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
-      window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
+      window.refreshClipDropdown(uniqueClips);
+
       drop.innerHTML = "";
       window.clips
         .filter(c => c.trackIndex === trackIndex)
@@ -633,6 +623,17 @@ window.renderClip = function (clip, dropArea) {
     // If shift is held, duplicate the clip and drag the duplicate
     if (e.shiftKey) {
       dragClip = { ...clip, id: crypto.randomUUID() };
+      // --- Always link the same reverbGain object ---
+      if (clip.type === "midi") {
+        dragClip.notes = clip.notes;
+        dragClip.sampleBuffer = clip.sampleBuffer;
+        dragClip.sampleName = clip.sampleName;
+        if (clip.reverbGain) dragClip.reverbGain = clip.reverbGain;
+      }
+      if (clip.type === "audio") {
+        dragClip.audioBuffer = clip.audioBuffer;
+        if (clip.reverbGain) dragClip.reverbGain = clip.reverbGain;
+      }
       window.clips.push(dragClip);
       isDuplicate = true;
     }
@@ -678,6 +679,27 @@ window.renderClip = function (clip, dropArea) {
     window.activeClip = clip;  // Set as active on interaction
     const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
     window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
+
+    // --- Always switch piano roll to this clip if it's open and this is a MIDI clip ---
+    const pianoRoll = document.getElementById("piano-roll-container");
+    if (
+      pianoRoll &&
+      !pianoRoll.classList.contains("hidden") &&
+      clip.type === "midi"
+    ) {
+      // Use the same logic as double-click: update activeClip, header, and call openPianoRoll
+      window.activeClip = clip;
+      const clipNameEl = document.getElementById("piano-roll-clip-name");
+      if (clipNameEl) {
+        clipNameEl.textContent = clip.name || "MIDI Clip";
+      }
+      openPianoRoll(clip);
+      // Also update dropdown value to match the opened clip
+      const dropdown = document.getElementById("clipListDropdown");
+      if (dropdown) {
+        dropdown.value = clip.name || clip.fileName || clip.id;
+      }
+    }
   });
 
   // Compute width fresh every render
@@ -822,11 +844,17 @@ el.addEventListener("dblclick", () => {
 
     // ⭐ Open piano roll (this will update the sample name)
     openPianoRoll(realClip);
-  }
 
-  // Select this clip in the dropdown on double-click
-  const dropdown = document.getElementById("clipListDropdown");
-  if (dropdown) dropdown.value = clip.id;
+    // --- FIX: Set dropdown value to match the opened clip ---
+    const dropdown = document.getElementById("clipListDropdown");
+    if (dropdown) {
+      dropdown.value = realClip.name || realClip.fileName || realClip.id;
+    }
+  } else {
+    // Select this clip in the dropdown on double-click
+    const dropdown = document.getElementById("clipListDropdown");
+    if (dropdown) dropdown.value = clip.id;
+  }
 });
 
 
@@ -1030,7 +1058,37 @@ if (clip.type === "midi") {
       const siblings = window.clips.filter(c => c !== clip && c.type === "midi" && c.name && c.name.startsWith(baseName));
       const nextNum = siblings.length + 1;
       newClip.name = `${baseName} #${String(nextNum).padStart(2, '0')}`;
+      // Deep copy notes so they're not shared
       newClip.notes = JSON.parse(JSON.stringify(clip.notes));
+      // --- Make sample and reverb unique ---
+      if (clip.sampleBuffer) {
+        // Deep copy AudioBuffer if possible (fallback to same if not supported)
+        if (clip.sampleBuffer.clone) {
+          newClip.sampleBuffer = clip.sampleBuffer.clone();
+        } else {
+          // Manual deep copy for AudioBuffer (browser support varies)
+          try {
+            const ctx = window.audioContext;
+            const buf = ctx.createBuffer(
+              clip.sampleBuffer.numberOfChannels,
+              clip.sampleBuffer.length,
+              clip.sampleBuffer.sampleRate
+            );
+            for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+              buf.copyToChannel(clip.sampleBuffer.getChannelData(ch), ch);
+            }
+            newClip.sampleBuffer = buf;
+          } catch {
+            newClip.sampleBuffer = clip.sampleBuffer;
+          }
+        }
+      }
+      if (clip.reverbGain) {
+        // Create a new GainNode for reverb
+        const ctx = window.audioContext;
+        newClip.reverbGain = ctx.createGain();
+        newClip.reverbGain.gain.value = clip.reverbGain.gain.value;
+      }
       // Replace this clip in window.clips
       const idx = window.clips.findIndex(c => c.id === clip.id);
       if (idx !== -1) {

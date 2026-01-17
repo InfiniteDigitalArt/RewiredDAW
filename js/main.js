@@ -91,6 +91,9 @@ window.addEventListener("DOMContentLoaded", () => {
     clipDropdown.addEventListener("change", function() {
       const selectedName = this.value;
       window.activeClip = window.clips.find(c => (c.name || c.fileName || c.id) === selectedName) || null;
+        activeClip = clip;
+  window.activeClip = activeClip;
+  updatePianoRollSampleHeader();
     });
   }
 
@@ -127,8 +130,10 @@ function startPlayhead(realStartTime) {
     const bars = (elapsed * window.BPM) / 240;
     const x = bars * window.PIXELS_PER_BAR;
 
-    // Use the SAME offset everywhere (80px)
-    playhead.style.left = (x + 104) + "px";
+    // --- Account for horizontal scroll offset ---
+    const timelineScroll = document.getElementById("timeline-scroll");
+    const scrollX = timelineScroll ? timelineScroll.scrollLeft : 0;
+    playhead.style.left = (x + 104 - scrollX) + "px";
 
     window.playheadRAF = requestAnimationFrame(update);
   }
@@ -594,15 +599,18 @@ const x = barIndex * window.PIXELS_PER_BAR;
 const marker = document.getElementById("seekMarker");
 marker.style.left = (x + 104 + 2) + "px";
 
+// --- Account for horizontal scroll offset when moving playhead ---
+const timelineScroll = document.getElementById("timeline-scroll");
+const scrollX = timelineScroll ? timelineScroll.scrollLeft : 0;
 
-  if (window.isPlaying) {
+if (window.isPlaying) {
     window.stopAll();
     stopPlayhead();
 
     window.playAll(barIndex);
 
     const playhead = document.getElementById("playhead");
-    playhead.style.left = (x + 104) + "px";
+    playhead.style.left = (x + 104 - scrollX) + "px";
     playhead.classList.remove("hidden");
 
     startPlayhead(window.transportStartTime);
@@ -611,7 +619,7 @@ marker.style.left = (x + 104 + 2) + "px";
 
   // If stopped → just move the playhead visually
   //const playhead = document.getElementById("playhead");
-  //playhead.style.left = (x + 104) + "px";
+  //playhead.style.left = (x + 104 - scrollX) + "px";
   //playhead.classList.remove("hidden");
 
   // Update UI
@@ -736,7 +744,7 @@ drawVUMeters();
 function attachClipHandlers(clipElement, clip, track) {
   clipElement.addEventListener("dblclick", () => {
     if (track.type === "midi") {
-      window.activeClip = clip;            // ⭐ set active clip FIRST
+      //window.activeClip = clip;            // ⭐ set active clip FIRST
       
       openPianoRoll(clip);                 // open UI
       
@@ -748,8 +756,9 @@ function attachClipHandlers(clipElement, clip, track) {
 
 function openPianoRoll(clip) {
   activeClip = clip;
-  window.activeClip = clip;
+  window.activeClip = activeClip;
   updatePianoRollSampleHeader();
+
 
   reverbSlider.value = clip.reverbGain.gain.value;
 
@@ -795,6 +804,14 @@ sampleNameBox.style.borderRadius = "4px";
         y - scrollContainer.clientHeight / 2 + extraOffset;
     }
   });
+
+  // Always use the real clip object from window.clips
+  const realClip = window.clips.find(c => c.id === clip.id);
+  window.activeClip = realClip;
+
+  // Update dropdown selection
+  const dropdown = document.getElementById("clipListDropdown");
+  if (dropdown) dropdown.value = realClip.name || realClip.fileName || realClip.id;
 }
 
 
@@ -880,6 +897,15 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// Close dropdown when clicking any menu item (event delegation + stopPropagation)
+fileDropdown.addEventListener("click", (e) => {
+  if (e.target.classList.contains("dropdown-item")) {
+    e.stopPropagation(); // Prevents bubbling to fileMenu click
+    fileDropdown.style.display = "none";
+  }
+});
+
+
 /**
  * Populates the clip dropdown list in the top bar.
  * @param {Array} clips - Array of all clips (audio and midi) in the project.
@@ -899,15 +925,7 @@ window.refreshClipDropdown = function(clips) {
   }
 
   // Make unique by name
-  const uniqueClips = [];
-  const seen = new Set();
-  for (const clip of clips) {
-    const key = clip.name || clip.fileName || clip.id;
-    if (clip && key && !seen.has(key)) {
-      uniqueClips.push(clip);
-      seen.add(key);
-    }
-  }
+  const uniqueClips = [...new Map(clips.map(c => [c.name || c.fileName || c.id, c])).values()];
 
   uniqueClips.forEach(clip => {
     const opt = document.createElement("option");
@@ -922,4 +940,66 @@ window.refreshClipDropdown = function(clips) {
     const key = window.activeClip.name || window.activeClip.fileName || window.activeClip.id;
     dropdown.value = key;
   }
+
+  
 };
+
+function openPianoRoll(clip) {
+  activeClip = clip;
+  window.activeClip = activeClip;
+  updatePianoRollSampleHeader();
+
+
+  reverbSlider.value = clip.reverbGain.gain.value;
+
+  const container = document.getElementById("piano-roll-container");
+  container.classList.remove("hidden");
+
+  // ⭐ Update header background using track colour
+
+const trackColor = window.TRACK_COLORS[clip.trackIndex % 10];
+
+// Clip name tag
+const nameBox = document.getElementById("piano-roll-clip-name");
+nameBox.style.backgroundColor = trackColor;
+nameBox.style.color = "var(--border-dark)";
+nameBox.style.padding = "2px 6px";
+nameBox.style.borderRadius = "4px";
+
+// Sample name tag
+const sampleNameBox = document.getElementById("piano-roll-sample-name");
+sampleNameBox.style.backgroundColor = trackColor;
+sampleNameBox.style.color = "var(--border-dark)";
+sampleNameBox.style.padding = "2px 6px";
+sampleNameBox.style.borderRadius = "4px";
+
+
+
+  requestAnimationFrame(() => {
+    resizeCanvas();
+    renderPianoRoll();
+
+    // ⭐ Auto-scroll to highest note
+    const notes = activeClip.notes || [];
+    if (notes.length > 0) {
+      const highest = Math.max(...notes.map(n => n.pitch));
+
+      const rowHeight = 16;
+      const y = (pitchMax - highest) * rowHeight;
+
+      const scrollContainer = document.getElementById("piano-roll-scroll");
+
+      const extraOffset = 8 * rowHeight; // scroll down by a few notes
+      scrollContainer.scrollTop =
+        y - scrollContainer.clientHeight / 2 + extraOffset;
+    }
+  });
+
+  // Always use the real clip object from window.clips
+  const realClip = window.clips.find(c => c.id === clip.id);
+  window.activeClip = realClip;
+
+  // Update dropdown selection
+  const dropdown = document.getElementById("clipListDropdown");
+  if (dropdown) dropdown.value = realClip.name || realClip.fileName || realClip.id;
+}
