@@ -1129,6 +1129,9 @@ if (clip.type === "midi") {
     const newName = prompt("Enter new name for this clip:", currentName);
     
     if (newName && newName.trim() !== "" && newName !== currentName) {
+      // Check if the active clip is one of the clips being renamed
+      const isActiveClipAffected = window.activeClip && window.activeClip.type === "midi" && window.activeClip.name === currentName;
+      
       // Find all clips with the same name (linked clips)
       const linkedClips = window.clips.filter(c => c.type === "midi" && c.name === currentName);
       
@@ -1156,9 +1159,8 @@ if (clip.type === "midi") {
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
       
-      // Update the active clip name if it's the one being renamed
-      if (window.activeClip && window.activeClip.name === currentName) {
-        window.activeClip.name = newName;
+      // Update the piano roll header if the active clip was renamed
+      if (isActiveClipAffected) {
         const clipNameEl = document.getElementById("piano-roll-clip-name");
         if (clipNameEl) {
           clipNameEl.textContent = newName;
