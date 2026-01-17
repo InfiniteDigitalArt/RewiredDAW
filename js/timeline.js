@@ -281,15 +281,13 @@ drop.addEventListener("drop", async (e) => {
   if (!isFileDrop && !isLoopDrop && !isClipDrop) return;
 
 
-  // Continue with your existing logic...
-
-
-  // Continue with your existing logic
+  // Find if dropping on an existing MIDI clip
   const rect = drop.getBoundingClientRect();
   const x = e.clientX - rect.left;
-  // Use snap for startBar
   const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
   const trackIndex = i;
+  // Find the clip at this position (if any)
+  const targetClip = window.clips.find(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar && c.type === "midi");
 
   // CASE 0: Dropping local audio or MIDI files
    
@@ -309,47 +307,89 @@ if (
   file.type === "audio/x-midi"
 ) {
   const arrayBuffer = await file.arrayBuffer();
-
   // Parse MIDI → notes[]
   const midi = new Midi(arrayBuffer); // using tonejs/midi
   const notes = [];
-
   midi.tracks.forEach(t => {
     t.notes.forEach(n => {
       notes.push({
         pitch: n.midi,
-        start: n.ticks / midi.header.ppq,                     // ticks → beats (correct)
-        end: (n.ticks + n.durationTicks) / midi.header.ppq    // ticks → beats (correct)
+        start: n.ticks / midi.header.ppq,
+        end: (n.ticks + n.durationTicks) / midi.header.ppq
       });
     });
   });
-
-  // Determine clip length in bars (4 beats per bar)
   const maxEnd = Math.max(...notes.map(n => n.end));
   const bars = Math.ceil(maxEnd / 4);
+  if (targetClip) {
+    // Replace notes in ALL MIDI clips that share the same notes array (i.e., all duplicates)
+    const targetNotes = targetClip.notes;
+    const replacedIds = [];
+window.clips.forEach(c => {
+  if (c.type === "midi" && c.notes === targetNotes) {
+    c.notes = notes;
+    c.bars = bars;
+    c.name = file.name.replace(/\.(mid|midi)$/i, "");
+    replacedIds.push(c.id);
+    resolveClipCollisions(c);
+  }
+});
 
-  // Create MIDI clip
-  const clip = new MidiClip(startBar, bars);
-  clip.trackIndex = trackIndex;
-  clip.notes = notes;
-  clip.name = file.name.replace(/\.(mid|midi)$/i, "");
-
-  // Default sample
-  clip.sampleBuffer = window.defaultMidiSampleBuffer;
-  clip.sampleName = window.defaultMidiSampleName;
-
-  window.clips.push(clip);
-  resolveClipCollisions(clip);
-  window.activeClip = clip;  // Set as active immediately after creation
+// Update activeClip if it's one of the replaced clips (by id) or was sharing the same notes
+if (window.activeClip) {
+  // Prefer finding the actual clip object in window.clips by id
+  const realActiveClip = window.clips.find(c => c.id === window.activeClip.id);
+  if (realActiveClip && realActiveClip.type === "midi" && replacedIds.includes(realActiveClip.id)) {
+    // Re-point activeClip to the canonical object from window.clips
+    window.activeClip = realActiveClip;
+    // Update piano roll UI if open
+    const pianoRoll = document.getElementById("piano-roll-container");
+    if (pianoRoll && !pianoRoll.classList.contains("hidden")) {
+      if (typeof window.openPianoRoll === "function") {
+        window.openPianoRoll(realActiveClip);
+      }
+      if (typeof window.renderPianoRoll === "function") {
+        window.renderPianoRoll(realActiveClip);
+      }
+      const clipNameEl = document.getElementById("piano-roll-clip-name");
+      if (clipNameEl) clipNameEl.textContent = realActiveClip.name || "MIDI Clip";
+    }
+  } else if (window.activeClip.notes === targetNotes) {
+    // Fallback for the previous reference-sharing case
+    window.activeClip.notes = notes;
+    window.activeClip.bars = bars;
+    window.activeClip.name = file.name.replace(/\.(mid|midi)$/i, "");
+    const pianoRoll = document.getElementById("piano-roll-container");
+    if (pianoRoll && !pianoRoll.classList.contains("hidden")) {
+      if (typeof window.openPianoRoll === "function") {
+        const realActive = window.clips.find(c => c.id === window.activeClip.id);
+        if (realActive) {
+          window.activeClip = realActive;
+          window.openPianoRoll(realActive);
+        }
+      }
+    }
+  }
+}
+  } else {
+    // Create new MIDI clip as before
+    const clip = new MidiClip(startBar, bars);
+    clip.trackIndex = trackIndex;
+    clip.notes = notes;
+    clip.name = file.name.replace(/\.(mid|midi)$/i, "");
+    clip.sampleBuffer = window.defaultMidiSampleBuffer;
+    clip.sampleName = window.defaultMidiSampleName;
+    window.clips.push(clip);
+    resolveClipCollisions(clip);
+    window.activeClip = clip;
+  }
   const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
-  window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
-
+  window.refreshClipDropdown(uniqueClips);
   drop.innerHTML = "";
   window.clips
     .filter(c => c.trackIndex === trackIndex)
     .forEach(c => window.renderClip(c, drop));
-
-  continue; // move to next file
+  continue;
 }
 
 
@@ -413,28 +453,30 @@ if (
 
     // BUILT-IN MIDI CLIP (already has notes)
 if (loop.notes) {
-  const clip = new MidiClip(startBar, loop.bars);
-  clip.trackIndex = trackIndex;
-  clip.notes = JSON.parse(JSON.stringify(loop.notes));
-
-  // ⭐ Per‑clip sample fields
-  clip.sampleBuffer = window.defaultMidiSampleBuffer;
-  clip.sampleName = window.defaultMidiSampleName;
-
-  clip.name = generateMidiClipName();
-
-
-  window.clips.push(clip);
-  resolveClipCollisions(clip);
-  window.activeClip = clip;  // Set as active immediately after creation
+  if (targetClip) {
+    // Replace notes in the existing MIDI clip
+    targetClip.notes = JSON.parse(JSON.stringify(loop.notes));
+    targetClip.bars = loop.bars;
+    targetClip.name = loop.displayName || generateMidiClipName();
+    window.activeClip = targetClip;
+    resolveClipCollisions(targetClip);
+  } else {
+    const clip = new MidiClip(startBar, loop.bars);
+    clip.trackIndex = trackIndex;
+    clip.notes = JSON.parse(JSON.stringify(loop.notes));
+    clip.sampleBuffer = window.defaultMidiSampleBuffer;
+    clip.sampleName = window.defaultMidiSampleName;
+    clip.name = loop.displayName || generateMidiClipName();
+    window.clips.push(clip);
+    resolveClipCollisions(clip);
+    window.activeClip = clip;
+  }
   const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
-  window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
-
+  window.refreshClipDropdown(uniqueClips);
   drop.innerHTML = "";
   window.clips
     .filter(c => c.trackIndex === trackIndex)
     .forEach(c => window.renderClip(c, drop));
-
   return;
 }
 
