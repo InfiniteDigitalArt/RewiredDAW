@@ -379,13 +379,14 @@ drop.addEventListener("drop", async (e) => {
   if (!isFileDrop && !isLoopDrop && !isClipDrop) return;
 
 
-  // Find if dropping on an existing MIDI clip
+  // Find if dropping on an existing MIDI or audio clip
   const rect = drop.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
   const trackIndex = i;
   // Find the clip at this position (if any)
   const targetClip = window.clips.find(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar && c.type === "midi");
+  const targetAudioClip = window.clips.find(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar && c.type === "audio");
 
   // CASE 0: Dropping local audio or MIDI files
    
@@ -507,25 +508,63 @@ if (window.activeClip) {
     const durationSeconds = normalizedBuffer.duration;
     const bars = (durationSeconds * loopBpm) / 240;
 
-    const clip = {
-      id: crypto.randomUUID(),
-      type: "audio",
-      loopId: null,
-      fileName: meta.displayName || file.name,
-      audioBuffer: normalizedBuffer,
-      trackIndex,
-      startBar,
-      bars,
-      bpm: loopBpm,
-      originalBars: bars,
-      startOffset: 0,
-      durationSeconds,
-    };
+    if (targetAudioClip) {
+      // Replace all audio clips that share the same audioBuffer or loopId as the target (i.e., all duplicates)
+      const targetBuffer = targetAudioClip.audioBuffer;
+      const targetLoopId = targetAudioClip.loopId;
+      const targetFileName = targetAudioClip.fileName;
+      const replacedIds = [];
+      window.clips.forEach(c => {
+        if (c.type === "audio" && (c.audioBuffer === targetBuffer || c.loopId === targetLoopId || c.fileName === targetFileName)) {
+          c.audioBuffer = normalizedBuffer;
+          c.loopId = null; // Clear loopId since we're now using direct audioBuffer
+          c.fileName = meta.displayName || file.name;
+          c.bars = bars;
+          c.durationSeconds = durationSeconds;
+          c.bpm = loopBpm;
+          c.originalBars = bars;
+          c.startOffset = 0; // Reset playback offset to start from beginning
+          replacedIds.push(c.id);
+          resolveClipCollisions(c);
+        }
+      });
 
-    window.clips.push(clip);
-    resolveClipCollisions(clip);
-    // Note: Missing activeClip and refreshClipDropdown for audio files in the loop - add if needed
-    // But since it's in a loop, perhaps handle after all files
+      // Update activeClip if it's one of the replaced clips
+      if (window.activeClip) {
+        const realActiveClip = window.clips.find(c => c.id === window.activeClip.id);
+        if (realActiveClip && realActiveClip.type === "audio" && replacedIds.includes(realActiveClip.id)) {
+          window.activeClip = realActiveClip;
+        } else if (window.activeClip.type === "audio" && (window.activeClip.audioBuffer === targetBuffer || window.activeClip.loopId === targetLoopId || window.activeClip.fileName === targetFileName)) {
+          window.activeClip.audioBuffer = normalizedBuffer;
+          window.activeClip.loopId = null;
+          window.activeClip.fileName = meta.displayName || file.name;
+          window.activeClip.bars = bars;
+          window.activeClip.durationSeconds = durationSeconds;
+          window.activeClip.bpm = loopBpm;
+          window.activeClip.originalBars = bars;
+          window.activeClip.startOffset = 0;
+        }
+      }
+    } else {
+      // Create new audio clip as before
+      const clip = {
+        id: crypto.randomUUID(),
+        type: "audio",
+        loopId: null,
+        fileName: meta.displayName || file.name,
+        audioBuffer: normalizedBuffer,
+        trackIndex,
+        startBar,
+        bars,
+        bpm: loopBpm,
+        originalBars: bars,
+        startOffset: 0,
+        durationSeconds,
+      };
+
+      window.clips.push(clip);
+      resolveClipCollisions(clip);
+    }
   }
 
   // After processing all files, refresh once
@@ -548,6 +587,73 @@ if (window.activeClip) {
      CASE 1A: MIDI CLIP
   ------------------------- */
   if (loop.type === "midi") {
+
+      // PACK MIDI FILE (from assets/packs/)
+      if (loop.packFile && (loop.path || loop.url)) {
+        if (window.location.protocol === "file:") {
+          console.error("Pack MIDI fetch requires running the app over http/https (file:// cannot be fetched by browsers). Please start a local server, e.g. 'npx http-server .' or 'python -m http.server'.");
+          return;
+        }
+
+        // Try multiple path variants (raw + encoded) so we don't fail on encoding mismatches
+        const pathCandidates = [loop.rawPath, loop.path, loop.url].filter(Boolean);
+        let lastError = null;
+
+        for (const candidate of pathCandidates) {
+          try {
+            const fetchUrl = candidate.startsWith("http")
+              ? candidate
+              : new URL(candidate, window.location.href).toString();
+
+            const resp = await fetch(fetchUrl, { cache: "no-cache" });
+            if (!resp.ok) {
+              throw new Error(`HTTP ${resp.status} while fetching ${fetchUrl}`);
+            }
+
+            const arrayBuffer = await resp.arrayBuffer();
+            const midi = new Midi(new Uint8Array(arrayBuffer));
+
+            const notes = [];
+            const ppq = midi.header.ppq;
+            midi.tracks.forEach(track => {
+              track.notes.forEach(n => {
+                const startBeats = n.ticks / ppq;
+                const endBeats = (n.ticks + n.durationTicks) / ppq;
+                notes.push({ pitch: n.midi, start: startBeats, end: endBeats, velocity: n.velocity });
+              });
+            });
+
+            const maxEnd = notes.length > 0 ? Math.max(...notes.map(n => n.end)) : 1;
+            const bars = Math.ceil(maxEnd / 4);
+
+            const clip = new MidiClip(startBar, bars);
+            clip.trackIndex = trackIndex;
+            clip.notes = notes;
+            clip.sampleBuffer = window.defaultMidiSampleBuffer;
+            clip.sampleName = window.defaultMidiSampleName;
+            clip.name = loop.fileName || generateMidiClipName();
+
+            window.clips.push(clip);
+            resolveClipCollisions(clip);
+            window.activeClip = clip;
+            const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+            window.refreshClipDropdown(uniqueClips);
+
+            drop.innerHTML = "";
+            window.clips
+              .filter(c => c.trackIndex === trackIndex)
+              .forEach(c => window.renderClip(c, drop));
+
+            return; // success, stop trying fallbacks
+          } catch (err) {
+            lastError = err;
+            console.warn(`Pack MIDI fetch failed for ${candidate}:`, err);
+          }
+        }
+
+        console.error("Failed to load pack MIDI after trying all paths:", lastError);
+        return;
+      }
 
     // BUILT-IN MIDI CLIP (already has notes)
 if (loop.notes) {
@@ -619,6 +725,56 @@ if (loop.url) {
         CASE 1B: AUDIO CLIP
       ------------------------- */
       if (loop.type === "audio") {
+          // PACK AUDIO FILE (from assets/packs/)
+          if (loop.packFile && (loop.path || loop.url)) {
+            const fetchPath = loop.path || loop.url;
+            const fetchUrl = new URL(fetchPath, window.location.href).toString();
+            // Fetch and decode the audio file from the pack
+            const response = await fetch(fetchUrl, { cache: "no-cache" });
+            const arrayBuffer = await response.arrayBuffer();
+            if (window.audioContext && window.audioContext.state === "suspended") {
+              await window.audioContext.resume();
+            }
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+            // Try to parse BPM from filename (or use default)
+            const meta = parseLoopMetadata(loop.fileName);
+            const fileBpm = meta?.bpm || 175;
+
+            // Calculate bars based on duration and BPM
+            const durationSeconds = audioBuffer.duration;
+            const bars = (durationSeconds * fileBpm) / 240;
+
+            const clip = {
+              id: crypto.randomUUID(),
+              type: "audio",
+              loopId: null, // Pack files don't use loopId
+              audioBuffer: audioBuffer,
+              trackIndex,
+              startBar,
+              bars,
+              bpm: fileBpm,
+              fileName: loop.fileName,
+              startOffset: 0,
+              durationSeconds,
+              originalBars: bars
+            };
+
+            window.clips.push(clip);
+            resolveClipCollisions(clip);
+            window.activeClip = clip;
+            const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+            window.refreshClipDropdown(uniqueClips);
+
+            drop.innerHTML = "";
+            window.clips
+              .filter(c => c.trackIndex === trackIndex)
+              .forEach(c => window.renderClip(c, drop));
+
+            return;
+          }
+
+          // DROPBOX AUDIO LOOP (existing system)
         await window.loadLoop(loop.id, loop.url, loop.bpm);
         const loopData = window.loopBuffers.get(loop.id);
 
