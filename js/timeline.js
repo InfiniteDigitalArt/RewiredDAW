@@ -1894,6 +1894,29 @@ el.appendChild(labelWrap);
 const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
 window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips at end of render
 
+/* -------------------------------------------------------
+   DROPDOWN TRIANGLE
+------------------------------------------------------- */
+const triangle = document.createElement("div");
+triangle.style.position = "absolute";
+triangle.style.top = "6px";
+triangle.style.left = "4px";
+triangle.style.width = "0";
+triangle.style.height = "0";
+triangle.style.borderLeft = "4px solid transparent";
+triangle.style.borderRight = "4px solid transparent";
+triangle.style.borderTop = "6px solid #fff";
+triangle.style.pointerEvents = "none";
+
+el.appendChild(triangle);
+
+// Adjust label left padding to account for triangle
+label.style.left = "14px";
+
+el.appendChild(triangle);
+
+// Adjust label left padding to account for triangle
+label.style.left = "14px";
 
 /* -------------------------------------------------------
    DRAGGABLE CLIP (child-safe)
