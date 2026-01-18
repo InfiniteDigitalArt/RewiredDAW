@@ -31,6 +31,7 @@ window.onScheduleMidiClip = (clip, track, startTime) => {
 
 
 
+
 window.addEventListener("keydown", e => {
   if (e.key === "Shift") window.shiftDown = true;
 });

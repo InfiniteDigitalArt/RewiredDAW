@@ -28,6 +28,12 @@ let deletedClipIds = new Set();
 let isPainting = false;
 let paintedBars = new Set();
 
+// Marquee selection state
+let isSelecting = false;
+let selectionStart = null;
+let selectionRect = null;
+window.selectedClipIds = new Set();
+
 // Global click handler to close clip dropdowns
 document.addEventListener("click", () => {
   document.querySelectorAll('.clip-dropdown-open').forEach(el => {
@@ -828,11 +834,57 @@ window.renderTimelineBar(64);
    CLIP RENDERING (supports local files + library loops)
 ------------------------------------------------------- */
 window.renderClip = function (clip, dropArea) {
-  console.log("RENDER CLIP:", clip);
+  
 
   const el = document.createElement("div");
   el.className = "clip";
   el.dataset.clipId = clip.id;
+
+
+  // --- Ensure selected outline if this clip is selected ---
+  if (window.selectedClipIds && window.selectedClipIds.has(clip.id)) {
+    el.classList.add("clip-selected");
+  }
+
+  // --- SELECTION LOGIC FOR SELECT MODE ---
+  el.addEventListener("mousedown", function(e) {
+    if (window.timelineCurrentTool === 'select' && e.button === 0) {
+      if (e.shiftKey) {
+        // Shift-click: toggle selection
+        e.preventDefault();
+        e.stopPropagation();
+        if (!window.selectedClipIds) window.selectedClipIds = new Set();
+        if (window.selectedClipIds.has(clip.id)) {
+          window.selectedClipIds.delete(clip.id);
+          el.classList.remove("clip-selected");
+        } else {
+          window.selectedClipIds.add(clip.id);
+          el.classList.add("clip-selected");
+        }
+        return;
+      } else {
+        // Only clear and select if not starting a drag (marquee) selection
+        // Only do this if the click is not part of a drag (handled by timelineScroll mousedown)
+        // We use a short timeout to check if mouse moves (drag) or not (click)
+        let clickHandled = false;
+        const onMouseMove = () => { clickHandled = true; document.removeEventListener('mousemove', onMouseMove); };
+        document.addEventListener('mousemove', onMouseMove);
+        setTimeout(() => {
+          document.removeEventListener('mousemove', onMouseMove);
+          if (!clickHandled) {
+            // This was a click, not a drag
+            e.preventDefault();
+            e.stopPropagation();
+            if (!window.selectedClipIds) window.selectedClipIds = new Set();
+            document.querySelectorAll('.clip-selected').forEach(el2 => el2.classList.remove('clip-selected'));
+            window.selectedClipIds.clear();
+            window.selectedClipIds.add(clip.id);
+            el.classList.add("clip-selected");
+          }
+        }, 0);
+      }
+    }
+  });
 
   // --- MOUSE MOVE FOR CONTINUOUS DELETION ---
   el.addEventListener("mousemove", function (e) {
@@ -882,68 +934,210 @@ window.renderClip = function (clip, dropArea) {
       return;
     }
     if (e.button !== 0) return; // Only left mouse for normal operations
+
+    // --- SHIFT+DRAG TO DUPLICATE MULTI-CLIP IN PENCIL MODE ---
+    const isMultiSelect = window.selectedClipIds && window.selectedClipIds.size > 1 && window.selectedClipIds.has(clip.id);
+    if (e.shiftKey && isMultiSelect) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Duplicate all selected clips (shallow copy for MIDI)
+      const selectedClips = window.clips.filter(c => window.selectedClipIds.has(c.id));
+      // Clear selection outline and selection set from original clips
+      selectedClips.forEach(c => {
+        const origEl = document.querySelector(`.clip[data-clip-id="${c.id}"]`);
+        if (origEl) origEl.classList.remove("clip-selected");
+      });
+      if (window.selectedClipIds) window.selectedClipIds.clear();
+      // Map from old id to new id for updating selection
+      const oldToNewIds = new Map();
+      // Find anchor (the one being dragged)
+      const anchorIdx = selectedClips.findIndex(c => c.id === clip.id);
+      // Store original positions
+      const originalPositions = selectedClips.map(c => ({
+        id: c.id,
+        startBar: c.startBar,
+        trackIndex: c.trackIndex
+      }));
+      // Create duplicates
+      const duplicates = selectedClips.map(orig => {
+        let newClip;
+        if (orig.type === 'midi') {
+          // Shallow copy: share notes array, new id
+          newClip = Object.assign({}, orig);
+          newClip.id = crypto.randomUUID();
+          // Do NOT deep copy notes, keep reference
+        } else {
+          // Audio: shallow copy, new id
+          newClip = Object.assign({}, orig);
+          newClip.id = crypto.randomUUID();
+        }
+        oldToNewIds.set(orig.id, newClip.id);
+        return newClip;
+      });
+      // Add to window.clips
+      window.clips.push(...duplicates);
+      // Set up for drag
+      let moved = false;
+      const trackRect = el.parentElement.getBoundingClientRect();
+      const mouseX = e.clientX - trackRect.left;
+      const mouseBar = mouseX / window.PIXELS_PER_BAR;
+      const beatsPerBar = 4;
+      const beat = Math.floor(mouseBar * beatsPerBar) / beatsPerBar;
+      const startX = trackRect.left + (beat * window.PIXELS_PER_BAR);
+      function onMove(ev) {
+        const dx = ev.clientX - startX;
+        if (Math.abs(dx) > (window.PIXELS_PER_BAR/8)) moved = true;
+        if (!moved) return;
+        // Calculate newBar for anchor
+        let newBar = originalPositions[anchorIdx].startBar + dx / window.PIXELS_PER_BAR;
+        newBar = window.snapToGrid(newBar);
+        newBar = Math.max(0, newBar);
+        const deltaBars = newBar - originalPositions[anchorIdx].startBar;
+        // Move all duplicates by deltaBars
+        duplicates.forEach((c, idx) => {
+          let orig = originalPositions[idx];
+          c.startBar = Math.max(0, orig.startBar + deltaBars);
+        });
+        // Redraw all affected tracks
+        const affectedTracks = new Set(duplicates.map(c => c.trackIndex));
+        affectedTracks.forEach(trackIdx => {
+          const track = document.querySelector(`.track[data-index="${trackIdx}"]`);
+          if (track) {
+            const dropArea = track.querySelector(".track-drop-area");
+            if (dropArea) {
+              dropArea.innerHTML = "";
+              window.clips.filter(c => c.trackIndex === trackIdx)
+                .forEach(c => {
+                  window.renderClip(c, dropArea);
+                  if (duplicates.some(d => d.id === c.id)) {
+                    cEl = dropArea.querySelector(`[data-clip-id="${c.id}"]`);
+                    if (cEl) cEl.classList.add("clip-selected");
+                  }
+                });
+            }
+          }
+        });
+      }
+      function onUp(ev) {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        if (moved) {
+          duplicates.forEach(c => resolveClipCollisions(c));
+          // Redraw all affected tracks
+          const affectedTracks = new Set(duplicates.map(c => c.trackIndex));
+          affectedTracks.forEach(trackIdx => {
+            const track = document.querySelector(`.track[data-index="${trackIdx}"]`);
+            if (track) {
+              const dropArea = track.querySelector(".track-drop-area");
+              if (dropArea) {
+                dropArea.innerHTML = "";
+                window.clips.filter(c => c.trackIndex === trackIdx)
+                  .forEach(c => {
+                    window.renderClip(c, dropArea);
+                    if (duplicates.some(d => d.id === c.id)) {
+                      cEl = dropArea.querySelector(`[data-clip-id="${c.id}"]`);
+                      if (cEl) cEl.classList.add("clip-selected");
+                    }
+                  });
+              }
+            }
+          });
+          // Update selection to new duplicates
+          window.selectedClipIds.clear();
+          duplicates.forEach(c => window.selectedClipIds.add(c.id));
+        } else {
+          // If not moved, remove the duplicates
+          window.clips = window.clips.filter(c => !duplicates.some(d => d.id === c.id));
+        }
+        // Set dropdown to the anchor duplicate
+        const dropdown = document.getElementById("clipListDropdown");
+        if (dropdown) dropdown.value = duplicates[anchorIdx].name || duplicates[anchorIdx].fileName || duplicates[anchorIdx].id;
+      }
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+      return;
+    }
+
+    // --- NORMAL DRAG (NO SHIFT) ---
     e.preventDefault();
     e.stopPropagation();
-    // Snap drag start to the nearest beat to the left of the mouse
+    let clipsToMove = [clip];
+    let originalPositions = [{ id: clip.id, startBar: clip.startBar, trackIndex: clip.trackIndex }];
+    if (isMultiSelect) {
+      clipsToMove = window.clips.filter(c => window.selectedClipIds.has(c.id));
+      originalPositions = clipsToMove.map(c => ({
+        id: c.id,
+        startBar: c.startBar,
+        trackIndex: c.trackIndex
+      }));
+    }
     const trackRect = el.parentElement.getBoundingClientRect();
     const mouseX = e.clientX - trackRect.left;
-    // Calculate the bar position of the mouse
     const mouseBar = mouseX / window.PIXELS_PER_BAR;
-    // Snap to the nearest beat to the left
     const beatsPerBar = 4;
     const beat = Math.floor(mouseBar * beatsPerBar) / beatsPerBar;
     const startX = trackRect.left + (beat * window.PIXELS_PER_BAR);
-    const origBar = clip.startBar;
-    const dropAreaEl = dropArea;
-    let dragClip = clip;
-    let isDuplicate = false;
     let moved = false;
     let lastDx = 0;
-    // If shift is held, duplicate the clip and drag the duplicate
-    if (e.shiftKey) {
-      dragClip = { ...clip, id: crypto.randomUUID() };
-      // --- Always link the same reverbGain object ---
-      if (clip.type === "midi") {
-        dragClip.notes = clip.notes;
-        dragClip.sampleBuffer = clip.sampleBuffer;
-        dragClip.sampleName = clip.sampleName;
-        if (clip.reverbGain) dragClip.reverbGain = clip.reverbGain;
-      }
-      if (clip.type === "audio") {
-        dragClip.audioBuffer = clip.audioBuffer;
-        if (clip.reverbGain) dragClip.reverbGain = clip.reverbGain;
-      }
-      window.clips.push(dragClip);
-      isDuplicate = true;
-    }
     function onMove(ev) {
       const dx = ev.clientX - startX;
       lastDx = dx;
       if (Math.abs(dx) > (window.PIXELS_PER_BAR/8)) moved = true;
       if (!moved) return;
-      let newBar = origBar + dx / window.PIXELS_PER_BAR;
+      let newBar = originalPositions[0].startBar + dx / window.PIXELS_PER_BAR;
       newBar = window.snapToGrid(newBar);
       newBar = Math.max(0, newBar);
-      dragClip.startBar = newBar;
-      if (dropAreaEl) {
-        dropAreaEl.innerHTML = "";
-        window.clips.filter(c => c.trackIndex === dragClip.trackIndex)
-          .forEach(c => window.renderClip(c, dropAreaEl));
-      }
+      const deltaBars = newBar - originalPositions[0].startBar;
+      clipsToMove.forEach((c, idx) => {
+        let orig = originalPositions.find(op => op.id === c.id);
+        if (!orig) orig = { startBar: c.startBar, trackIndex: c.trackIndex };
+        c.startBar = Math.max(0, orig.startBar + deltaBars);
+      });
+      const affectedTracks = new Set(clipsToMove.map(c => c.trackIndex));
+      affectedTracks.forEach(trackIdx => {
+        const track = document.querySelector(`.track[data-index="${trackIdx}"]`);
+        if (track) {
+          const dropArea = track.querySelector(".track-drop-area");
+          if (dropArea) {
+            dropArea.innerHTML = "";
+            window.clips.filter(c => c.trackIndex === trackIdx)
+              .forEach(c => {
+                window.renderClip(c, dropArea);
+                const el = dropArea.querySelector(`[data-clip-id="${c.id}"]`);
+                if (el && window.selectedClipIds.has(c.id)) {
+                  el.classList.add("clip-selected");
+                }
+              });
+          }
+        }
+      });
     }
     function onUp(ev) {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       if (moved) {
-        resolveClipCollisions(dragClip);
-        if (dropAreaEl) {
-          dropAreaEl.innerHTML = "";
-          window.clips.filter(c => c.trackIndex === dragClip.trackIndex)
-            .forEach(c => window.renderClip(c, dropAreaEl));
-        }
+        clipsToMove.forEach(c => resolveClipCollisions(c));
+        const affectedTracks = new Set(clipsToMove.map(c => c.trackIndex));
+        affectedTracks.forEach(trackIdx => {
+          const track = document.querySelector(`.track[data-index="${trackIdx}"]`);
+          if (track) {
+            const dropArea = track.querySelector(".track-drop-area");
+            if (dropArea) {
+              dropArea.innerHTML = "";
+              window.clips.filter(c => c.trackIndex === trackIdx)
+                .forEach(c => {
+                  window.renderClip(c, dropArea);
+                  const el = dropArea.querySelector(`[data-clip-id="${c.id}"]`);
+                  if (el && window.selectedClipIds.has(c.id)) {
+                    el.classList.add("clip-selected");
+                  }
+                });
+            }
+          }
+        });
       }
       const dropdown = document.getElementById("clipListDropdown");
-      if (dropdown) dropdown.value = dragClip.name || dragClip.fileName || dragClip.id;
+      if (dropdown) dropdown.value = clip.name || clip.fileName || clip.id;
     }
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
@@ -1794,5 +1988,201 @@ document.addEventListener("mouseup", function (e) {
 document.addEventListener("contextmenu", function (e) {
   e.preventDefault();
 }, true);
+
+// --- Always clear selection rectangles on any mouseup (global) ---
+document.addEventListener("mouseup", function () {
+  document.querySelectorAll("#timeline-selection-rect").forEach(rectEl => {
+    if (rectEl.parentNode) rectEl.parentNode.removeChild(rectEl);
+  });
+  selectionRect = null;
+  isSelecting = false;
+});
+
+// --- Also clear selection rectangles on double-click ---
+document.addEventListener("dblclick", function () {
+  document.querySelectorAll("#timeline-selection-rect").forEach(rectEl => {
+    if (rectEl.parentNode) rectEl.parentNode.removeChild(rectEl);
+  });
+  selectionRect = null;
+  isSelecting = false;
+});
+
+/* -------------------------------------------------------
+   MARQUEE SELECTION
+------------------------------------------------------- */
+
+// Utility: get all visible clips DOM elements
+function getAllClipElements() {
+  return Array.from(document.querySelectorAll('.clip'));
+}
+
+// Utility: get bounding rect for a clip (relative to timeline-scroll)
+function getClipRect(clipEl) {
+  const scroll = document.getElementById("timeline-scroll");
+  const scrollRect = scroll.getBoundingClientRect();
+  const rect = clipEl.getBoundingClientRect();
+  return {
+    left: rect.left - scrollRect.left + scroll.scrollLeft,
+    top: rect.top - scrollRect.top + scroll.scrollTop,
+    right: rect.right - scrollRect.left + scroll.scrollLeft,
+    bottom: rect.bottom - scrollRect.top + scroll.scrollTop
+  };
+}
+
+// Utility: get bounding rect for selection box (relative to timeline-scroll)
+function getSelectionRect(start, end) {
+  const scroll = document.getElementById("timeline-scroll");
+  const scrollRect = scroll.getBoundingClientRect();
+  const x1 = start.x - scrollRect.left + scroll.scrollLeft;
+  const y1 = start.y - scrollRect.top + scroll.scrollTop;
+  const x2 = end.x - scrollRect.left + scroll.scrollLeft;
+  const y2 = end.y - scrollRect.top + scroll.scrollTop;
+  return {
+    left: Math.min(x1, x2),
+    top: Math.min(y1, y2),
+    right: Math.max(x1, x2),
+    bottom: Math.max(y1, y2)
+  };
+}
+
+// Utility: check if two rects intersect
+function rectsIntersect(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > a.top;
+}
+
+// --- Marquee selection logic ---
+function attachMarqueeSelection() {
+  const timelineScroll = document.getElementById("timeline-scroll");
+  if (!timelineScroll) return;
+
+  // --- Prevent default drag behavior in select mode ---
+  timelineScroll.addEventListener("dragstart", function(e) {
+    if (window.timelineCurrentTool === "select") {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  timelineScroll.addEventListener("dragover", function(e) {
+    if (window.timelineCurrentTool === "select") {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  timelineScroll.addEventListener("mousedown", function(e) {
+
+    // If in select mode, and there are selected clips, and click is on empty space (not a clip)
+    if (
+      window.timelineCurrentTool === 'select' &&
+      window.selectedClipIds && window.selectedClipIds.size > 0 &&
+      !e.target.closest('.clip')
+    ) {
+      window.selectedClipIds.clear();
+      document.querySelectorAll('.clip-selected').forEach(el => el.classList.remove('clip-selected'));
+      // Do not start marquee selection
+      return;
+    }
+
+    if (window.timelineCurrentTool !== "select") return;
+    if (e.button !== 0) return;
+    if (e.target.closest('.knob, .fx-btn, .clip-dropdown-open, .resize-handle')) return;
+
+    // --- Prevent any drag behavior ---
+    e.preventDefault();
+
+    isSelecting = true;
+    
+    // --- FIX: Calculate position relative to timeline-scroll container ---
+    const scrollRect = timelineScroll.getBoundingClientRect();
+    const x = e.clientX - scrollRect.left + timelineScroll.scrollLeft;
+    const y = e.clientY - scrollRect.top + timelineScroll.scrollTop;
+    
+    selectionStart = { x: e.clientX, y: e.clientY };
+
+    selectionRect = document.createElement("div");
+    selectionRect.style.position = "absolute";
+    selectionRect.style.zIndex = "9999";
+    selectionRect.style.pointerEvents = "none";
+    selectionRect.style.border = "1.5px dashed #4D88FF";
+    selectionRect.style.background = "rgba(77,136,255,0.10)";
+    selectionRect.style.left = x + "px";
+    selectionRect.style.top = y + "px";
+    selectionRect.style.width = "0px";
+    selectionRect.style.height = "0px";
+    selectionRect.id = "timeline-selection-rect";
+    timelineScroll.appendChild(selectionRect);
+
+    window.selectedClipIds.clear();
+
+    function onMove(ev) {
+      if (!isSelecting) return;
+      const end = { x: ev.clientX, y: ev.clientY };
+      const rect = getSelectionRect(selectionStart, end);
+      selectionRect.style.left = rect.left + "px";
+      selectionRect.style.top = rect.top + "px";
+      selectionRect.style.width = (rect.right - rect.left) + "px";
+      selectionRect.style.height = (rect.bottom - rect.top) + "px";
+
+      window.selectedClipIds.clear();
+      getAllClipElements().forEach(clipEl => {
+        const clipBox = getClipRect(clipEl);
+        // Only select if the clip actually intersects the selection rectangle
+        if (
+          rect.left < clipBox.right &&
+          rect.right > clipBox.left &&
+          rect.top < clipBox.bottom &&
+          rect.bottom > clipBox.top
+        ) {
+          window.selectedClipIds.add(clipEl.dataset.clipId);
+          clipEl.classList.add("clip-selected");
+        } else {
+          clipEl.classList.remove("clip-selected");
+        }
+      });
+    }
+
+    function onUp(ev) {
+      if (!isSelecting) return;
+      isSelecting = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      // --- Clear selection rect on mouseup ---
+      document.querySelectorAll("#timeline-selection-rect").forEach(rectEl => {
+        if (rectEl.parentNode) rectEl.parentNode.removeChild(rectEl);
+      });
+      selectionRect = null;
+      getAllClipElements().forEach(clipEl => {
+        if (window.selectedClipIds.has(clipEl.dataset.clipId)) {
+          clipEl.classList.add("clip-selected");
+        } else {
+          clipEl.classList.remove("clip-selected");
+        }
+      });
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+// Add CSS for .clip-selected (blue border)
+const style = document.createElement("style");
+style.textContent = `
+.clip-selected {
+  outline: 2px solid #4D88FF !important;
+  outline-offset: -2px;
+ 
+  box-shadow: 0 0 0 2px #4D88FF33;
+}
+`;
+document.head.appendChild(style);
+
+// Attach marquee selection after DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
+  // ...existing code...
+  attachMarqueeSelection();
+  // ...existing code...
+});
 
 
