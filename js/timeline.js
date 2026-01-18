@@ -39,88 +39,145 @@ document.addEventListener("click", () => {
 
 window.initTimeline = function () {
   const tracksEl = document.getElementById("tracks");
+  const controlsColumn = document.getElementById("track-controls-column");
   const marker = document.getElementById("seekMarker");
   marker.style.left = "156px";
 
+  // Store references for later updates (e.g., VU meters)
+  window.trackControls = [];
+  // ⭐ Store per-track state for volume/pan
+  window.trackStates = Array.from({ length: 16 }, (_, i) => ({
+    volume: 0.8,
+    pan: 0.5
+  }));
+
+  // If loading a project, use its track states
+  if (window.loadedProject && Array.isArray(window.loadedProject.tracks)) {
+    window.trackStates = window.loadedProject.tracks.map(t => ({
+      volume: Math.max(0, Math.min(1, Number(t.volume))),
+      pan: Math.max(0, Math.min(1, Number(t.pan)))
+    }));
+    // Pad to 16 tracks if needed
+    while (window.trackStates.length < 16) {
+      window.trackStates.push({ volume: 0.8, pan: 0.5 });
+    }
+  } else {
+    window.trackStates = Array.from({ length: 16 }, () => ({
+      volume: 0.8,
+      pan: 0.5
+    }));
+  }
 
   for (let i = 0; i < 16; i++) {
     const track = document.createElement("div");
     track.className = "track";
     track.dataset.index = i;
     const color = window.TRACK_COLORS[i % 10];
-
     track.style.setProperty("--track-color", color);
 
-
     /* -------------------------------------------------------
-       LEFT CONTROL STRIP
+       LEFT CONTROL STRIP (goes into controlsColumn)
     ------------------------------------------------------- */
     const controls = document.createElement("div");
     controls.className = "track-controls";
+    controls.dataset.index = i; // Link controls to track index
+
+    // Set color for controls (for knobs, meter, etc)
+    controls.style.setProperty("--track-color", color);
 
     const label = document.createElement("div");
     label.className = "track-label";
     label.textContent = "Track " + (i + 1);
-    label.style.color = window.TRACK_COLORS[i % 10];
-
+    label.style.color = color;
 
     // Horizontal knob row
     const knobRow = document.createElement("div");
     knobRow.className = "knob-row";
 
+    // Use trackStates for initial knob values
+    const initialVol = window.trackStates[i]?.volume ?? 0.8;
+    const initialPan = window.trackStates[i]?.pan ?? 0.5;
+
     // Volume knob + label
     const volWrap = document.createElement("div");
     volWrap.className = "knob-wrap";
-
     const vol = document.createElement("div");
     vol.className = "knob volume-knob";
-    vol.dataset.value = 0.8;
-
+    vol.dataset.value = initialVol;
+    vol.style.setProperty("--track-color", color);
+    vol.style.setProperty("--val", initialVol);
     const volLabel = document.createElement("div");
     volLabel.className = "knob-label";
     volLabel.textContent = "VOL";
-
     volWrap.appendChild(vol);
     volWrap.appendChild(volLabel);
 
     // Pan knob + label
     const panWrap = document.createElement("div");
     panWrap.className = "knob-wrap";
-
     const pan = document.createElement("div");
     pan.className = "knob pan-knob";
-    pan.dataset.value = 0.5;
-
+    pan.dataset.value = initialPan;
+    pan.style.setProperty("--track-color", color);
+    pan.style.setProperty("--val", initialPan);
     const panLabel = document.createElement("div");
     panLabel.className = "knob-label";
     panLabel.textContent = "PAN";
-
-// If project is loaded, apply saved values
-if (window.loadedProject && window.loadedProject.tracks[i]) {
-  const savedVol = window.loadedProject.tracks[i].volume;
-  const savedPan = window.loadedProject.tracks[i].pan;
-
-  // ⭐ Update knob UI without triggering events
-  vol.dataset.value = savedVol;
-  pan.dataset.value = savedPan;
-
-  updateKnobVisual(vol, savedVol);
-  updateKnobVisual(pan, savedPan);
-}
-
-
     panWrap.appendChild(pan);
     panWrap.appendChild(panLabel);
 
+    // Set audio engine values immediately
+    if (window.trackGains && window.trackGains[i]) {
+      window.trackGains[i].gain.value = initialVol;
+    }
+    if (window.trackPanners && window.trackPanners[i]) {
+      window.trackPanners[i].pan.value = (initialPan - 0.5) * 2;
+    }
 
-    knobRow.appendChild(volWrap);
-    knobRow.appendChild(panWrap);
+    // Attach knob listeners to update window.trackStates AND audio engine
+    function knobHandler(knob, type, idx) {
+      knob.addEventListener("mousedown", function (e) {
+        e.preventDefault();
+        // --- FIX: Always read the latest value from dataset on mousedown ---
+        let lastVal = parseFloat(knob.dataset.value);
+        const rect = knob.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+
+        function move(ev) {
+          const dy = centerY - ev.clientY;
+          let v = lastVal + dy * 0.0007;
+          v = Math.max(0, Math.min(1, v));
+          knob.dataset.value = v;
+          knob.style.setProperty("--val", v);
+          window.trackStates[idx][type] = v;
+          // --- Update audio engine in real time ---
+          if (type === "volume" && window.trackGains && window.trackGains[idx]) {
+            window.trackGains[idx].gain.value = v;
+          }
+          if (type === "pan" && window.trackPanners && window.trackPanners[idx]) {
+            window.trackPanners[idx].pan.value = (v - 0.5) * 2;
+          }
+        }
+        function up() {
+          document.removeEventListener("mousemove", move);
+          document.removeEventListener("mouseup", up);
+        }
+        document.addEventListener("mousemove", move);
+        document.addEventListener("mouseup", up);
+      });
+    }
+    knobHandler(vol, "volume", i);
+    knobHandler(pan, "pan", i);
 
     // FX button (to the right of pan)
     const fxBtn = document.createElement("button");
     fxBtn.className = "fx-btn";
     fxBtn.textContent = "FX";
     fxBtn.title = "Track FX (coming soon)";
+
+    // Append all controls to knobRow
+    knobRow.appendChild(volWrap);
+    knobRow.appendChild(panWrap);
     knobRow.appendChild(fxBtn);
 
     controls.appendChild(label);
@@ -129,17 +186,23 @@ if (window.loadedProject && window.loadedProject.tracks[i]) {
     // Create meter
     const meter = document.createElement("div");
     meter.className = "track-meter";
-
+    meter.style.setProperty("--track-color", color);
     const meterFill = document.createElement("div");
     meterFill.className = "track-meter-fill";
     meter.appendChild(meterFill);
-
-    // Add meter to the knob row (NOT controls)
     knobRow.appendChild(meter);
 
+    // Store references for later updates (e.g., VU meter)
+    window.trackControls[i] = {
+      controls,
+      vol,
+      pan,
+      meterFill,
+      color
+    };
 
     /* -------------------------------------------------------
-      CLIP AREA
+      CLIP AREA (goes into tracksEl)
     ------------------------------------------------------- */
     const inner = document.createElement("div");
     inner.className = "track-inner";
@@ -379,7 +442,7 @@ if (window.activeClip) {
     }
   }
 }
-  } else {
+} else {
     // Create new MIDI clip as before
     const clip = new MidiClip(startBar, bars);
     clip.trackIndex = trackIndex;
@@ -633,9 +696,12 @@ window.isDuplicateDrag = false;
 
 
     /* -------------------------------------------------------
-       BUILD TRACK
+       BUILD TRACK - SEPARATE CONTROLS AND INNER
     ------------------------------------------------------- */
-    track.appendChild(controls);
+    // Add controls to fixed column
+    controlsColumn.appendChild(controls);
+    
+    // Add inner to scrollable tracks
     track.appendChild(inner);
     tracksEl.appendChild(track);
     
@@ -712,14 +778,25 @@ window.renderTimelineBar(64);
   const playhead = document.getElementById("playhead");
   const seekMarker = document.getElementById("seekMarker");
 
+  // ⭐ NEW: Sync vertical scroll between controls and timeline
+  //const controlsColumn = document.getElementById("track-controls-column");
+  
   if (timelineScroll && timelineBar) {
     timelineScroll.addEventListener("scroll", function () {
       const scrollX = timelineScroll.scrollLeft;
+      const scrollY = timelineScroll.scrollTop;
+      
       timelineBar.style.transform = `translateX(${-scrollX}px)`;
       if (seekMarker) seekMarker.style.transform = `translateX(${-scrollX}px)`;
+      
       // Keep playhead visually locked at the left edge of the timeline grid
       if (playhead) {
-        playhead.style.left = (156 + scrollX) + "px";
+        playhead.style.left = (scrollX) + "px";
+      }
+      
+      // ⭐ Sync vertical scroll to controls column
+      if (controlsColumn) {
+        controlsColumn.scrollTop = scrollY;
       }
     });
   }

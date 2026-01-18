@@ -89,7 +89,6 @@ body {
 /* Scrollable tracks area under the bar */
 #timeline-scroll {
   position: absolute;
-  top: 24px; /* same as bar height */
   left: 0;
   right: 0;
   bottom: 0;
@@ -332,7 +331,7 @@ body {
   box-shadow: 0 0 8px var(--playhead);
   pointer-events: none;
   z-index: 99;
-  left: 150px; /* now correct */
+  left: 0px; /* now correct */
 }
 
 
@@ -1176,4 +1175,64 @@ body {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #666;
+}
+
+/* ⭐ NEW: Timeline wrapper to hold controls + scroll side-by-side */
+#timeline-wrapper {
+  display: flex;
+  position: relative;
+  height: calc(100% - 24px); /* Account for timeline-bar height */
+  overflow: hidden;
+}
+
+/* ⭐ NEW: Fixed track controls column */
+#track-controls-column {
+  width: 156px;
+  min-width: 156px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #1a1a1a;
+  border-right: 1px solid #333;
+  scrollbar-width: none; /* Hide scrollbar on Firefox */
+  -ms-overflow-style: none; /* Hide scrollbar on IE/Edge */
+}
+
+#track-controls-column::-webkit-scrollbar {
+  display: none; /* Hide scrollbar on Chrome/Safari */
+}
+
+/* ⭐ MODIFIED: Timeline scroll now takes remaining space */
+#timeline-scroll {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  top: 0; /* Remove the 24px offset */
+}
+
+/* ⭐ MODIFIED: Track controls stay within fixed column */
+.track-controls {
+  width: 156px;
+  min-width: 156px;
+  max-width: 156px;
+  padding: 8px;
+  box-sizing: border-box;
+  background: #1a1a1a;
+  border-bottom: 1px solid #2a2a2a;
+  height: 60px; /* Match track height */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ⭐ MODIFIED: Tracks now only contain track-inner */
+.track {
+  position: relative;
+  height: 60px; /* Ensure consistency */
+  border-bottom: 1px solid #2a2a2a;
+  display: flex;
+}
+
+.track-inner {
+  flex: 1;
+  position: relative;
 }

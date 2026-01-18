@@ -86,10 +86,17 @@
   <div id="timeline-bar"></div>
   <div id="seekMarker" class="seek-marker"></div>
 
-  <div id="timeline-scroll">
+  <!-- ⭐ NEW: Wrapper for controls + timeline -->
+  <div id="timeline-wrapper">
+    <!-- ⭐ NEW: Fixed track controls column -->
+    <div id="track-controls-column"></div>
     
-    <div class="tracks" id="tracks">
+    <!-- ⭐ MODIFIED: Timeline scroll now only contains track-inner areas -->
+    <div id="timeline-scroll">
       <div id="playhead" class="hidden"></div>
+      <div class="tracks" id="tracks">
+        
+      </div>
     </div>
   </div>
 </div>

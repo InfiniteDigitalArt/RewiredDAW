@@ -130,8 +130,8 @@ function startPlayhead(realStartTime) {
     const bars = (elapsed * window.BPM) / 240;
     const x = bars * window.PIXELS_PER_BAR;
 
-    // Use the SAME offset everywhere (80px)
-    playhead.style.left = (x + 154) + "px";
+    // --- FIX: No offset, playhead is inside .tracks and grid is at x=0 ---
+    playhead.style.left = x + "px";
 
     window.playheadRAF = requestAnimationFrame(update);
   }
@@ -155,10 +155,18 @@ document.addEventListener("mousedown", (e) => {
 
   e.preventDefault();
 
-  const knob = e.target;
-  const trackEl = knob.closest(".track");
-  const trackIndex = parseInt(trackEl.dataset.index);
+  // --- FIX: Find track index from controls column, not .track ---
+  let trackIndex = null;
+  let el = e.target;
+  while (el && !el.classList.contains("track-controls")) {
+    el = el.parentElement;
+  }
+  if (el && el.dataset && el.dataset.index !== undefined) {
+    trackIndex = parseInt(el.dataset.index);
+  }
+  if (trackIndex === null || isNaN(trackIndex)) return;
 
+  const knob = e.target;
   let value = parseFloat(knob.dataset.value);
 
   // Request pointer lock (locks mouse + hides cursor)
@@ -235,11 +243,20 @@ async function saveProjectZip() {
   // Deduplication map for samples
   const savedSamples = new Map();
 
-  // Track mixer state
-  const tracks = [...document.querySelectorAll(".track")].map(track => ({
-    volume: Number(track.querySelector(".volume-knob").dataset.value),
-    pan: Number(track.querySelector(".pan-knob").dataset.value)
-  }));
+  // --- FIX: Always get latest knob values from DOM for saving ---
+  const tracks = [];
+  for (let i = 0; i < 16; i++) {
+    // Find the controls column knob for this track
+    const controlsCol = document.querySelector(`#track-controls-column .track-controls[data-index="${i}"]`);
+    let vol = 0.8, pan = 0.5;
+    if (controlsCol) {
+      const volKnob = controlsCol.querySelector(".volume-knob");
+      const panKnob = controlsCol.querySelector(".pan-knob");
+      if (volKnob) vol = Number(volKnob.dataset.value);
+      if (panKnob) pan = Number(panKnob.dataset.value);
+    }
+    tracks.push({ volume: vol, pan: pan });
+  }
 
   const serializedClips = [];
 
@@ -368,39 +385,60 @@ async function loadProjectZip(json, zip) {
   document.getElementById("tempoValue").textContent = json.tempo + " BPM";
   window.setTempo(json.tempo);
 
+  // --- FIX: Remove any manual playhead/seekMarker offset on load ---
+  // Ensure seekMarker and playhead are reset to bar 1 (x=0)
+  const marker = document.getElementById("seekMarker");
+  if (marker) marker.style.left = "0px";
+  const playhead = document.getElementById("playhead");
+  if (playhead) playhead.style.left = "0px";
+  window.seekBars = 0;
+  window.transportStartTime = audioContext.currentTime;
+
+  // --- Set window.loadedProject so timeline.js uses correct values ---
+  window.loadedProject = json;
+
   window.clips = [];
   document.getElementById("tracks").innerHTML = "";
-  initTimeline(); // builds 16 fresh tracks with default knobs
+  initTimeline(); // builds 16 fresh tracks with correct knob values
 
+  // --- Remove redundant knob/pan sync here, timeline.js now handles it on init ---
   // ----------------------------------------------------
   // Mixer: apply volumes/pans to audio + knobs
   // ----------------------------------------------------
+  // --- FIX: Clamp values to [0,1] and ensure numbers ---
   json.tracks.forEach((t, index) => {
+    // Clamp and coerce to number
+    let vol = Math.max(0, Math.min(1, Number(t.volume)));
+    let pan = Math.max(0, Math.min(1, Number(t.pan)));
+
     // Audio engine
     if (window.trackGains && window.trackGains[index]) {
-      window.trackGains[index].gain.value = t.volume;
+      window.trackGains[index].gain.value = vol;
     }
-    if (window.trackPans && window.trackPans[index]) {
-      window.trackPans[index].pan.value = t.pan;
+    if (window.trackPanners && window.trackPanners[index]) {
+      window.trackPanners[index].pan.value = (pan - 0.5) * 2;
     }
 
-    // UI knobs
-    const trackEl = document.querySelector(`.track[data-index="${index}"]`);
-    if (!trackEl) return;
+    // Update window.trackStates
+    if (window.trackStates && window.trackStates[index]) {
+      window.trackStates[index].volume = vol;
+      window.trackStates[index].pan = pan;
+    }
 
-const volKnob = trackEl.querySelector(".volume-knob");
-const panKnob = trackEl.querySelector(".pan-knob");
-
-if (volKnob) {
-  volKnob.dataset.value = t.volume;
-  volKnob.style.setProperty("--val", t.volume);
-}
-
-if (panKnob) {
-  panKnob.dataset.value = t.pan;
-  panKnob.style.setProperty("--val", t.pan);
-}
-
+    // UI knobs in controls column
+    const controlsCol = document.querySelector(`#track-controls-column .track-controls[data-index="${index}"]`);
+    if (controlsCol) {
+      const volKnob = controlsCol.querySelector(".volume-knob");
+      const panKnob = controlsCol.querySelector(".pan-knob");
+      if (volKnob) {
+        volKnob.dataset.value = vol;
+        volKnob.style.setProperty("--val", vol);
+      }
+      if (panKnob) {
+        panKnob.dataset.value = pan;
+        panKnob.style.setProperty("--val", pan);
+      }
+    }
   });
 
   // ----------------------------------------------------
@@ -608,7 +646,7 @@ if (window.isPlaying) {
     window.playAll(barIndex);
 
     const playhead = document.getElementById("playhead");
-    playhead.style.left = (x + 150 - scrollX) + "px";
+    playhead.style.left = (x - scrollX) + "px";
     playhead.classList.remove("hidden");
 
     startPlayhead(window.transportStartTime);
