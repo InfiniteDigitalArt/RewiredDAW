@@ -21,7 +21,7 @@ window.BasicSawSynthForContext = class BasicSawSynthForContext {
     const src = this.audioCtx.createBufferSource();
     src.buffer = this.sampleBuffer;
 
-    const semitone = pitch - 69;
+    const semitone = pitch - 60;
     src.playbackRate.value = Math.pow(2, semitone / 12);
 
     const gain = this.audioCtx.createGain();

@@ -1,3 +1,25 @@
+.fx-btn {
+  margin-left: 8px;
+  margin-top: 4px;
+  padding: 0 10px;
+  height: 22px;
+  background: #19191d;
+  color: #7aa0ff;
+  border: 1px solid #2a2a30;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border 0.15s;
+  outline: none;
+  user-select: none;
+}
+.fx-btn:hover, .fx-btn:focus {
+  background: #23233a;
+  color: #fff;
+  border-color: #7aa0ff;
+}
 :root {
   --bg-main: #0f0f12;
   --bg-panel: #141418;
@@ -17,6 +39,9 @@
   --accent-beat: rgba(0, 122, 255, 0.12);
 
   --playhead: #00aaff;
+
+  --bar-light: #8a8a8f5e;
+  --bar-dark: #59595c46;
 
 }
 
@@ -64,7 +89,6 @@ body {
 /* Scrollable tracks area under the bar */
 #timeline-scroll {
   position: absolute;
-  top: 24px; /* same as bar height */
   left: 0;
   right: 0;
   bottom: 0;
@@ -134,8 +158,8 @@ body {
 
 /* Left control strip */
 .track-controls {
-  width: 100px;
-  background: #101014;
+  width: 150px;
+  background: var(--bg-panel);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   padding: 2px;
   display: flex;
@@ -307,7 +331,7 @@ body {
   box-shadow: 0 0 8px var(--playhead);
   pointer-events: none;
   z-index: 99;
-  left: 104px; /* now correct */
+  left: 0px; /* now correct */
 }
 
 
@@ -403,6 +427,56 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120.59 122.88' fill='%23FF4D4D'%3E%3Cpath d='M3.31,9.5h26.8V0H53.1v9.5h14.98V0h22.99v9.5h26.22h3.31v3.31v106.77v3.31h-3.31H3.31H0v-3.31V12.81V9.5H3.31L3.31,9.5z M91.06,16.11v53.9h-8.19v46.25h31.1V16.11H91.06L91.06,16.11z M76.26,70.01h-8.19v-53.9H53.1v53.9h-8.19v46.25h31.35V70.01 L76.26,70.01z M38.3,70.01h-8.19v-53.9H6.61v100.15H38.3V70.01L38.3,70.01z'/%3E%3C/svg%3E");
 }
 
+/* -------------------------------------------------------
+   PACK FOLDERS
+------------------------------------------------------- */
+.sidebar-separator {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-align: center;
+  margin: 16px 0 12px 0;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-mid);
+  border-bottom: 1px solid var(--border-mid);
+}
+
+.pack-folder {
+  margin-bottom: 2px;
+}
+
+.pack-folder-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: #16161a;
+  border: 1px solid #1a1a1f;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  user-select: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.pack-folder-header:hover {
+  background: #1e1e24;
+  border-color: #4a4a54;
+}
+
+.folder-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.pack-folder-content {
+  margin-left: 4px;
+  border-left: 1px solid #22222a;
+  padding-left: 4px;
+}
 
 /* -------------------------------------------------------
    KNOBS
@@ -650,8 +724,8 @@ body {
   align-items: center;
   user-select: none;
   position: relative;
-  padding-left: 107px;
-  z-index: 150;
+  padding-left: 156px;
+  z-index: 154;
   width: 100%; 
   min-width: 5120px;
   pointer-events: auto;
@@ -678,7 +752,7 @@ body {
   position: absolute;
   right: 0;
   top: 0;
-  width: 6px;
+  width: 4px;
   height: 100%;
   cursor: ew-resize;
   background: transparent;
@@ -805,7 +879,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 360px;
+  height: 400px;
   background: #111;
   border-top: 1px solid #333;
   z-index: 100;
@@ -992,9 +1066,14 @@ body {
   gap: 6px;
 }
 
-.transpose-label {
+.soft-label {
   font-size: 12px;
   opacity: 0.7;
+}
+
+.strong-label {
+  font-size: 12px;
+  opacity: 1;
 }
 
 .transpose-btn {
@@ -1015,9 +1094,26 @@ body {
   background: #2d2d35;
 }
 
+
 .transpose-btn:active {
   background: #007aff;
   border-color: #007aff;
+}
+
+/* Piano roll tool button active state (magnet toggle) */
+.piano-roll-tool-btn.active {
+  background: #007aff;
+  border-color: #007aff;
+  color: #fff;
+  box-shadow: 0 0 4px #007aff;
+}
+
+/* Timeline tool button active state */
+.timeline-tool-btn.active {
+  background: #007aff;
+  border-color: #007aff;
+  color: #fff;
+  box-shadow: 0 0 4px #007aff;
 }
 
 /* ============================================
@@ -1095,7 +1191,8 @@ body {
   gap: 6px;
 }
 
-#piano-roll-scale {
+#piano-roll-scale,
+.piano-roll-load-sample {
   background: #1c1c22;
   color: #fff;
   border: 1px solid #2b2b33;
@@ -1115,3 +1212,85 @@ body {
   border-color: #007aff;
 }
 
+/* -------------------------------------------------------
+   CUSTOM SCROLLBARS
+------------------------------------------------------- */
+.custom-scrollbar,
+.custom-scrollbar optgroup,
+.custom-scrollbar option {
+  scrollbar-width: thin;
+  scrollbar-color: #444 #232323;
+}
+
+/* Chrome, Edge, Safari */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  background: #232323;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+/* ⭐ NEW: Timeline wrapper to hold controls + scroll side-by-side */
+#timeline-wrapper {
+  display: flex;
+  position: relative;
+  height: calc(100% - 24px); /* Account for timeline-bar height */
+  overflow: hidden;
+}
+
+/* ⭐ NEW: Fixed track controls column */
+#track-controls-column {
+  width: 156px;
+  min-width: 156px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg-panel);
+  border-right: 1px solid #333;
+  scrollbar-width: none; /* Hide scrollbar on Firefox */
+  -ms-overflow-style: none; /* Hide scrollbar on IE/Edge */
+}
+
+#track-controls-column::-webkit-scrollbar {
+  display: none; /* Hide scrollbar on Chrome/Safari */
+}
+
+/* ⭐ MODIFIED: Timeline scroll now takes remaining space */
+#timeline-scroll {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  top: 0; /* Remove the 24px offset */
+}
+
+/* ⭐ MODIFIED: Track controls stay within fixed column */
+.track-controls {
+  width: 156px;
+  min-width: 156px;
+  max-width: 156px;
+  padding: 8px;
+  box-sizing: border-box;
+  background: #1a1a1a;
+  border-bottom: 1px solid #2a2a2a;
+  height: 60px; /* Match track height */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ⭐ MODIFIED: Tracks now only contain track-inner */
+.track {
+  position: relative;
+  height: 60px; /* Ensure consistency */
+  border-bottom: 1px solid #2a2a2a;
+  display: flex;
+}
+
+.track-inner {
+  flex: 1;
+  position: relative;
+}

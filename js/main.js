@@ -1,4 +1,3 @@
-
 window.playheadInterval = null;
 window.playheadStartTime = 0;
 window.playheadRAF = null;
@@ -27,6 +26,7 @@ window.initPianoRoll();
 window.onScheduleMidiClip = (clip, track, startTime) => {
   midiEngine.scheduleClip(clip, track, startTime);
 };
+
 
 
 
@@ -86,6 +86,18 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Set activeClip when dropdown changes
+  const clipDropdown = document.getElementById("clipListDropdown");
+  if (clipDropdown) {
+    clipDropdown.addEventListener("change", function() {
+      const selectedName = this.value;
+      window.activeClip = window.clips.find(c => (c.name || c.fileName || c.id) === selectedName) || null;
+        activeClip = clip;
+  window.activeClip = activeClip;
+  updatePianoRollSampleHeader();
+    });
+  }
+
 }); // ← only ONE closing brace
 
 
@@ -119,8 +131,8 @@ function startPlayhead(realStartTime) {
     const bars = (elapsed * window.BPM) / 240;
     const x = bars * window.PIXELS_PER_BAR;
 
-    // Use the SAME offset everywhere (80px)
-    playhead.style.left = (x + 104) + "px";
+    // --- FIX: No offset, playhead is inside .tracks and grid is at x=0 ---
+    playhead.style.left = x + "px";
 
     window.playheadRAF = requestAnimationFrame(update);
   }
@@ -144,10 +156,18 @@ document.addEventListener("mousedown", (e) => {
 
   e.preventDefault();
 
-  const knob = e.target;
-  const trackEl = knob.closest(".track");
-  const trackIndex = parseInt(trackEl.dataset.index);
+  // --- FIX: Find track index from controls column, not .track ---
+  let trackIndex = null;
+  let el = e.target;
+  while (el && !el.classList.contains("track-controls")) {
+    el = el.parentElement;
+  }
+  if (el && el.dataset && el.dataset.index !== undefined) {
+    trackIndex = parseInt(el.dataset.index);
+  }
+  if (trackIndex === null || isNaN(trackIndex)) return;
 
+  const knob = e.target;
   let value = parseFloat(knob.dataset.value);
 
   // Request pointer lock (locks mouse + hides cursor)
@@ -224,11 +244,20 @@ async function saveProjectZip() {
   // Deduplication map for samples
   const savedSamples = new Map();
 
-  // Track mixer state
-  const tracks = [...document.querySelectorAll(".track")].map(track => ({
-    volume: Number(track.querySelector(".volume-knob").dataset.value),
-    pan: Number(track.querySelector(".pan-knob").dataset.value)
-  }));
+  // --- FIX: Always get latest knob values from DOM for saving ---
+  const tracks = [];
+  for (let i = 0; i < 16; i++) {
+    // Find the controls column knob for this track
+    const controlsCol = document.querySelector(`#track-controls-column .track-controls[data-index="${i}"]`);
+    let vol = 0.8, pan = 0.5;
+    if (controlsCol) {
+      const volKnob = controlsCol.querySelector(".volume-knob");
+      const panKnob = controlsCol.querySelector(".pan-knob");
+      if (volKnob) vol = Number(volKnob.dataset.value);
+      if (panKnob) pan = Number(panKnob.dataset.value);
+    }
+    tracks.push({ volume: vol, pan: pan });
+  }
 
   const serializedClips = [];
 
@@ -357,39 +386,60 @@ async function loadProjectZip(json, zip) {
   document.getElementById("tempoValue").textContent = json.tempo + " BPM";
   window.setTempo(json.tempo);
 
+  // --- FIX: Remove any manual playhead/seekMarker offset on load ---
+  // Ensure seekMarker and playhead are reset to bar 1 (x=0)
+  const marker = document.getElementById("seekMarker");
+  if (marker) marker.style.left = "0px";
+  const playhead = document.getElementById("playhead");
+  if (playhead) playhead.style.left = "0px";
+  window.seekBars = 0;
+  window.transportStartTime = audioContext.currentTime;
+
+  // --- Set window.loadedProject so timeline.js uses correct values ---
+  window.loadedProject = json;
+
   window.clips = [];
   document.getElementById("tracks").innerHTML = "";
-  initTimeline(); // builds 16 fresh tracks with default knobs
+  initTimeline(); // builds 16 fresh tracks with correct knob values
 
+  // --- Remove redundant knob/pan sync here, timeline.js now handles it on init ---
   // ----------------------------------------------------
   // Mixer: apply volumes/pans to audio + knobs
   // ----------------------------------------------------
+  // --- FIX: Clamp values to [0,1] and ensure numbers ---
   json.tracks.forEach((t, index) => {
+    // Clamp and coerce to number
+    let vol = Math.max(0, Math.min(1, Number(t.volume)));
+    let pan = Math.max(0, Math.min(1, Number(t.pan)));
+
     // Audio engine
     if (window.trackGains && window.trackGains[index]) {
-      window.trackGains[index].gain.value = t.volume;
+      window.trackGains[index].gain.value = vol;
     }
-    if (window.trackPans && window.trackPans[index]) {
-      window.trackPans[index].pan.value = t.pan;
+    if (window.trackPanners && window.trackPanners[index]) {
+      window.trackPanners[index].pan.value = (pan - 0.5) * 2;
     }
 
-    // UI knobs
-    const trackEl = document.querySelector(`.track[data-index="${index}"]`);
-    if (!trackEl) return;
+    // Update window.trackStates
+    if (window.trackStates && window.trackStates[index]) {
+      window.trackStates[index].volume = vol;
+      window.trackStates[index].pan = pan;
+    }
 
-const volKnob = trackEl.querySelector(".volume-knob");
-const panKnob = trackEl.querySelector(".pan-knob");
-
-if (volKnob) {
-  volKnob.dataset.value = t.volume;
-  volKnob.style.setProperty("--val", t.volume);
-}
-
-if (panKnob) {
-  panKnob.dataset.value = t.pan;
-  panKnob.style.setProperty("--val", t.pan);
-}
-
+    // UI knobs in controls column
+    const controlsCol = document.querySelector(`#track-controls-column .track-controls[data-index="${index}"]`);
+    if (controlsCol) {
+      const volKnob = controlsCol.querySelector(".volume-knob");
+      const panKnob = controlsCol.querySelector(".pan-knob");
+      if (volKnob) {
+        volKnob.dataset.value = vol;
+        volKnob.style.setProperty("--val", vol);
+      }
+      if (panKnob) {
+        panKnob.dataset.value = pan;
+        panKnob.style.setProperty("--val", pan);
+      }
+    }
   });
 
   // ----------------------------------------------------
@@ -426,6 +476,9 @@ if (panKnob) {
         window.renderClip(clip, dropArea);
       }
 
+      // Refresh dropdown after adding MIDI clip
+      window.refreshClipDropdown(window.clips);
+
       continue;
     }
 
@@ -448,6 +501,8 @@ if (panKnob) {
       }
 
       loadedClip.type = "audio";
+      // Add a name property for loop clips
+      loadedClip.name = loopInfo.displayName || loopInfo.id || "Audio Clip";
 
       resolveClipCollisions(loadedClip);
 
@@ -456,6 +511,9 @@ if (panKnob) {
         const dropArea = trackEl.querySelector(".track-drop-area");
         window.renderClip(loadedClip, dropArea);
       }
+
+      // Refresh dropdown after adding loop clip
+      window.refreshClipDropdown(window.clips);
 
       continue;
     }
@@ -476,7 +534,9 @@ if (panKnob) {
         fileName: raw.fileName,
         startOffset: raw.startOffset || 0,
         durationSeconds: raw.durationSeconds,
-        originalBars: raw.originalBars
+        originalBars: raw.originalBars,
+        // Add a name property for audio clips
+        name: raw.name || raw.fileName || `Audio Clip`
       };
 
       window.clips.push(clip);
@@ -487,6 +547,9 @@ if (panKnob) {
         const dropArea = trackEl.querySelector(".track-drop-area");
         window.renderClip(clip, dropArea);
       }
+
+      // Refresh dropdown after adding audio clip
+      window.refreshClipDropdown(window.clips);
 
       continue;
     }
@@ -571,17 +634,20 @@ const x = barIndex * window.PIXELS_PER_BAR;
 
 // Move the triangle marker
 const marker = document.getElementById("seekMarker");
-marker.style.left = (x + 104 + 2) + "px";
+marker.style.left = (x + 150 + 6) + "px";
 
+// --- Account for horizontal scroll offset when moving playhead ---
+const timelineScroll = document.getElementById("timeline-scroll");
+const scrollX = timelineScroll ? timelineScroll.scrollLeft : 0;
 
-  if (window.isPlaying) {
+if (window.isPlaying) {
     window.stopAll();
     stopPlayhead();
 
     window.playAll(barIndex);
 
     const playhead = document.getElementById("playhead");
-    playhead.style.left = (x + 104) + "px";
+    playhead.style.left = (x - scrollX) + "px";
     playhead.classList.remove("hidden");
 
     startPlayhead(window.transportStartTime);
@@ -589,9 +655,9 @@ marker.style.left = (x + 104 + 2) + "px";
   }
 
   // If stopped → just move the playhead visually
-  const playhead = document.getElementById("playhead");
-  playhead.style.left = (x + 104) + "px";
-  playhead.classList.remove("hidden");
+  //const playhead = document.getElementById("playhead");
+  //playhead.style.left = (x + 104 - scrollX) + "px";
+  //playhead.classList.remove("hidden");
 
   // Update UI
   const playToggleBtn = document.getElementById("playToggleBtn");
@@ -715,7 +781,7 @@ drawVUMeters();
 function attachClipHandlers(clipElement, clip, track) {
   clipElement.addEventListener("dblclick", () => {
     if (track.type === "midi") {
-      window.activeClip = clip;            // ⭐ set active clip FIRST
+      //window.activeClip = clip;            // ⭐ set active clip FIRST
       
       openPianoRoll(clip);                 // open UI
       
@@ -727,7 +793,9 @@ function attachClipHandlers(clipElement, clip, track) {
 
 function openPianoRoll(clip) {
   activeClip = clip;
+  window.activeClip = activeClip;
   updatePianoRollSampleHeader();
+
 
   reverbSlider.value = clip.reverbGain.gain.value;
 
@@ -760,19 +828,16 @@ sampleNameBox.style.borderRadius = "4px";
 
     // ⭐ Auto-scroll to highest note
     const notes = activeClip.notes || [];
-    if (notes.length > 0) {
-      const highest = Math.max(...notes.map(n => n.pitch));
 
-      const rowHeight = 16;
-      const y = (pitchMax - highest) * rowHeight;
-
-      const scrollContainer = document.getElementById("piano-roll-scroll");
-
-      const extraOffset = 8 * rowHeight; // scroll down by a few notes
-      scrollContainer.scrollTop =
-        y - scrollContainer.clientHeight / 2 + extraOffset;
-    }
   });
+
+  // Always use the real clip object from window.clips
+  const realClip = window.clips.find(c => c.id === clip.id);
+  window.activeClip = realClip;
+
+  // Update dropdown selection
+  const dropdown = document.getElementById("clipListDropdown");
+  if (dropdown) dropdown.value = realClip.name || realClip.fileName || realClip.id;
 }
 
 
@@ -857,3 +922,110 @@ document.addEventListener("click", (e) => {
     fileDropdown.style.display = "none";
   }
 });
+
+// Close dropdown when clicking any menu item (event delegation + stopPropagation)
+fileDropdown.addEventListener("click", (e) => {
+  if (e.target.classList.contains("dropdown-item")) {
+    e.stopPropagation(); // Prevents bubbling to fileMenu click
+    fileDropdown.style.display = "none";
+  }
+});
+
+
+/**
+ * Populates the clip dropdown list in the top bar.
+ * @param {Array} clips - Array of all clips (audio and midi) in the project.
+ * Each clip should have at least: { id, name, type }
+ */
+window.refreshClipDropdown = function(clips) {
+  const dropdown = document.getElementById("clipListDropdown");
+  if (!dropdown) return;
+  dropdown.innerHTML = "";
+
+  if (!Array.isArray(clips) || clips.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No clips";
+    dropdown.appendChild(opt);
+    return;
+  }
+
+  // Make unique by name
+  const uniqueClips = [...new Map(clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+
+  uniqueClips.forEach(clip => {
+    const opt = document.createElement("option");
+    // Use name as value for uniqueness
+    opt.value = clip.name || clip.fileName || clip.id;
+    opt.textContent = clip.name || clip.displayName || clip.fileName || clip.id;
+    dropdown.appendChild(opt);
+  });
+
+  // Set the dropdown to the current active clip if it exists
+  if (window.activeClip) {
+    const key = window.activeClip.name || window.activeClip.fileName || window.activeClip.id;
+    dropdown.value = key;
+  }
+
+  
+};
+
+function openPianoRoll(clip) {
+  activeClip = clip;
+  window.activeClip = activeClip;
+  updatePianoRollSampleHeader();
+
+
+  reverbSlider.value = clip.reverbGain.gain.value;
+
+  const container = document.getElementById("piano-roll-container");
+  container.classList.remove("hidden");
+
+  // ⭐ Update header background using track colour
+
+const trackColor = window.TRACK_COLORS[clip.trackIndex % 10];
+
+// Clip name tag
+const nameBox = document.getElementById("piano-roll-clip-name");
+nameBox.style.backgroundColor = trackColor;
+nameBox.style.color = "var(--border-dark)";
+nameBox.style.padding = "2px 6px";
+nameBox.style.borderRadius = "4px";
+
+// Sample name tag
+const sampleNameBox = document.getElementById("piano-roll-sample-name");
+sampleNameBox.style.backgroundColor = trackColor;
+sampleNameBox.style.color = "var(--border-dark)";
+sampleNameBox.style.padding = "2px 6px";
+sampleNameBox.style.borderRadius = "4px";
+
+
+
+  requestAnimationFrame(() => {
+    resizeCanvas();
+    renderPianoRoll();
+
+    // ⭐ Auto-scroll to highest note
+    const notes = activeClip.notes || [];
+    if (notes.length > 0) {
+      const highest = Math.max(...notes.map(n => n.pitch));
+
+      const rowHeight = 16;
+      const y = (pitchMax - highest) * rowHeight;
+
+      const scrollContainer = document.getElementById("piano-roll-scroll");
+
+      const extraOffset = 8 * rowHeight; // scroll down by a few notes
+      scrollContainer.scrollTop =
+        y - scrollContainer.clientHeight / 2 + extraOffset;
+    }
+  });
+
+  // Always use the real clip object from window.clips
+  const realClip = window.clips.find(c => c.id === clip.id);
+  window.activeClip = realClip;
+
+  // Update dropdown selection
+  const dropdown = document.getElementById("clipListDropdown");
+  if (dropdown) dropdown.value = realClip.name || realClip.fileName || realClip.id;
+}

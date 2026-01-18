@@ -24,7 +24,7 @@ window.BasicSawSynth = class BasicSawSynth {
     src.buffer = clip.sampleBuffer;
 
     // MIDI pitch → playbackRate
-    const semitone = pitch - 69;
+    const semitone = pitch - 60;
     src.playbackRate.value = Math.pow(2, semitone / 12);
 
     const gain = this.audioCtx.createGain();
@@ -39,9 +39,56 @@ window.BasicSawSynth = class BasicSawSynth {
     gain.gain.linearRampToValueAtTime(0.0001, startTime + duration + release);
 
     // --- Routing (per‑clip reverb) ---
-    gain.connect(window.trackGains[trackIndex]); // dry path
-    gain.connect(clip.reverb);                   // wet path (per‑clip)
-    // clip.reverb → clip.reverbGain → master is already connected in MidiClip constructor
+    // Dry path → track gain (so track volume/mute affects dry signal)
+    if (window.trackGains && window.trackGains[trackIndex]) {
+      gain.connect(window.trackGains[trackIndex]);
+    } else {
+      gain.connect(this.audioCtx.destination);
+    }
+
+    // Wet (reverb) path:
+    // - create a per-clip reverb SEND gain (clip._reverbSend) if missing
+    // - send = gain -> clip._reverbSend -> clip.reverb (Convolver)
+    // - ensure clip.reverb (convolver) -> clip.reverbGain -> trackGain (NOT master)
+    if (clip.reverb) {
+      // Ensure a send node exists on the clip for controlling send level
+      if (!clip._reverbSend) {
+        clip._reverbSend = this.audioCtx.createGain();
+        // default send level; clips may override this externally
+        clip._reverbSend.gain.value = (typeof clip.reverbSendLevel === "number") ? clip.reverbSendLevel : 0.35;
+      }
+
+      // connect the note's gain to the clip send
+      gain.connect(clip._reverbSend);
+      clip._reverbSend.connect(clip.reverb);
+
+      // Make sure convolver output goes to a per-clip reverbGain that then connects to the track gain.
+      if (!clip.reverbGain) {
+        clip.reverbGain = this.audioCtx.createGain();
+        clip.reverbGain.gain.value = (typeof clip.reverbWetLevel === "number") ? clip.reverbWetLevel : 0.9;
+      }
+
+      // Connect convolver -> reverbGain (if not already connected)
+      try {
+        // Avoid duplicate connect by checking a flag
+        if (!clip._reverbWired) {
+          clip.reverb.connect(clip.reverbGain);
+          // Route wet into track gain so track volume affects reverb and VU meters see it
+          if (window.trackGains && window.trackGains[trackIndex]) {
+            // Disconnect any previous outputs on reverbGain to avoid stale master routing
+            try { clip.reverbGain.disconnect(); } catch (e) {}
+            clip.reverbGain.connect(window.trackGains[trackIndex]);
+          } else {
+            try { clip.reverbGain.disconnect(); } catch (e) {}
+            clip.reverbGain.connect(this.audioCtx.destination);
+          }
+          clip._reverbWired = true;
+        }
+      } catch (err) {
+        // best-effort; don't break playback on errors
+        console.warn("Reverb wiring failed:", err);
+      }
+    }
 
     src.connect(gain);
 
