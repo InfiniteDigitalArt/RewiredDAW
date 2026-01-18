@@ -130,10 +130,8 @@ function startPlayhead(realStartTime) {
     const bars = (elapsed * window.BPM) / 240;
     const x = bars * window.PIXELS_PER_BAR;
 
-    // --- Account for horizontal scroll offset ---
-    const timelineScroll = document.getElementById("timeline-scroll");
-    const scrollX = timelineScroll ? timelineScroll.scrollLeft : 0;
-    playhead.style.left = (x + 150 - scrollX) + "px";
+    // Use the SAME offset everywhere (80px)
+    playhead.style.left = (x + 154) + "px";
 
     window.playheadRAF = requestAnimationFrame(update);
   }
