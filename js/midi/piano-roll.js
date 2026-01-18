@@ -49,26 +49,36 @@ let snapEnabled = false;
 
 // --- SCALE NOTE MAPS ---
 const SCALE_MAPS = {
-  'chromatic': [0,1,2,3,4,5,6,7,8,9,10,11],
+  'none': [0,2,4,5,7,9,11],
   'C-major':    [0,2,4,5,7,9,11],
+  'C#-major':   [1,3,5,6,8,10,0],
   'D-major':    [2,4,6,7,9,11,1],
+  'D#-major':   [3,5,7,8,10,0,2],
   'E-major':    [4,6,8,9,11,1,3],
   'F-major':    [5,7,9,10,0,2,4],
+  'F#-major':   [6,8,10,11,1,3,5],
   'G-major':    [7,9,11,0,2,4,6],
+  'G#-major':   [8,10,0,1,3,5,7],
   'A-major':    [9,11,1,2,4,6,8],
+  'A#-major':   [10,0,2,3,5,7,9],
   'B-major':    [11,1,3,4,6,8,10],
   'A-minor':    [9,11,0,2,4,5,7],
+  'A#-minor':   [10,0,1,3,5,6,8],
   'B-minor':    [11,1,2,4,6,7,9],
   'C-minor':    [0,2,3,5,7,8,10],
+  'C#-minor':   [1,3,4,6,8,9,11],
   'D-minor':    [2,4,5,7,9,10,0],
+  'D#-minor':   [3,5,6,8,10,11,1],
   'E-minor':    [4,6,7,9,11,0,2],
   'F-minor':    [5,7,8,10,0,1,3],
+  'F#-minor':   [6,8,9,11,1,2,4],
   'G-minor':    [7,9,10,0,2,3,5],
+  'G#-minor':   [8,10,11,1,3,4,6]
 };
-let currentScale = 'chromatic';
+let currentScale = 'none';
 
 function isNoteInScale(pitch, scaleName) {
-  const scale = SCALE_MAPS[scaleName] || SCALE_MAPS['chromatic'];
+  const scale = SCALE_MAPS[scaleName] || SCALE_MAPS['none'];
   return scale.includes((pitch % 12));
 }
 
@@ -501,6 +511,8 @@ function drawGrid(ctx) {
   const lineRegular = styles.getPropertyValue('--border-dark');
   const lineOctave  = styles.getPropertyValue('--border-light');
   const beatLine    = styles.getPropertyValue('--accent-beat');
+  const barLine     = styles.getPropertyValue('--bar-dark') || '#4444448a';
+  const fourBarLine = styles.getPropertyValue('--bar-light') || '#007aff';
 
   // Background shading (scale-aware)
   for (let i = 0; i < pitchRange; i++) {
@@ -510,30 +522,10 @@ function drawGrid(ctx) {
     ctx.fillRect(0, y, gridCanvas.width, rowHeight);
   }
 
-  // Vertical beat lines
+  // Vertical lines: 1/4-beat, beat, bar, 4-bar
   const totalBeats = Math.ceil(gridCanvas.width / pxPerBeat);
-  for (let b = 0; b <= totalBeats; b++) {
-    const x = b * pxPerBeat;
-    ctx.strokeStyle = beatLine;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, gridCanvas.height);
-    ctx.stroke();
-  }
-  // Vertical 1/4-beat subdivision lines
   const quarterPx = pxPerBeat / 4;
   const totalQuarters = Math.ceil(gridCanvas.width / quarterPx);
-  ctx.strokeStyle = lineRegular;
-  ctx.lineWidth = 1;
-  for (let q = 0; q <= totalQuarters; q++) {
-    if (q % 4 === 0) continue;
-    const x = q * quarterPx;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, gridCanvas.height);
-    ctx.stroke();
-  }
 
   // Horizontal pitch lines
   for (let i = 0; i <= pitchRange; i++) {
@@ -550,6 +542,55 @@ function drawGrid(ctx) {
     ctx.lineTo(gridCanvas.width, y);
     ctx.stroke();
   }
+
+  // 1/4-beat subdivision lines (lightest)
+  ctx.strokeStyle = lineRegular;
+  ctx.lineWidth = 1;
+  for (let q = 0; q <= totalQuarters; q++) {
+    if (q % 4 === 0) continue; // skip full beats
+    const x = q * quarterPx;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, gridCanvas.height);
+    ctx.stroke();
+  }
+
+  // Beat lines (existing)
+  for (let b = 0; b <= totalBeats; b++) {
+    const x = b * pxPerBeat;
+    ctx.strokeStyle = beatLine;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, gridCanvas.height);
+    ctx.stroke();
+  }
+
+  // Bar lines (every 4 beats)
+  const totalBars = Math.ceil(totalBeats / 4);
+  for (let bar = 0; bar <= totalBars; bar++) {
+    const x = bar * pxPerBeat * 4;
+    ctx.strokeStyle = barLine;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, gridCanvas.height);
+    ctx.stroke();
+  }
+
+  // 4-bar lines (every 16 beats)
+  const totalFourBars = Math.ceil(totalBars / 4);
+  for (let four = 0; four <= totalFourBars; four++) {
+    const x = four * pxPerBeat * 16;
+    ctx.strokeStyle = fourBarLine;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, gridCanvas.height);
+    ctx.stroke();
+  }
+
+
 }
 
 function drawNotes(ctx) {

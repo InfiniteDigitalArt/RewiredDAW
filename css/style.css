@@ -1,3 +1,25 @@
+.fx-btn {
+  margin-left: 8px;
+  margin-top: 4px;
+  padding: 0 10px;
+  height: 22px;
+  background: #19191d;
+  color: #7aa0ff;
+  border: 1px solid #2a2a30;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border 0.15s;
+  outline: none;
+  user-select: none;
+}
+.fx-btn:hover, .fx-btn:focus {
+  background: #23233a;
+  color: #fff;
+  border-color: #7aa0ff;
+}
 :root {
   --bg-main: #0f0f12;
   --bg-panel: #141418;
@@ -17,6 +39,9 @@
   --accent-beat: rgba(0, 122, 255, 0.12);
 
   --playhead: #00aaff;
+
+  --bar-light: #8a8a8f5e;
+  --bar-dark: #59595c46;
 
 }
 
@@ -134,7 +159,7 @@ body {
 
 /* Left control strip */
 .track-controls {
-  width: 100px;
+  width: 150px;
   background: #101014;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   padding: 2px;
@@ -307,7 +332,7 @@ body {
   box-shadow: 0 0 8px var(--playhead);
   pointer-events: none;
   z-index: 99;
-  left: 104px; /* now correct */
+  left: 150px; /* now correct */
 }
 
 
@@ -650,8 +675,8 @@ body {
   align-items: center;
   user-select: none;
   position: relative;
-  padding-left: 107px;
-  z-index: 150;
+  padding-left: 156px;
+  z-index: 154;
   width: 100%; 
   min-width: 5120px;
   pointer-events: auto;
@@ -805,7 +830,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 360px;
+  height: 400px;
   background: #111;
   border-top: 1px solid #333;
   z-index: 100;
@@ -1128,4 +1153,27 @@ body {
 
 #piano-roll-scale:focus {
   border-color: #007aff;
+}
+
+/* -------------------------------------------------------
+   CUSTOM SCROLLBARS
+------------------------------------------------------- */
+.custom-scrollbar,
+.custom-scrollbar optgroup,
+.custom-scrollbar option {
+  scrollbar-width: thin;
+  scrollbar-color: #444 #232323;
+}
+
+/* Chrome, Edge, Safari */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  background: #232323;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #666;
 }

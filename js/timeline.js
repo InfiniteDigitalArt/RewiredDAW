@@ -40,7 +40,7 @@ document.addEventListener("click", () => {
 window.initTimeline = function () {
   const tracksEl = document.getElementById("tracks");
   const marker = document.getElementById("seekMarker");
-  marker.style.left = "106px";
+  marker.style.left = "156px";
 
 
   for (let i = 0; i < 16; i++) {
@@ -112,8 +112,16 @@ if (window.loadedProject && window.loadedProject.tracks[i]) {
     panWrap.appendChild(pan);
     panWrap.appendChild(panLabel);
 
+
     knobRow.appendChild(volWrap);
     knobRow.appendChild(panWrap);
+
+    // FX button (to the right of pan)
+    const fxBtn = document.createElement("button");
+    fxBtn.className = "fx-btn";
+    fxBtn.textContent = "FX";
+    fxBtn.title = "Track FX (coming soon)";
+    knobRow.appendChild(fxBtn);
 
     controls.appendChild(label);
     controls.appendChild(knobRow);
@@ -709,8 +717,10 @@ window.renderTimelineBar(64);
       const scrollX = timelineScroll.scrollLeft;
       timelineBar.style.transform = `translateX(${-scrollX}px)`;
       if (seekMarker) seekMarker.style.transform = `translateX(${-scrollX}px)`;
-      // Fix: playhead is inside #tracks, so must use its parent scroll
-      if (playhead) playhead.style.left = (160 - scrollX) + "px";
+      // Keep playhead visually locked at the left edge of the timeline grid
+      if (playhead) {
+        playhead.style.left = (156 + scrollX) + "px";
+      }
     });
   }
 };

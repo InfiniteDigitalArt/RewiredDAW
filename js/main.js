@@ -133,7 +133,7 @@ function startPlayhead(realStartTime) {
     // --- Account for horizontal scroll offset ---
     const timelineScroll = document.getElementById("timeline-scroll");
     const scrollX = timelineScroll ? timelineScroll.scrollLeft : 0;
-    playhead.style.left = (x + 104 - scrollX) + "px";
+    playhead.style.left = (x + 150 - scrollX) + "px";
 
     window.playheadRAF = requestAnimationFrame(update);
   }
@@ -597,7 +597,7 @@ const x = barIndex * window.PIXELS_PER_BAR;
 
 // Move the triangle marker
 const marker = document.getElementById("seekMarker");
-marker.style.left = (x + 104 + 2) + "px";
+marker.style.left = (x + 150 + 6) + "px";
 
 // --- Account for horizontal scroll offset when moving playhead ---
 const timelineScroll = document.getElementById("timeline-scroll");
@@ -610,7 +610,7 @@ if (window.isPlaying) {
     window.playAll(barIndex);
 
     const playhead = document.getElementById("playhead");
-    playhead.style.left = (x + 104 - scrollX) + "px";
+    playhead.style.left = (x + 150 - scrollX) + "px";
     playhead.classList.remove("hidden");
 
     startPlayhead(window.transportStartTime);
