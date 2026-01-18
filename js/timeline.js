@@ -379,13 +379,14 @@ drop.addEventListener("drop", async (e) => {
   if (!isFileDrop && !isLoopDrop && !isClipDrop) return;
 
 
-  // Find if dropping on an existing MIDI clip
+  // Find if dropping on an existing MIDI or audio clip
   const rect = drop.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
   const trackIndex = i;
   // Find the clip at this position (if any)
   const targetClip = window.clips.find(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar && c.type === "midi");
+  const targetAudioClip = window.clips.find(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar && c.type === "audio");
 
   // CASE 0: Dropping local audio or MIDI files
    
@@ -505,27 +506,68 @@ if (window.activeClip) {
 
     const loopBpm = meta.bpm || 175;
     const durationSeconds = normalizedBuffer.duration;
-    const bars = (durationSeconds * loopBpm) / 240;
+    // Calculate bars based on PROJECT tempo (175bpm), not file's BPM
+    // Audio is always pitch-shifted to match project tempo, so bars must be calculated accordingly
+    const projectBpm = 175;
+    const bars = (durationSeconds * projectBpm) / 240;
 
-    const clip = {
-      id: crypto.randomUUID(),
-      type: "audio",
-      loopId: null,
-      fileName: meta.displayName || file.name,
-      audioBuffer: normalizedBuffer,
-      trackIndex,
-      startBar,
-      bars,
-      bpm: loopBpm,
-      originalBars: bars,
-      startOffset: 0,
-      durationSeconds,
-    };
+    if (targetAudioClip) {
+      // Replace all audio clips that share the same audioBuffer or loopId as the target (i.e., all duplicates)
+      const targetBuffer = targetAudioClip.audioBuffer;
+      const targetLoopId = targetAudioClip.loopId;
+      const targetFileName = targetAudioClip.fileName;
+      const replacedIds = [];
+      window.clips.forEach(c => {
+        if (c.type === "audio" && (c.audioBuffer === targetBuffer || c.loopId === targetLoopId || c.fileName === targetFileName)) {
+          c.audioBuffer = normalizedBuffer;
+          c.loopId = null; // Clear loopId since we're now using direct audioBuffer
+          c.fileName = meta.displayName || file.name;
+          c.bars = bars;
+          c.durationSeconds = durationSeconds;
+          c.bpm = loopBpm;
+          c.originalBars = bars;
+          c.startOffset = 0; // Reset playback offset to start from beginning
+          replacedIds.push(c.id);
+          resolveClipCollisions(c);
+        }
+      });
 
-    window.clips.push(clip);
-    resolveClipCollisions(clip);
-    // Note: Missing activeClip and refreshClipDropdown for audio files in the loop - add if needed
-    // But since it's in a loop, perhaps handle after all files
+      // Update activeClip if it's one of the replaced clips
+      if (window.activeClip) {
+        const realActiveClip = window.clips.find(c => c.id === window.activeClip.id);
+        if (realActiveClip && realActiveClip.type === "audio" && replacedIds.includes(realActiveClip.id)) {
+          window.activeClip = realActiveClip;
+        } else if (window.activeClip.type === "audio" && (window.activeClip.audioBuffer === targetBuffer || window.activeClip.loopId === targetLoopId || window.activeClip.fileName === targetFileName)) {
+          window.activeClip.audioBuffer = normalizedBuffer;
+          window.activeClip.loopId = null;
+          window.activeClip.fileName = meta.displayName || file.name;
+          window.activeClip.bars = bars;
+          window.activeClip.durationSeconds = durationSeconds;
+          window.activeClip.bpm = loopBpm;
+          window.activeClip.originalBars = bars;
+          window.activeClip.startOffset = 0;
+        }
+      }
+    } else {
+      // Create new audio clip as before
+      const clip = {
+        id: crypto.randomUUID(),
+        type: "audio",
+        loopId: null,
+        fileName: meta.displayName || file.name,
+        audioBuffer: normalizedBuffer,
+        trackIndex,
+        startBar,
+        bars,
+        bpm: loopBpm,
+        originalBars: bars,
+        startOffset: 0,
+        durationSeconds,
+      };
+
+      window.clips.push(clip);
+      resolveClipCollisions(clip);
+    }
   }
 
   // After processing all files, refresh once
