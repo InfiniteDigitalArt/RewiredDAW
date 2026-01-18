@@ -1058,6 +1058,14 @@ body {
   box-shadow: 0 0 4px #007aff;
 }
 
+/* Timeline tool button active state */
+.timeline-tool-btn.active {
+  background: #007aff;
+  border-color: #007aff;
+  color: #fff;
+  box-shadow: 0 0 4px #007aff;
+}
+
 /* ============================================
    FIXED PIANO + SCROLLING GRID LAYOUT
    ============================================ */

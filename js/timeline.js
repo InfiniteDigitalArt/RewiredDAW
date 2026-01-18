@@ -38,10 +38,27 @@ document.addEventListener("click", () => {
 
 
 window.initTimeline = function () {
+  // Track current timeline tool
+  window.timelineCurrentTool = 'pencil';
   const tracksEl = document.getElementById("tracks");
   const controlsColumn = document.getElementById("track-controls-column");
   const marker = document.getElementById("seekMarker");
   marker.style.left = "156px";
+
+  // === TIMELINE TOOL BUTTONS: Only one active at a time ===
+  const timelineToolButtons = Array.from(document.querySelectorAll('.timeline-tool-btn'));
+  // Set pencil as default active tool
+  if (timelineToolButtons.length > 0) {
+    timelineToolButtons[0].classList.add('active');
+  }
+  const toolNames = ['pencil', 'select', 'slice'];
+  timelineToolButtons.forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+      timelineToolButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      window.timelineCurrentTool = toolNames[index] || 'pencil';
+    });
+  });
 
   // Store references for later updates (e.g., VU meters)
   window.trackControls = [];
@@ -226,6 +243,7 @@ window.initTimeline = function () {
 
     // Left-click to paint/duplicate selected clip
     drop.addEventListener("mousedown", function(e) {
+      if (window.timelineCurrentTool !== 'pencil') return;
       // Only respond to left-click
       if (e.button !== 0) return;
       // Prevent if dragging or selecting
@@ -290,6 +308,7 @@ window.initTimeline = function () {
 
     // Paint on mouse move
     drop.addEventListener("mousemove", function(e) {
+      if (window.timelineCurrentTool !== 'pencil') return;
       if (!isPainting) return;
 
       const selected = window.activeClip;
@@ -633,6 +652,7 @@ if (loop.url) {
 
 /* CASE 2: Moving or duplicating an existing clip */
 if (window.draggedClipId) {
+  if (window.timelineCurrentTool !== 'pencil') return;
   const original = window.clips.find(c => c.id === window.draggedClipId);
 
   if (original) {
@@ -816,27 +836,21 @@ window.renderClip = function (clip, dropArea) {
 
   // --- MOUSE MOVE FOR CONTINUOUS DELETION ---
   el.addEventListener("mousemove", function (e) {
+    if (window.timelineCurrentTool !== 'pencil') return;
     if (isDeletingClipsWithRightClick && !deletedClipIds.has(clip.id)) {
       e.preventDefault();
       e.stopPropagation();
-      
       const trackIndex = clip.trackIndex;
       window.clips = window.clips.filter(c => c.id !== clip.id);
       deletedClipIds.add(clip.id);
-      
-      // Re-render the track
       dropArea.innerHTML = "";
       window.clips
         .filter(c => c.trackIndex === trackIndex)
         .forEach(c => window.renderClip(c, dropArea));
-      
-      // Close piano roll if this clip was active
       if (window.activeClip && window.activeClip.id === clip.id) {
         document.getElementById("piano-roll-container").classList.add("hidden");
         window.activeClip = null;
       }
-      
-      // Refresh dropdown
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
     }
@@ -844,41 +858,32 @@ window.renderClip = function (clip, dropArea) {
 
   // --- Real-time drag/move with double-click threshold ---
   el.addEventListener("mousedown", function (e) {
+    if (window.timelineCurrentTool !== 'pencil') return;
     // --- RIGHT CLICK → START DELETION ---
     if (e.button === 2) {
       e.preventDefault();
       e.stopPropagation();
       isDeletingClipsWithRightClick = true;
       deletedClipIds.clear();
-      
       // Delete the clicked clip
       const trackIndex = clip.trackIndex;
       window.clips = window.clips.filter(c => c.id !== clip.id);
       deletedClipIds.add(clip.id);
-      
-      // Re-render the track
       dropArea.innerHTML = "";
       window.clips
         .filter(c => c.trackIndex === trackIndex)
         .forEach(c => window.renderClip(c, dropArea));
-      
-      // Close piano roll if this clip was active
       if (window.activeClip && window.activeClip.id === clip.id) {
         document.getElementById("piano-roll-container").classList.add("hidden");
         window.activeClip = null;
       }
-      
-      // Refresh dropdown
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
-      
       return;
     }
-
     if (e.button !== 0) return; // Only left mouse for normal operations
     e.preventDefault();
     e.stopPropagation();
-
     // Snap drag start to the nearest beat to the left of the mouse
     const trackRect = el.parentElement.getBoundingClientRect();
     const mouseX = e.clientX - trackRect.left;
@@ -894,7 +899,6 @@ window.renderClip = function (clip, dropArea) {
     let isDuplicate = false;
     let moved = false;
     let lastDx = 0;
-
     // If shift is held, duplicate the clip and drag the duplicate
     if (e.shiftKey) {
       dragClip = { ...clip, id: crypto.randomUUID() };
@@ -912,7 +916,6 @@ window.renderClip = function (clip, dropArea) {
       window.clips.push(dragClip);
       isDuplicate = true;
     }
-
     function onMove(ev) {
       const dx = ev.clientX - startX;
       lastDx = dx;
@@ -924,12 +927,10 @@ window.renderClip = function (clip, dropArea) {
       dragClip.startBar = newBar;
       if (dropAreaEl) {
         dropAreaEl.innerHTML = "";
-        // ⚠️ This line will recursively call renderClip for all clips in the track:
         window.clips.filter(c => c.trackIndex === dragClip.trackIndex)
           .forEach(c => window.renderClip(c, dropAreaEl));
       }
     }
-
     function onUp(ev) {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
@@ -941,35 +942,26 @@ window.renderClip = function (clip, dropArea) {
             .forEach(c => window.renderClip(c, dropAreaEl));
         }
       }
-      // Select this clip in the dropdown after drag ends
       const dropdown = document.getElementById("clipListDropdown");
       if (dropdown) dropdown.value = dragClip.name || dragClip.fileName || dragClip.id;
-      // No simulated double-click. Only native dblclick will open piano roll.
     }
-
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
-
-    // Select this clip in the dropdown on mouse down
-    window.activeClip = clip;  // Set as active on interaction
+    window.activeClip = clip;
     const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
-    window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
-
-    // --- Always switch piano roll to this clip if it's open and this is a MIDI clip ---
+    window.refreshClipDropdown(uniqueClips);
     const pianoRoll = document.getElementById("piano-roll-container");
     if (
       pianoRoll &&
       !pianoRoll.classList.contains("hidden") &&
       clip.type === "midi"
     ) {
-      // Use the same logic as double-click: update activeClip, header, and call openPianoRoll
       window.activeClip = clip;
       const clipNameEl = document.getElementById("piano-roll-clip-name");
       if (clipNameEl) {
         clipNameEl.textContent = clip.name || "MIDI Clip";
       }
       openPianoRoll(clip);
-      // Also update dropdown value to match the opened clip
       const dropdown = document.getElementById("clipListDropdown");
       if (dropdown) {
         dropdown.value = clip.name || clip.fileName || clip.id;
@@ -986,28 +978,18 @@ window.renderClip = function (clip, dropArea) {
    RIGHT-CLICK DELETE
 ------------------------------------------------------- */
 el.addEventListener("contextmenu", (e) => {
+  if (window.timelineCurrentTool !== 'pencil') return;
   e.preventDefault();
-  e.stopPropagation(); // Prevent menu from showing
-  
-  // Don't re-delete if already deleted during drag
+  e.stopPropagation();
   if (deletedClipIds.has(clip.id)) return;
-
   const trackIndex = clip.trackIndex;
-
-  // 1. Remove the clip from the project
   window.clips = window.clips.filter(c => c.id !== clip.id);
-
-  // 2. Re-render the track visually
   dropArea.innerHTML = "";
   window.clips
     .filter(c => c.trackIndex === trackIndex)
     .forEach(c => window.renderClip(c, dropArea));
-
-  // 3. Close piano roll
   document.getElementById("piano-roll-container").classList.add("hidden");
   activeClip = null;
-
-  // Refresh the dropdown after deletion
   window.refreshClipDropdown(window.clips);
 });
 
@@ -1021,37 +1003,29 @@ handle.className = "resize-handle";
 el.appendChild(handle);
 
 handle.addEventListener("mousedown", (e) => {
+  if (window.timelineCurrentTool !== 'pencil') return;
   e.stopPropagation();
   e.preventDefault();
-
   const startX = e.clientX;
   const startBars = clip.bars;
-
   const preview = document.createElement("div");
   preview.className = "clip-resize-preview";
   const glow = document.createElement("div");
   glow.className = "glow";
   preview.appendChild(glow);
   el.appendChild(preview);
-
   function move(ev) {
     const deltaPx = ev.clientX - startX;
     const deltaBarsRaw = deltaPx / window.PIXELS_PER_BAR;
-    // Use snap for resizing
     const snappedDeltaBars = window.snapDeltaToGrid(deltaBarsRaw);
-    // Minimum size: 1 beat (0.25 bars)
     let newBars = Math.max(0.25, startBars + snappedDeltaBars);
     clip.bars = newBars;
-
     const newWidth = newBars * window.PIXELS_PER_BAR;
     el.style.width = newWidth + "px";
     preview.style.width = newWidth + "px";
     preview.innerHTML = "";
     preview.appendChild(glow);
-
-    // Live update MIDI preview during resize
     if (clip.type === "midi") {
-      // Find or create the midi-preview canvas
       let midiCanvas = el.querySelector(".midi-preview");
       const beatsPerBar = 4;
       const pxPerBar = window.PIXELS_PER_BAR;
@@ -1070,7 +1044,6 @@ handle.addEventListener("mousedown", (e) => {
       midiCanvas.height = 40;
       const ctx = midiCanvas.getContext("2d");
       ctx.clearRect(0, 0, midiCanvas.width, midiCanvas.height);
-      // Pitch range
       let minPitch = Infinity;
       let maxPitch = -Infinity;
       clip.notes.forEach(n => {
@@ -1094,7 +1067,6 @@ handle.addEventListener("mousedown", (e) => {
       });
     }
   }
-
   function up() {
     preview.remove();
     document.removeEventListener("mousemove", move);
@@ -1105,7 +1077,6 @@ handle.addEventListener("mousedown", (e) => {
       .filter(c => c.trackIndex === clip.trackIndex)
       .forEach(c => window.renderClip(c, dropArea));
   }
-
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
 });
@@ -1577,20 +1548,23 @@ window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips 
 /* -------------------------------------------------------
    DRAGGABLE CLIP (child-safe)
 ------------------------------------------------------- */
-el.draggable = true;
+
+
 
 el.addEventListener("dragstart", (e) => {
+  el.draggable = true;
+  if (window.timelineCurrentTool !== 'pencil') {
+    e.preventDefault();
+    return false;
+  }
   if (e.target !== el) {
     e.stopPropagation();
   }
-
   // Set duplication state based on modifier keys
   window.isDuplicateDrag = e.shiftKey || e.altKey || e.ctrlKey;
-
   // Set which clip is being dragged
   window.draggedClipId = clip.id;
   window.draggedLoop = null;
-
   // ghost
   const ghost = el.cloneNode(true);
   ghost.style.position = "absolute";
@@ -1609,6 +1583,7 @@ el.addEventListener("dragstart", (e) => {
 let touchDrag = null;
 
 el.addEventListener("touchstart", (e) => {
+  if (window.timelineCurrentTool !== 'pencil') return;
   e.preventDefault(); // stop scrolling / text selection
   const t = e.touches[0];
 
