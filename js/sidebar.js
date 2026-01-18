@@ -8,7 +8,7 @@ const otherLoops = Array.isArray(window.otherLoops) ? window.otherLoops : [];
 function renderPackFolder(folderData, level = 0) {
   const folderDiv = document.createElement("div");
   folderDiv.className = "pack-folder";
-  folderDiv.style.paddingLeft = `${level * 12}px`;
+  folderDiv.style.paddingLeft = `${level * 6}px`;
 
   const folderHeader = document.createElement("div");
   folderHeader.className = "pack-folder-header";
@@ -48,7 +48,7 @@ function renderPackFile(fileData, level = 0) {
   item.className = "loop-item";
   item.classList.add(fileData.type === "audio" ? "audio-loop" : "midi-loop");
   item.draggable = true;
-  item.style.paddingLeft = `${level * 12}px`;
+  item.style.paddingLeft = `${level * 6}px`;
 
   // Display just the filename
   item.textContent = fileData.name;
