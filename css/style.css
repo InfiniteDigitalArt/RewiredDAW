@@ -159,7 +159,7 @@ body {
 /* Left control strip */
 .track-controls {
   width: 150px;
-  background: #101014;
+  background: var(--bg-panel);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   padding: 2px;
   display: flex;
@@ -1191,7 +1191,7 @@ body {
   min-width: 156px;
   overflow-y: auto;
   overflow-x: hidden;
-  background: #1a1a1a;
+  background: var(--bg-panel);
   border-right: 1px solid #333;
   scrollbar-width: none; /* Hide scrollbar on Firefox */
   -ms-overflow-style: none; /* Hide scrollbar on IE/Edge */

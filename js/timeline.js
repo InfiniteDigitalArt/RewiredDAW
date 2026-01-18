@@ -84,6 +84,8 @@ window.initTimeline = function () {
 
     // Set color for controls (for knobs, meter, etc)
     controls.style.setProperty("--track-color", color);
+    // --- ADD: Set background to var(--bg-panel) ---
+    controls.style.background = "var(--bg-panel)";
 
     const label = document.createElement("div");
     label.className = "track-label";

@@ -151,8 +151,44 @@ window.initPianoRoll = function () {
       renderPianoRoll();
       e.preventDefault();
     }
-  });
 
+    // --- ARROW KEYS: Move selected notes in pencil mode ---
+    if (
+      currentTool === 'pencil' &&
+      selectedNotes.length > 0 &&
+      activeClip &&
+      !e.ctrlKey && !e.metaKey && !e.altKey
+    ) {
+      let moved = false;
+      if (e.key === 'ArrowUp') {
+        selectedNotes.forEach(n => n.pitch = Math.min(pitchMax, n.pitch + 1));
+        moved = true;
+      }
+      if (e.key === 'ArrowDown') {
+        selectedNotes.forEach(n => n.pitch = Math.max(pitchMin, n.pitch - 1));
+        moved = true;
+      }
+      if (e.key === 'ArrowLeft') {
+        selectedNotes.forEach(n => {
+          n.start = Math.max(0, n.start - snap);
+          n.end = Math.max(n.start + snap, n.end - snap);
+        });
+        moved = true;
+      }
+      if (e.key === 'ArrowRight') {
+        selectedNotes.forEach(n => {
+          n.start = n.start + snap;
+          n.end = n.end + snap;
+        });
+        moved = true;
+      }
+      if (moved) {
+        renderPianoRoll();
+        updateClipPreview();
+        e.preventDefault();
+      }
+    }
+  });
 
   // ⭐ Two canvases now
   gridCanvas = document.getElementById("piano-roll-canvas");
@@ -709,6 +745,8 @@ let selectionStartPositions = new Map();
 // Right-click deletion state
 let isDeletingWithRightClick = false;
 
+let lastNoteLength = snap; // Remember last used note length
+
 
 function onMouseDown(e) {
   if (!activeClip) return;
@@ -876,6 +914,8 @@ if (beat < 0) return; // optional, but NO pianoWidth check
     resizingNote = clicked.note;
     resizeStartX = x;
     originalEnd = clicked.note.end;
+    // --- Remember this note's length for next draw ---
+    lastNoteLength = Math.max(0.01, clicked.note.end - clicked.note.start);
     return;
   }
 
@@ -887,18 +927,8 @@ if (beat < 0) return; // optional, but NO pianoWidth check
     moveStartX = x;
     moveStartBeat = clicked.note.start;
     moveStartPitch = clicked.note.pitch;
-    
-    // If moving a selected note, prepare to move all selected notes
-    if (selectedNotes.includes(clicked.note)) {
-      selectionStartPositions.clear();
-      selectedNotes.forEach(note => {
-        selectionStartPositions.set(note, {
-          start: note.start,
-          end: note.end,
-          pitch: note.pitch
-        });
-      });
-    }
+    // --- Remember this note's length for next draw ---
+    lastNoteLength = Math.max(0.01, clicked.note.end - clicked.note.start);
     return;
   }
 
@@ -912,7 +942,7 @@ if (beat < 0) return; // optional, but NO pianoWidth check
   const newNote = {
     pitch,
     start: beat,
-    end: beat + snap,
+    end: beat + lastNoteLength, // Use lastNoteLength instead of snap
     velocity: 0.8
   };
 
@@ -974,19 +1004,15 @@ function onMouseMove(e) {
   // ---------------------------------------------
   // 0b. MOVING SELECTED NOTES (in select mode or duplicating in pencil mode)
   // ---------------------------------------------
-  if (movingSelection && (currentTool === 'select' || (currentTool === 'pencil' && duplicatingSelection))) {
+  // --- FIX: Only allow moving selection in pencil mode (with duplication), not in select mode ---
+  if (movingSelection && currentTool === 'pencil' && duplicatingSelection) {
     const deltaBeats = (x - moveStartX) / pxPerBeat;
     const snapped = Math.round(deltaBeats / snap) * snap;
     // use global rowHeight
     const currentPitch = pitchMax - Math.floor(y / rowHeight);
-    let pitchDelta;
-    if (currentTool === 'select') {
-      pitchDelta = currentPitch - (pitchMax - Math.floor((selectBoxStart?.y || 0) / rowHeight));
-    } else {
-      // In pencil mode, use the difference from the original pitch of the first selected note
-      const orig = duplicateOriginMap.get(duplicatedNotes[0]);
-      pitchDelta = currentPitch - orig.pitch;
-    }
+    // In pencil mode, use the difference from the original pitch of the first selected note
+    const orig = duplicateOriginMap.get(duplicatedNotes[0]);
+    const pitchDelta = currentPitch - orig.pitch;
     selectedNotes.forEach(note => {
       const original = selectionStartPositions.get(note);
       if (original) {
@@ -1008,13 +1034,25 @@ function onMouseMove(e) {
   // 1. RESIZING EXISTING NOTE
   // ---------------------------------------------
   if (resizingNote) {
-    const deltaBeats = (x - resizeStartX) / pxPerBeat;
-    const snapped = Math.round(deltaBeats / snap) * snap;
+    // --- SHIFT disables snap for fine adjustment and disables min size ---
+    let deltaBeats = (x - resizeStartX) / pxPerBeat;
+    let snapped;
+    let minSize;
+    if (e.shiftKey) {
+      snapped = deltaBeats;
+      minSize = 0.01; // allow very small notes when shift is held
+    } else {
+      snapped = Math.round(deltaBeats / snap) * snap;
+      minSize = snap; // default minimum size is snap (e.g. 0.25)
+    }
 
     resizingNote.end = Math.max(
-      resizingNote.start + snap,
+      resizingNote.start + minSize,
       originalEnd + snapped
     );
+
+    // --- Remember this note's length for next draw ---
+    lastNoteLength = Math.max(0.01, resizingNote.end - resizingNote.start);
 
     extendClipIfNeeded(resizingNote.end);
     resizeCanvas();
