@@ -646,13 +646,13 @@ if (window.activeClip) {
     window.updateLoadingBar(90);
 
     const meta = window.parseLoopMetadata(file.name);
-
+    
     const loopBpm = meta.bpm || 175;
     const durationSeconds = normalizedBuffer.duration;
     // Calculate bars based on PROJECT tempo (175bpm), not file's BPM
     // Audio is always pitch-shifted to match project tempo, so bars must be calculated accordingly
     const projectBpm = 175;
-    const bars = (durationSeconds * projectBpm) / 240;
+    const bars = window.calculateBarsFromAudio(normalizedBuffer, loopBpm);
 
     if (targetAudioClip) {
       // Replace all audio clips that share the same audioBuffer or loopId as the target (i.e., all duplicates)
@@ -2501,4 +2501,5 @@ document.addEventListener("DOMContentLoaded", () => {
   attachMarqueeSelection();
   // ...existing code...
 });
+
 
