@@ -34,6 +34,11 @@ let selectionStart = null;
 let selectionRect = null;
 window.selectedClipIds = new Set();
 
+// Timeline expansion state
+window.timelineBars = 64;
+const TIMELINE_EXPANSION_THRESHOLD = 8; // bars from end
+const TIMELINE_EXPANSION_SIZE = 64; // bars to add
+
 // Global click handler to close clip dropdowns
 document.addEventListener("click", () => {
   document.querySelectorAll('.clip-dropdown-open').forEach(el => {
@@ -83,6 +88,53 @@ window.hideLoadingBar = function() {
   const bar = document.getElementById("timeline-loading-bar");
   if (bar) {
     bar.classList.remove("visible");
+  }
+};
+
+/* -------------------------------------------------------
+   TIMELINE AUTO-EXPANSION
+------------------------------------------------------- */
+window.checkAndExpandTimeline = function() {
+  if (!window.clips || window.clips.length === 0) return;
+  
+  // Find the maximum end point of all clips
+  let maxClipEnd = 0;
+  window.clips.forEach(clip => {
+    const clipEnd = clip.startBar + clip.bars;
+    if (clipEnd > maxClipEnd) maxClipEnd = clipEnd;
+  });
+  
+  // Check if any clip extends within threshold of current end
+  const expansionThreshold = window.timelineBars - TIMELINE_EXPANSION_THRESHOLD;
+  
+  if (maxClipEnd > expansionThreshold) {
+    // Expand timeline
+    window.timelineBars += TIMELINE_EXPANSION_SIZE;
+    
+    // Update track min-width in CSS
+    const trackMinWidth = window.timelineBars * window.PIXELS_PER_BAR;
+    const tracks = document.querySelectorAll('.track');
+    tracks.forEach(track => {
+      track.style.minWidth = trackMinWidth + 'px';
+    });
+    
+    // Update track-drop-area width
+    const dropAreas = document.querySelectorAll('.track-drop-area');
+    dropAreas.forEach(dropArea => {
+      dropArea.style.minWidth = trackMinWidth + 'px';
+    });
+    
+    // Re-render grid and timeline bar
+    try {
+      if (typeof window.renderGrid === 'function') {
+        window.renderGrid();
+      }
+      if (typeof window.renderTimelineBar === 'function') {
+        window.renderTimelineBar(window.timelineBars);
+      }
+    } catch (error) {
+      console.error('Error expanding timeline:', error);
+    }
   }
 };
 
@@ -348,6 +400,7 @@ window.initTimeline = function () {
 
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
+      window.checkAndExpandTimeline();
 
       drop.innerHTML = "";
       window.clips
@@ -395,6 +448,7 @@ window.initTimeline = function () {
       window.clips.push(newClip);
       resolveClipCollisions(newClip);
       paintedBars.add(startBar);
+      window.checkAndExpandTimeline();
 
       drop.innerHTML = "";
       window.clips
@@ -531,6 +585,7 @@ if (window.activeClip) {
   window.clips
     .filter(c => c.trackIndex === trackIndex)
     .forEach(c => window.renderClip(c, drop));
+  window.checkAndExpandTimeline();
   continue;
 }
 
@@ -635,6 +690,7 @@ if (window.activeClip) {
     .forEach(c => window.renderClip(c, drop));
 
   window.hideLoadingBar();
+  window.checkAndExpandTimeline();
   return;
 }
 
@@ -701,6 +757,7 @@ if (loop.notes) {
   window.clips
     .filter(c => c.trackIndex === trackIndex)
     .forEach(c => window.renderClip(c, drop));
+  window.checkAndExpandTimeline();
   return;
 }
 
@@ -758,6 +815,8 @@ if (loop.url) {
     window.clips
       .filter(c => c.trackIndex === trackIndex)
       .forEach(c => window.renderClip(c, drop));
+    
+    window.checkAndExpandTimeline();
   });
 
   return;
@@ -854,6 +913,7 @@ if (loop.url) {
           .forEach(c => window.renderClip(c, drop));
 
         window.hideLoadingBar();
+        window.checkAndExpandTimeline();
         return;
       }
     }
@@ -917,6 +977,9 @@ window.draggedClipId = null;
 window.draggedLoop = null;
 window.isDuplicateDrag = false;
 
+/* Check if timeline needs to expand */
+window.checkAndExpandTimeline();
+
 
 
 });
@@ -938,20 +1001,33 @@ window.isDuplicateDrag = false;
     
   }
 
+  // Set initial track min-width based on timeline bars
+  const trackMinWidth = window.timelineBars * window.PIXELS_PER_BAR;
+  const tracks = document.querySelectorAll('.track');
+  tracks.forEach(track => {
+    track.style.minWidth = trackMinWidth + 'px';
+  });
+
+  // Set initial drop area min-width
+  const dropAreas = document.querySelectorAll('.track-drop-area');
+  dropAreas.forEach(dropArea => {
+    dropArea.style.minWidth = trackMinWidth + 'px';
+  });
+
 /* -------------------------------------------------------
    GRID RENDERING (per track)
 ------------------------------------------------------- */
-function renderGrid() {
+window.renderGrid = function() {
   const grids = document.querySelectorAll(".track-grid");
   if (!grids.length) return;
 
-  const totalBars = 64;
+  const totalBars = window.timelineBars || 64;
   const beatsPerBar = 4;
 
   grids.forEach(grid => {
     grid.innerHTML = "";
 
-    const totalWidth = (totalBars * window.PIXELS_PER_BAR)/2;
+    const totalWidth = totalBars * window.PIXELS_PER_BAR;
     grid.style.width = totalWidth + "px";
 
     const trackHeight = grid.parentElement.offsetHeight;
@@ -1014,10 +1090,10 @@ function renderGrid() {
       grid.appendChild(row);
     }
   });
-}
+};
 
-renderGrid();
-window.renderTimelineBar(64);
+window.renderGrid();
+window.renderTimelineBar(window.timelineBars);
 
   // --- Timeline bar, playhead, and seekMarker horizontal sync ---
   const timelineScroll = document.getElementById("timeline-scroll");
