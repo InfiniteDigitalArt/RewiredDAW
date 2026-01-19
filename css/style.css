@@ -661,6 +661,25 @@ body {
 
 
 /* -------------------------------------------------------
+   BROWSER HEADER
+------------------------------------------------------- */
+.browser-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  padding: 8px 12px 6px 12px;
+  margin-bottom: 0px;
+}
+
+.browser-separator {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #2a2a35, transparent);
+  margin: 0 12px 8px 12px;
+}
+
+/* -------------------------------------------------------
    LOOP ITEMS
 ------------------------------------------------------- */
 .loop-item {

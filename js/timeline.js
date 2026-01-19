@@ -141,6 +141,9 @@ window.checkAndExpandTimeline = function() {
 window.initTimeline = function () {
   // Track current timeline tool
   window.timelineCurrentTool = 'pencil';
+  let timelineToolBeforeCtrl = null; // Remember tool before Ctrl was pressed
+  let isTimelineCtrlHeld = false; // Track if Ctrl is currently held
+  
   const tracksEl = document.getElementById("tracks");
   const controlsColumn = document.getElementById("track-controls-column");
   const marker = document.getElementById("seekMarker");
@@ -159,6 +162,38 @@ window.initTimeline = function () {
       btn.classList.add('active');
       window.timelineCurrentTool = toolNames[index] || 'pencil';
     });
+  });
+
+  // Ctrl key detection for temporary timeline select mode
+  window.addEventListener('keydown', function(e) {
+    // Ctrl key temporarily switches to select tool
+    if ((e.key === 'Control' || e.ctrlKey) && !isTimelineCtrlHeld && window.timelineCurrentTool !== 'select') {
+      isTimelineCtrlHeld = true;
+      timelineToolBeforeCtrl = window.timelineCurrentTool;
+      window.timelineCurrentTool = 'select';
+      
+      // Update UI to show select tool is active
+      timelineToolButtons.forEach(b => b.classList.remove('active'));
+      if (timelineToolButtons[1]) { // Select tool is second button
+        timelineToolButtons[1].classList.add('active');
+      }
+    }
+  });
+
+  window.addEventListener('keyup', function(e) {
+    // Release Ctrl key switches back to previous tool
+    if ((e.key === 'Control' || !e.ctrlKey) && isTimelineCtrlHeld && timelineToolBeforeCtrl) {
+      isTimelineCtrlHeld = false;
+      window.timelineCurrentTool = timelineToolBeforeCtrl;
+      timelineToolBeforeCtrl = null;
+      
+      // Update UI to show previous tool is active
+      timelineToolButtons.forEach(b => b.classList.remove('active'));
+      const toolIndex = toolNames.indexOf(window.timelineCurrentTool);
+      if (timelineToolButtons[toolIndex]) {
+        timelineToolButtons[toolIndex].classList.add('active');
+      }
+    }
   });
 
   // Store references for later updates (e.g., VU meters)
@@ -746,7 +781,12 @@ if (loop.notes) {
     clip.notes = JSON.parse(JSON.stringify(loop.notes));
     clip.sampleBuffer = window.defaultMidiSampleBuffer;
     clip.sampleName = window.defaultMidiSampleName;
-    clip.name = loop.displayName || generateMidiClipName();
+    // Use unique name generator for "New MIDI Clip"
+    if (loop.displayName === "New MIDI Clip") {
+      clip.name = generateUniqueNewMidiClipName("New MIDI Clip");
+    } else {
+      clip.name = loop.displayName || generateMidiClipName();
+    }
     window.clips.push(clip);
     resolveClipCollisions(clip);
     window.activeClip = clip;
