@@ -14,8 +14,48 @@
     
     <!-- Audio Preview Container -->
     <div id="audio-preview" class="audio-preview hidden">
-      <div class="audio-preview-filename"></div>
-      <canvas id="audio-preview-canvas" class="audio-preview-canvas"></canvas>
+      <div class="audio-preview-header">
+        <div class="audio-preview-filename"></div>
+        <div class="audio-preview-controls">
+          <button id="audio-preview-play" class="audio-preview-btn" aria-label="Play preview">
+            <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+              <polygon points="4,2 12,7 4,12" />
+            </svg>
+          </button>
+          <button id="audio-preview-stop" class="audio-preview-btn" aria-label="Stop preview">
+            <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+              <rect x="4" y="4" width="6" height="6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="audio-preview-waveform" id="audio-preview-waveform">
+        <canvas id="audio-preview-canvas" class="audio-preview-canvas"></canvas>
+        <div id="audio-preview-playhead" class="audio-preview-playhead hidden"></div>
+      </div>
+    </div>
+
+    <!-- MIDI Preview Container -->
+    <div id="midi-preview" class="audio-preview hidden">
+      <div class="audio-preview-header">
+        <div class="audio-preview-filename"></div>
+        <div class="audio-preview-controls">
+          <button id="midi-preview-play" class="audio-preview-btn" aria-label="Play MIDI preview">
+            <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+              <polygon points="4,2 12,7 4,12" />
+            </svg>
+          </button>
+          <button id="midi-preview-stop" class="audio-preview-btn" aria-label="Stop MIDI preview">
+            <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+              <rect x="4" y="4" width="6" height="6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="audio-preview-waveform" id="midi-preview-waveform">
+        <canvas id="midi-preview-canvas" class="audio-preview-canvas"></canvas>
+        <div id="midi-preview-playhead" class="audio-preview-playhead hidden"></div>
+      </div>
     </div>
   </div>
 
