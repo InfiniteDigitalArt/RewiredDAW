@@ -2239,16 +2239,19 @@ window.renderWaveformSlice = function(samples, width, height = 40, color = "#2a6
 window.getSnapValue = function () {
   const snapSelect = document.getElementById("snapValue");
   if (!snapSelect) return 1;
-  return parseFloat(snapSelect.value) || 1;
+  const value = parseFloat(snapSelect.value);
+  return isNaN(value) ? 1 : value;
 };
 
 window.snapToGrid = function (rawBar) {
   const snap = window.getSnapValue();
+  if (snap === 0) return rawBar; // No snapping
   return Math.floor(rawBar / snap) * snap;
 };
 
 window.snapDeltaToGrid = function (deltaBarsRaw) {
   const snap = window.getSnapValue();
+  if (snap === 0) return deltaBarsRaw; // No snapping
   return Math.floor(deltaBarsRaw / snap) * snap;
 };
 
