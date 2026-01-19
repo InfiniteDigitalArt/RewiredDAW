@@ -698,4 +698,87 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   window.populateSidebar();
+
+  // ===== SEARCH FUNCTIONALITY =====
+  const searchInput = document.getElementById("sidebar-search");
+  const searchClearBtn = document.getElementById("sidebar-search-clear");
+  const sidebarLoopsContainer = document.getElementById("sidebar-loops");
+
+  function filterSidebarItems(searchTerm) {
+    const term = searchTerm.toLowerCase().trim();
+    const allFolders = sidebarLoopsContainer.querySelectorAll(".loop-folder");
+    const allItems = sidebarLoopsContainer.querySelectorAll(".loop-item");
+
+    if (!term) {
+      // Show all
+      allFolders.forEach(folder => folder.classList.remove("hidden", "search-no-match"));
+      allItems.forEach(item => item.classList.remove("hidden", "search-no-match"));
+      sidebarLoopsContainer.querySelectorAll(".loop-folder-content").forEach(content => {
+        content.classList.add("hidden");
+      });
+      return;
+    }
+
+    let hasAnyMatch = false;
+
+    // Hide all first
+    allFolders.forEach(folder => folder.classList.add("search-no-match"));
+    allItems.forEach(item => item.classList.add("hidden", "search-no-match"));
+    sidebarLoopsContainer.querySelectorAll(".loop-folder-content").forEach(content => {
+      content.classList.add("hidden");
+    });
+
+    // Show matching items
+    allItems.forEach(item => {
+      if (item.textContent.toLowerCase().includes(term)) {
+        item.classList.remove("hidden", "search-no-match");
+        hasAnyMatch = true;
+      }
+    });
+
+    // Show folders that contain matching items or match the search term
+    allFolders.forEach(folder => {
+      const folderName = folder.textContent.toLowerCase();
+      const nextContent = folder.nextElementSibling;
+
+      if (!nextContent || !nextContent.classList.contains("loop-folder-content")) return;
+
+      const hasMatchingChild = nextContent.querySelector(".loop-item:not(.search-no-match)");
+
+      if (folderName.includes(term)) {
+        // Folder name matches
+        folder.classList.remove("search-no-match");
+        nextContent.classList.remove("hidden");
+        folder.classList.add("open");
+      } else if (hasMatchingChild) {
+        // Has matching children
+        folder.classList.remove("search-no-match");
+        nextContent.classList.remove("hidden");
+        folder.classList.add("open");
+      }
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      const value = e.target.value;
+      filterSidebarItems(value);
+
+      // Show/hide clear button
+      if (searchClearBtn) {
+        searchClearBtn.style.display = value ? "flex" : "none";
+      }
+    });
+  }
+
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener("click", () => {
+      if (searchInput) {
+        searchInput.value = "";
+        filterSidebarItems("");
+        searchClearBtn.style.display = "none";
+        searchInput.focus();
+      }
+    });
+  }
 });
