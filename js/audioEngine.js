@@ -275,8 +275,14 @@ if (seekBars >= clipStart && seekBars < clipEnd) {
   const secondsPerBarInSource = sourceDuration / clip.originalBars;
   const offsetSeconds = barsIntoClip * secondsPerBarInSource;
 
-  let safeDuration = sourceDuration - offsetSeconds;
-  if (!isFinite(safeDuration) || safeDuration <= 0) safeDuration = 0.001;
+  // Cap playback to the trimmed clip length
+  if (offsetSeconds >= visibleDuration) return; // already past the trimmed region
+
+  let safeDuration = Math.min(
+    sourceDuration - offsetSeconds,
+    visibleDuration - offsetSeconds
+  );
+  if (!isFinite(safeDuration) || safeDuration <= 0.001) safeDuration = 0.001;
 
   window.scheduledSources.add(source);
   source.onended = () => window.scheduledSources.delete(source);
@@ -296,8 +302,14 @@ if (clip.looped) {
   const secondsPerBarInSource = sourceDuration / clip.originalBars;
   const offsetSeconds = wrappedBarsIntoClip * secondsPerBarInSource;
 
-  let safeDuration = sourceDuration - offsetSeconds;
-  if (!isFinite(safeDuration) || safeDuration <= 0) safeDuration = 0.001;
+  // Respect trimmed length even when seeking past the end of the clip
+  if (offsetSeconds >= visibleDuration) return;
+
+  let safeDuration = Math.min(
+    sourceDuration - offsetSeconds,
+    visibleDuration - offsetSeconds
+  );
+  if (!isFinite(safeDuration) || safeDuration <= 0.001) safeDuration = 0.001;
 
   window.scheduledSources.add(source);
   source.onended = () => window.scheduledSources.delete(source);

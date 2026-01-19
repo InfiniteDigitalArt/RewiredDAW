@@ -1,122 +1,156 @@
-let basicMidiClip = null;
+// ---------------------------------------------
+// 1. MANUAL FOLDER DEFINITIONS (supports nesting)
+// ---------------------------------------------
+// window.LOOP_FOLDERS = { ... };
 
-// 2. Ensure otherLoops is a valid array
-const otherLoops = Array.isArray(window.otherLoops) ? window.otherLoops : [];
 
-// 3. Define populateSidebar
-window.populateSidebar = function(loops) {
-  const container = document.getElementById("sidebar-loops");
-  container.innerHTML = "";
+// ---------------------------------------------
+// 2. RENDERING HELPERS (recursive folder renderer)
+// ---------------------------------------------
+function renderFolder(container, name, content, loops) {
+  const header = document.createElement("div");
+  header.className = "loop-folder";
+  header.textContent = name;
 
-  loops.forEach(loop => {
-    const item = document.createElement("div");
-    item.className = "loop-item";
-    item.draggable = true;
+  const body = document.createElement("div");
+  body.className = "loop-folder-content hidden";
 
-    if (loop.type === "audio") {
-      // AUDIO LOOP
-      item.classList.add("audio-loop");
-      item.textContent = `${loop.displayName || loop.id} (${loop.bars} bars, ${loop.bpm} bpm)`;
+  header.addEventListener("click", () => {
+    Array.from(header.parentElement.children).forEach(el => {
+      if (el !== body && el.classList.contains("loop-folder-content")) {
+        el.classList.add("hidden");
+      }
+      if (el !== header && el.classList.contains("loop-folder")) {
+        el.classList.remove("open");
+      }
+    });
 
-      item.addEventListener("dragstart", () => {
-        window.draggedLoop = {
-          type: "audio",
-          id: loop.id,
-          url: loop.url,
-          bpm: loop.bpm,
-          bars: loop.bars
-        };
-      });
+    body.classList.toggle("hidden");
+    header.classList.toggle("open");
+  });
 
-    } else if (loop.type === "midi") {
-      // MIDI LOOP (lazy-loaded)
-      item.classList.add("midi-loop");
-      item.textContent = `${loop.displayName || loop.id} (MIDI)`;
+  container.appendChild(header);
+  container.appendChild(body);
 
-      item.addEventListener("dragstart", () => {
-        // Built-in MIDI clip has notes → use them
-        if (loop.notes) {
+  // Array = list of loopIds
+  if (Array.isArray(content)) {
+    content.forEach(loopId => {
+      const loop = loops[loopId];
+      if (!loop) return;
+
+      const item = document.createElement("div");
+      item.className = "loop-item";
+      item.title = loop.displayName || loop.id;
+
+      item.draggable = true;
+
+      if (loop.type === "audio") {
+        item.classList.add("audio-loop");
+        item.textContent = `${loop.displayName} (${loop.bpm} bpm)`;
+
+        item.addEventListener("dragstart", () => {
           window.draggedLoop = {
-            type: "midi",
+            type: "audio",
             id: loop.id,
-            notes: JSON.parse(JSON.stringify(loop.notes)),
+            url: loop.url,
+            bpm: loop.bpm,
             bars: loop.bars
           };
-        } else {
-          // Dropbox MIDI → lazy-load on drop
+        });
+      }
+
+      if (loop.type === "midi") {
+        item.classList.add("midi-loop");
+        item.textContent = `${loop.displayName} (MIDI)`;
+
+        item.addEventListener("dragstart", () => {
           window.draggedLoop = {
             type: "midi",
             id: loop.id,
             url: loop.url,
             displayName: loop.displayName
           };
-        }
+        });
+      }
+
+      item.addEventListener("dragend", () => {
+        window.draggedLoop = null;
       });
-    }
 
-    item.addEventListener("dragend", () => {
-      window.draggedLoop = null;
+      body.appendChild(item);
     });
+  }
 
-    container.appendChild(item);
-  });
+  // Object = nested folders
+  else if (typeof content === "object") {
+    Object.keys(content).forEach(subName => {
+      renderFolder(body, subName, content[subName], loops);
+    });
+  }
+}
+
+
+
+// ---------------------------------------------
+// 3. SIDEBAR POPULATION
+// ---------------------------------------------
+window.populateSidebar = function() {
+  console.log("MIDI_LOOPS:", window.MIDI_LOOPS);
+console.log("DROPBOX_LOOP_MAP:", window.DROPBOX_LOOP_MAP);
+console.log("LOOP_FOLDERS:", window.LOOP_FOLDERS);
+
+
+  const container = document.getElementById("sidebar-loops");
+  container.innerHTML = "";
+
+  const loops = window.DROPBOX_LOOP_MAP || {};
+
+  if (window.LOOP_FOLDERS) {
+    Object.keys(window.LOOP_FOLDERS).forEach(folderName => {
+      renderFolder(container, folderName, window.LOOP_FOLDERS[folderName], loops);
+    });
+  }
 };
 
-
+// ---------------------------------------------
+// 4. INIT
+// ---------------------------------------------
 
 window.addEventListener("DOMContentLoaded", () => {
 
-  // ----------------------------------------------------
-  // 1. Load AUDIO LOOPS (old system)
-  // ----------------------------------------------------
   window.DROPBOX_LOOP_MAP = {};
 
   window.DROPBOX_LOOPS.forEach(url => {
-    const filename = url.split("/").pop().split("?")[0];
-    const meta = parseLoopMetadata(filename);
+    const filename = decodeURIComponent(url.split("/").pop().split("?")[0]);
 
-    if (!meta || !meta.loopId) return;
 
-    window.DROPBOX_LOOP_MAP[meta.loopId] = {
-      id: meta.loopId,
-      url: url,
-      bpm: meta.bpm,
-      bars: meta.bars,
-      displayName: meta.displayName,
-      type: "audio"
-    };
+    // AUDIO (.wav)
+    if (filename.toLowerCase().endsWith(".wav")) {
+      const meta = parseLoopMetadata(filename);
+      if (!meta || !meta.loopId) return;
+
+      window.DROPBOX_LOOP_MAP[meta.loopId] = {
+        id: meta.loopId,
+        url,
+        bpm: meta.bpm,
+        bars: meta.bars,
+        displayName: meta.displayName,
+        type: "audio"
+      };
+    }
+
+    // MIDI (.mid)
+    else if (filename.toLowerCase().endsWith(".mid")) {
+      const id = filename.replace(".mid", "");
+
+      window.DROPBOX_LOOP_MAP[id] = {
+        id,
+        url,
+        displayName: id,
+        type: "midi"
+      };
+    }
   });
 
-  const audioLoops = Object.values(window.DROPBOX_LOOP_MAP);
-
-  // ----------------------------------------------------
-  // 2. MIDI METADATA (lazy-loaded on drop)
-  // ----------------------------------------------------
-  const midiLoops = Array.isArray(window.MIDI_LOOPS) ? window.MIDI_LOOPS : [];
-
-  // ----------------------------------------------------
-  // 3. Built-in MIDI clip (optional, pre-baked)
-  // ----------------------------------------------------
-  basicMidiClip = {
-    id: "basic-midi-clip",
-    type: "midi",
-    displayName: "Basic MIDI Clip (C4 x4)",
-    bars: 1,
-    // you can keep notes here if you want this one pre-defined
-    notes: [
-      { pitch: 60, start: 0, end: 0.5 },
-      { pitch: 60, start: 1, end: 1.5 },
-      { pitch: 64, start: 2, end: 2.5 },
-      { pitch: 67, start: 3, end: 3.5 }
-    ]
-  };
-
-  // ----------------------------------------------------
-  // 4. FINAL unified sidebar population (metadata only)
-  // ----------------------------------------------------
-  window.populateSidebar([
-    basicMidiClip,
-    ...midiLoops,
-    ...audioLoops
-  ]);
+  window.populateSidebar();
 });

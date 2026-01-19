@@ -34,8 +34,10 @@
 
   <!-- TEMPO -->
   <label class="tempo-text" style="margin-left:20px;">Tempo:</label>
-  <input id="tempoSlider" class="tempo-slider" type="range" min="100" max="200" value="175" step="1">
-  <span id="tempoValue" class="tempo-value">175 BPM</span>
+  <input id="tempoSlider" class="tempo-slider" type="range" min="100" max="200" value="175" step="1" style="display:none;">
+  <div id="tempoBox" class="tempo-box" data-tempo="175">
+    <div class="tempo-box-value">175</div>
+  </div>
 
   <!-- MASTER VOLUME -->
   <label class="master-volume-text" style="margin-left:20px;">Master:</label>
@@ -123,12 +125,12 @@
     </div>
 
     <!-- CLIP LIST DROPDOWN -->
-    <div id="clipListControl" style="display: flex; align-items: center; gap: 8px; min-width: 140px; max-width: 140px;">
+    <div id="clipListControl" style="display: flex; align-items: center; gap: 8px; min-width: 160px; max-width: 160px;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #888;">
         <circle cx="12" cy="12" r="10"/>
         <rect x="8" y="8" width="8" height="8" rx="2"/>
       </svg>
-      <select id="clipListDropdown" style="padding: 4px 8px; background: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 3px; cursor: pointer; width: 120px; min-width: 120px; max-width: 120px;">
+      <select id="clipListDropdown" style="padding: 4px 8px; background: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 3px; cursor: pointer; width: 140px; min-width: 140px; max-width: 140px;">
         <option value="">No clips</option>
       </select>
     </div>
@@ -329,7 +331,7 @@
   </div>
 
 <!-- Load audio loops FIRST -->
-<script defer src="assets/loops.js"></script>
+<script defer src="assets/loops.js?v=2"></script>
 
 <!-- Load MIDI loop definitions -->
 <script defer src="assets/midis.js"></script>

@@ -107,9 +107,54 @@ const tempoValue = document.getElementById("tempoValue");
 
 tempoSlider.addEventListener("input", () => {
   const bpm = parseInt(tempoSlider.value);
-  tempoValue.textContent = bpm + " BPM";
+  if (tempoValue) tempoValue.textContent = bpm + " BPM";
   window.setTempo(bpm);
 });
+
+// Tempo Box Drag Handler
+const tempoBox = document.getElementById("tempoBox");
+if (tempoBox) {
+  let isDragging = false;
+  let startY = 0;
+  let startTempo = 175;
+
+  tempoBox.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    startY = e.clientY;
+    startTempo = parseInt(tempoBox.dataset.tempo);
+    document.body.style.cursor = "ns-resize";
+    e.preventDefault();
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    
+    const deltaY = startY - e.clientY; // Inverted: drag up = increase
+    const tempoChange = Math.round(deltaY / 2); // 2px = 1 BPM
+    let newTempo = startTempo + tempoChange;
+    
+    // Clamp between 100-200
+    newTempo = Math.max(100, Math.min(200, newTempo));
+    
+    // Update display
+    tempoBox.dataset.tempo = newTempo;
+    tempoBox.querySelector(".tempo-box-value").textContent = newTempo;
+    
+    // Sync with hidden slider
+    tempoSlider.value = newTempo;
+    if (tempoValue) tempoValue.textContent = newTempo + " BPM";
+    
+    // Update engine
+    window.setTempo(newTempo);
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (isDragging) {
+      isDragging = false;
+      document.body.style.cursor = "";
+    }
+  });
+}
 
 function startPlayhead(realStartTime) {
   const playhead = document.getElementById("playhead");
@@ -383,7 +428,16 @@ async function loadProjectZip(json, zip) {
 
   // Reset UI
   document.getElementById("tempoSlider").value = json.tempo;
-  document.getElementById("tempoValue").textContent = json.tempo + " BPM";
+  const tempoValueEl = document.getElementById("tempoValue");
+  if (tempoValueEl) tempoValueEl.textContent = json.tempo + " BPM";
+  
+  // Update tempo box if it exists
+  const tempoBox = document.getElementById("tempoBox");
+  if (tempoBox) {
+    tempoBox.dataset.tempo = json.tempo;
+    tempoBox.querySelector(".tempo-box-value").textContent = json.tempo;
+  }
+  
   window.setTempo(json.tempo);
 
   // --- FIX: Remove any manual playhead/seekMarker offset on load ---
