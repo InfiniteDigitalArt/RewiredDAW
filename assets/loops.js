@@ -1,9 +1,370 @@
 window.DROPBOX_LOOPS = [
-  "https://dl.dropboxusercontent.com/scl/fi/ykylhpxuppypbjzepw7eg/RRML1_Open_Hihat_14_175bpm.wav?rlkey=7xwbv3owdlcnzkgycyybpz32u&st=wyjenjve",
-  "https://dl.dropboxusercontent.com/scl/fi/6nboux0mg4pcvqi7f1ibx/RRML1_Kick_12_175bpm.wav?rlkey=y3nf0jfj2vjukesgqdwvxy1fz&st=kbvoq8lr",
-  "https://dl.dropboxusercontent.com/scl/fi/h3liwc8zmwilyri646g4a/RRML1_Acid_7_F-_175bpm.wav?rlkey=h9xkha9ruv5wid4pmwtqlismv&st=syaddaiu",
-  "https://dl.dropboxusercontent.com/scl/fi/x42db2poyazafi8ipkm1p/RRML1-Crash-5.wav?rlkey=l1d7y5zkbk73dbtaux1bg26cn",
-  "https://dl.dropboxusercontent.com/scl/fi/d171mgn1eq0fqwd0rqel7/RRML1_Rayada_8_F-_175bpm.wav?rlkey=zid0stprfvctbfiaox3gdzbbe",
-  "https://dl.dropboxusercontent.com/scl/fi/eb5s6a4tt0hpo1oc1tkg0/Lately-Bass-F-175bpm.wav?rlkey=pg8vu3be64zy58kuglxj69t8x&st=jxc5d0fg",
+  //Kicks//
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_1_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_2_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_3_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_4_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_5_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_6_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_7_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_8_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_9_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_10_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_11_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_12_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_13_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_14_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Kicks/RRML1_Kick_15_175bpm.wav",
+  //Percussion//
+  
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_1_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_2_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_3_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_4_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_5_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_6_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_7_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_8_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_9_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_10_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_11_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_12_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_13_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_14_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_15_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_16_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_17_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_18_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_19_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_20_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_21_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_22_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_23_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_24_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_25_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_26_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_27_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_28_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_29_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_30_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_31_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_32_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_33_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_34_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_35_170bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_36_170bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_37_172bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Perc_Loop_38_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Simple_Perc_Loop_1_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Simple_Perc_Loop_2_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Percussion/RRML1_Simple_Perc_Loop_3_175bpm.wav",
+  // Cymbals //
+  
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Closed_Hihat_1_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Closed_Hihat_2_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Closed_Hihat_3_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Closed_Hihat_4_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Closed_Hihat_5_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Closed_Hihat_6_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Closed_Hihat_7_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Closed_Hihat_8_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Closed_Hihat_9_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Crash_1_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Crash_2_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Crash_3_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_1_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_2_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_3_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_4_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_5_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_6_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_7_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_8_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_9_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_10_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_11_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_12_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_13_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_14_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Open_Hihat_15_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_1_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_1_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_2_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_3_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_4_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_5_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_6_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_7_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_8_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_9_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Cymbals/RRML1_Ride_10_165bpm.wav",
+  //MIDIs//
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Midis/RRML1%20-%20Melody%201.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Midis/RRML1%20-%20Melody%202.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Midis/RRML1%20-%20Melody%203.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Midis/RRML1%20-%20Melody%204.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Midis/RRML1%20-%20Melody%205.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Midis/RRML1%20-%20Melody%206.mid",
+  //Alive MIDI//
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Midis/RRML1_Song1_Acid.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Midis/RRML1_Song1_Bass.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Midis/RRML1_Song1_Melody1.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Midis/RRML1_Song1_Melody1_Alternative.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Midis/RRML1_Song1_Melody2.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Midis/RRML1_Song1_Pads.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Midis/RRML1_Song1_Piano.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Midis/RRML1_Song1_Pizz_Pluck.mid",
+  //Alive WAV//
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Wavs/RRML1_Song1_Acid_Intro_Gminor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Wavs/RRML1_Song1_Acid_Progression_Gminor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Wavs/RRML1_Song1_Bass_Gminor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Wavs/RRML1_Song1_Melody1_Alternative_Gminor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Wavs/RRML1_Song1_Melody1_Gminor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Wavs/RRML1_Song1_Melody2_Gminor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Wavs/RRML1_Song1_Pads_Gminor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Wavs/RRML1_Song1_Piano_Gminor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/1.%20Infinite%20-%20Alive%20(G%20Minor%20-%20175bpm)/Wavs/RRML1_Song1_Pizz_Pluck_1_Gminor_175bpm.wav",
+  //Tranceform MIDI//
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Midis/RRML1_Song2_Acid.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Midis/RRML1_Song2_Bass.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Midis/RRML1_Song2_Gated_Pads.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Midis/RRML1_Song2_Melody1.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Midis/RRML1_Song2_Pads.mid",
+  //Tranceform Loops//
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Womp_Stab_A%23major_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Acid_A%23major_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Bassline_A%23major_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Crash_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Gated_Choir_Pads_A%23major_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Hihat_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Kick_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Melody_A%23major_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Pads_A%23major_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Perc_Loop_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Ride_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/2.%20Infinite%20-%20Tranceform%20(A%23%20Major%20-%20160bpm)/Wavs/RRML1_Song2_Snare_Build_160bpm.wav",
+  //Listen MIDI//  
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Midis/RRML1_Song3_Acid.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Midis/RRML1_Song3_Bass.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Midis/RRML1_Song3_Melody1.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Midis/RRML1_Song3_Melody2.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Midis/RRML1_Song3_Pads.mid",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Midis/RRML1_Song3_Piano.mid",
+  //Listen Loops// 
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Piano_Fmajor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Acid_Fill_Fmajor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Acid_LongUp_Fmajor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Acid_UpDown_Fmajor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Arp_Fmajor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Bass_Fmajor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Melody1_Fmajor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Melody2_Fmajor_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Pads_Fmajor_175bpm.wav"
+
+  
+
 
 ];
+
+
+
+
+window.LOOP_FOLDERS = {
+  "Loops": {
+  "Kicks": [
+    "RRML1_Kick_1_160bpm",
+    "RRML1_Kick_2_175bpm",
+    "RRML1_Kick_3_175bpm",
+    "RRML1_Kick_4_175bpm",
+    "RRML1_Kick_5_175bpm",
+    "RRML1_Kick_6_175bpm",
+    "RRML1_Kick_7_175bpm",
+    "RRML1_Kick_8_175bpm",
+    "RRML1_Kick_9_175bpm",
+    "RRML1_Kick_10_175bpm",
+    "RRML1_Kick_11_175bpm",
+    "RRML1_Kick_12_175bpm",
+    "RRML1_Kick_13_175bpm",
+    "RRML1_Kick_14_175bpm",
+    "RRML1_Kick_15_175bpm"
+  ],
+
+
+  "Percussion": [
+    "RRML1_Perc_Loop_1_175bpm",
+    "RRML1_Perc_Loop_2_175bpm",
+    "RRML1_Perc_Loop_3_175bpm",
+    "RRML1_Perc_Loop_4_175bpm",
+    "RRML1_Perc_Loop_5_165bpm",
+    "RRML1_Perc_Loop_6_165bpm",
+    "RRML1_Perc_Loop_7_165bpm",
+    "RRML1_Perc_Loop_8_165bpm",
+    "RRML1_Perc_Loop_9_165bpm",
+    "RRML1_Perc_Loop_10_165bpm",
+    "RRML1_Perc_Loop_11_165bpm",
+    "RRML1_Perc_Loop_12_165bpm",
+    "RRML1_Perc_Loop_13_165bpm",
+    "RRML1_Perc_Loop_14_165bpm",
+    "RRML1_Perc_Loop_15_165bpm",
+    "RRML1_Perc_Loop_16_165bpm",
+    "RRML1_Perc_Loop_17_165bpm",
+    "RRML1_Perc_Loop_18_165bpm",
+    "RRML1_Perc_Loop_19_165bpm",
+    "RRML1_Perc_Loop_20_165bpm",
+    "RRML1_Perc_Loop_21_165bpm",
+    "RRML1_Perc_Loop_22_165bpm",
+    "RRML1_Perc_Loop_23_165bpm",
+    "RRML1_Perc_Loop_24_165bpm",
+    "RRML1_Perc_Loop_25_165bpm",
+    "RRML1_Perc_Loop_26_165bpm",
+    "RRML1_Perc_Loop_27_165bpm",
+    "RRML1_Perc_Loop_28_165bpm",
+    "RRML1_Perc_Loop_29_165bpm",
+    "RRML1_Perc_Loop_30_165bpm",
+    "RRML1_Perc_Loop_31_165bpm",
+    "RRML1_Perc_Loop_32_165bpm",
+    "RRML1_Perc_Loop_33_165bpm",
+    "RRML1_Perc_Loop_34_165bpm",
+    "RRML1_Perc_Loop_35_170bpm",
+    "RRML1_Perc_Loop_36_170bpm",
+    "RRML1_Perc_Loop_37_172bpm",
+    "RRML1_Perc_Loop_38_175bpm",
+    "RRML1_Simple_Perc_Loop_1_175bpm",
+    "RRML1_Simple_Perc_Loop_2_175bpm",
+    "RRML1_Simple_Perc_Loop_3_175bpm"
+  ],
+
+
+  "Cymbals": [
+    "RRML1_Closed_Hihat_1_160bpm",
+    "RRML1_Closed_Hihat_2_165bpm",
+    "RRML1_Closed_Hihat_3_165bpm",
+    "RRML1_Closed_Hihat_4_165bpm",
+    "RRML1_Closed_Hihat_5_165bpm",
+    "RRML1_Closed_Hihat_6_165bpm",
+    "RRML1_Closed_Hihat_7_165bpm",
+    "RRML1_Closed_Hihat_8_165bpm",
+    "RRML1_Closed_Hihat_9_165bpm",
+
+    "RRML1_Crash_1_175bpm",
+    "RRML1_Crash_2_175bpm",
+    "RRML1_Crash_3_175bpm",
+
+    "RRML1_Open_Hihat_1_160bpm",
+    "RRML1_Open_Hihat_2_175bpm",
+    "RRML1_Open_Hihat_3_175bpm",
+    "RRML1_Open_Hihat_4_175bpm",
+    "RRML1_Open_Hihat_5_175bpm",
+    "RRML1_Open_Hihat_6_175bpm",
+    "RRML1_Open_Hihat_7_175bpm",
+    "RRML1_Open_Hihat_8_175bpm",
+    "RRML1_Open_Hihat_9_175bpm",
+    "RRML1_Open_Hihat_10_175bpm",
+    "RRML1_Open_Hihat_11_175bpm",
+    "RRML1_Open_Hihat_12_175bpm",
+    "RRML1_Open_Hihat_13_175bpm",
+    "RRML1_Open_Hihat_14_175bpm",
+    "RRML1_Open_Hihat_15_175bpm",
+
+    "RRML1_Ride_1_175bpm",
+    "RRML1_Ride_2_165bpm",
+    "RRML1_Ride_3_165bpm",
+    "RRML1_Ride_4_165bpm",
+    "RRML1_Ride_5_165bpm",
+    "RRML1_Ride_6_165bpm",
+    "RRML1_Ride_7_165bpm",
+    "RRML1_Ride_8_165bpm",
+    "RRML1_Ride_9_165bpm",
+    "RRML1_Ride_10_165bpm",
+    
+  ]
+
+
+},
+"MIDI": [
+  "RRML1 - Melody 1",
+  "RRML1 - Melody 2",
+  "RRML1 - Melody 3",
+  "RRML1 - Melody 4",
+  "RRML1 - Melody 5",
+  "RRML1 - Melody 6"
+],
+"Construction Kits": {
+"1. Infinite - Alive (G Minor - 175bpm)":{
+"MIDI": [
+  "RRML1_Song1_Acid",
+  "RRML1_Song1_Bass",
+  "RRML1_Song1_Melody1",
+  "RRML1_Song1_Melody1_Alternative",
+  "RRML1_Song1_Melody2",
+  "RRML1_Song1_Pads",
+  "RRML1_Song1_Piano",
+  "RRML1_Song1_Pizz_Pluck"
+],
+"WAV Stems": [
+  "RRML1_Song1_Acid_Intro_Gminor_175bpm",
+  "RRML1_Song1_Acid_Progression_Gminor_175bpm",
+  "RRML1_Song1_Bass_Gminor_175bpm",
+  "RRML1_Song1_Melody1_Alternative_Gminor_175bpm",
+  "RRML1_Song1_Melody1_Gminor_175bpm",
+  "RRML1_Song1_Melody2_Gminor_175bpm",
+  "RRML1_Song1_Pads_Gminor_175bpm",
+  "RRML1_Song1_Piano_Gminor_175bpm",
+  "RRML1_Song1_Pizz_Pluck_1_Gminor_175bpm"
+]
+},
+  "2. Infinite - Tranceform (A# Major - 160bpm)": {
+    
+    "MIDIs": [
+      "RRML1_Song2_Acid",
+      "RRML1_Song2_Bass",
+      "RRML1_Song2_Gated_Pads",
+      "RRML1_Song2_Melody1",
+      "RRML1_Song2_Pads"
+    ],
+
+    "Wav Stems": [
+      "RRML1_Song2_Womp_Stab_A#major_160bpm",
+      "RRML1_Song2_Acid_A#major_160bpm",
+      "RRML1_Song2_Bassline_A#major_160bpm",
+      "RRML1_Song2_Crash_160bpm",
+      "RRML1_Song2_Gated_Choir_Pads_A#major_160bpm",
+      "RRML1_Song2_Hihat_160bpm",
+      "RRML1_Song2_Kick_160bpm",
+      "RRML1_Song2_Melody_A#major_160bpm",
+      "RRML1_Song2_Pads_A#major_160bpm",
+      "RRML1_Song2_Perc_Loop_160bpm",
+      "RRML1_Song2_Ride_160bpm",
+      "RRML1_Song2_Snare_Build_160bpm"
+    ]
+  },
+  "3. Infinite - Listen (F Major - 175bpm)": {
+
+  "MIDIs": [
+    "RRML1_Song3_Acid",
+    "RRML1_Song3_Bass",
+    "RRML1_Song3_Melody1",
+    "RRML1_Song3_Melody2",
+    "RRML1_Song3_Pads",
+    "RRML1_Song3_Piano"
+  ],
+
+  "Wav Stems": [
+    "RRML1_Song3_Piano_Fmajor_175bpm",
+    "RRML1_Song3_Acid_Fill_Fmajor_175bpm",
+    "RRML1_Song3_Acid_LongUp_Fmajor_175bpm",
+    "RRML1_Song3_Acid_UpDown_Fmajor_175bpm",
+    "RRML1_Song3_Arp_Fmajor_175bpm",
+    "RRML1_Song3_Bass_Fmajor_175bpm",
+    "RRML1_Song3_Melody1_Fmajor_175bpm",
+    "RRML1_Song3_Melody2_Fmajor_175bpm",
+    "RRML1_Song3_Pads_Fmajor_175bpm"
+  ]
+}
+
+}
+
+
+
+
+};

@@ -42,6 +42,49 @@ document.addEventListener("click", () => {
   });
 }, true); // Use capture phase to ensure it runs
 
+/* -------------------------------------------------------
+   LOADING BAR UTILITIES
+------------------------------------------------------- */
+window.showLoadingBar = function(message = "Loading...") {
+  let bar = document.getElementById("timeline-loading-bar");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "timeline-loading-bar";
+    bar.innerHTML = `
+      <div class="loading-bar-text">${message}</div>
+      <div class="loading-bar-track">
+        <div class="loading-bar-fill"></div>
+      </div>
+      <div class="loading-bar-stage"></div>
+    `;
+    document.body.appendChild(bar);
+  } else {
+    bar.querySelector(".loading-bar-text").textContent = message;
+    bar.querySelector(".loading-bar-fill").style.width = "0%";
+    bar.querySelector(".loading-bar-stage").textContent = "";
+  }
+  bar.classList.add("visible");
+};
+
+window.updateLoadingBar = function(percent, stage) {
+  const bar = document.getElementById("timeline-loading-bar");
+  if (bar) {
+    const fill = bar.querySelector(".loading-bar-fill");
+    if (fill) fill.style.width = Math.min(100, Math.max(0, percent)) + "%";
+    
+    if (stage !== undefined) {
+      const stageEl = bar.querySelector(".loading-bar-stage");
+      if (stageEl) stageEl.textContent = stage;
+    }
+  }
+};
+
+window.hideLoadingBar = function() {
+  const bar = document.getElementById("timeline-loading-bar");
+  if (bar) {
+    bar.classList.remove("visible");
+  }
+};
 
 window.initTimeline = function () {
   // Track current timeline tool
@@ -497,16 +540,29 @@ if (window.activeClip) {
     ---------------------------------------------------- */
     if (!file.type.startsWith("audio/")) continue;
 
+    window.showLoadingBar(`Loading ${file.name}...`);
+    window.updateLoadingBar(10);
+
     const arrayBuffer = await file.arrayBuffer();
+    window.updateLoadingBar(30);
+    
     await window.audioContext.resume();
+    window.updateLoadingBar(50);
+    
     const audioBuffer = await window.audioContext.decodeAudioData(arrayBuffer);
+    window.updateLoadingBar(70);
+    
     const normalizedBuffer = normalizeBuffer(audioBuffer);
+    window.updateLoadingBar(90);
 
     const meta = window.parseLoopMetadata(file.name);
 
     const loopBpm = meta.bpm || 175;
     const durationSeconds = normalizedBuffer.duration;
-    const bars = (durationSeconds * loopBpm) / 240;
+    // Calculate bars based on PROJECT tempo (175bpm), not file's BPM
+    // Audio is always pitch-shifted to match project tempo, so bars must be calculated accordingly
+    const projectBpm = 175;
+    const bars = (durationSeconds * projectBpm) / 240;
 
     if (targetAudioClip) {
       // Replace all audio clips that share the same audioBuffer or loopId as the target (i.e., all duplicates)
@@ -568,6 +624,8 @@ if (window.activeClip) {
   }
 
   // After processing all files, refresh once
+  window.updateLoadingBar(100);
+  
   const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
   window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
 
@@ -576,6 +634,7 @@ if (window.activeClip) {
     .filter(c => c.trackIndex === trackIndex)
     .forEach(c => window.renderClip(c, drop));
 
+  window.hideLoadingBar();
   return;
 }
 
@@ -725,57 +784,12 @@ if (loop.url) {
         CASE 1B: AUDIO CLIP
       ------------------------- */
       if (loop.type === "audio") {
-          // PACK AUDIO FILE (from assets/packs/)
-          if (loop.packFile && (loop.path || loop.url)) {
-            const fetchPath = loop.path || loop.url;
-            const fetchUrl = new URL(fetchPath, window.location.href).toString();
-            // Fetch and decode the audio file from the pack
-            const response = await fetch(fetchUrl, { cache: "no-cache" });
-            const arrayBuffer = await response.arrayBuffer();
-            if (window.audioContext && window.audioContext.state === "suspended") {
-              await window.audioContext.resume();
-            }
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-            // Try to parse BPM from filename (or use default)
-            const meta = parseLoopMetadata(loop.fileName);
-            const fileBpm = meta?.bpm || 175;
-
-            // Calculate bars based on duration and BPM
-            const durationSeconds = audioBuffer.duration;
-            const bars = (durationSeconds * fileBpm) / 240;
-
-            const clip = {
-              id: crypto.randomUUID(),
-              type: "audio",
-              loopId: null, // Pack files don't use loopId
-              audioBuffer: audioBuffer,
-              trackIndex,
-              startBar,
-              bars,
-              bpm: fileBpm,
-              fileName: loop.fileName,
-              startOffset: 0,
-              durationSeconds,
-              originalBars: bars
-            };
-
-            window.clips.push(clip);
-            resolveClipCollisions(clip);
-            window.activeClip = clip;
-            const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
-            window.refreshClipDropdown(uniqueClips);
-
-            drop.innerHTML = "";
-            window.clips
-              .filter(c => c.trackIndex === trackIndex)
-              .forEach(c => window.renderClip(c, drop));
-
-            return;
-          }
-
-          // DROPBOX AUDIO LOOP (existing system)
+        window.showLoadingBar(`Loading ${loop.displayName || loop.id}...`);
+        window.updateLoadingBar(20);
+        
         await window.loadLoop(loop.id, loop.url, loop.bpm);
+        window.updateLoadingBar(80);
+        
         const loopData = window.loopBuffers.get(loop.id);
 
         const bars = loopData ? loopData.bars : 1;
@@ -799,6 +813,9 @@ if (loop.url) {
         window.clips.push(clip);
         resolveClipCollisions(clip);
         window.activeClip = clip;  // Set as active immediately after creation
+        
+        window.updateLoadingBar(100);
+        
         const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
         window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
 
@@ -807,6 +824,7 @@ if (loop.url) {
           .filter(c => c.trackIndex === trackIndex)
           .forEach(c => window.renderClip(c, drop));
 
+        window.hideLoadingBar();
         return;
       }
     }
@@ -904,7 +922,7 @@ function renderGrid() {
   grids.forEach(grid => {
     grid.innerHTML = "";
 
-    const totalWidth = totalBars * window.PIXELS_PER_BAR;
+    const totalWidth = (totalBars * window.PIXELS_PER_BAR)/2;
     grid.style.width = totalWidth + "px";
 
     const trackHeight = grid.parentElement.offsetHeight;
@@ -940,6 +958,22 @@ function renderGrid() {
           (q * quarter) +
           "px";
         grid.appendChild(sub);
+      }
+
+      // 1-bar guide line
+      if (i % 4 === 0) {
+        const onebar = document.createElement("div");
+        onebar.className = "grid-onebar";
+        onebar.style.left = (i * window.PIXELS_PER_BAR) + "px";
+        grid.appendChild(onebar);
+      }
+
+            // 4-bar guide line
+      if (i % 16 === 0) {
+        const fourBar = document.createElement("div");
+        fourBar.className = "grid-fourbar";
+        fourBar.style.left = (i * window.PIXELS_PER_BAR) + "px";
+        grid.appendChild(fourBar);
       }
     }
 
@@ -2043,29 +2077,8 @@ window.calculateBarsFromAudio = function (audioBuffer, bpm) {
 };
 
 function resolveClipCollisions(newClip) {
-  const newStart = newClip.startBar;
-  const newEnd = newClip.startBar + newClip.bars;
-
-  for (const clip of window.clips) {
-    if (clip.id === newClip.id) continue;
-    if (clip.trackIndex !== newClip.trackIndex) continue;
-
-    const clipStart = clip.startBar;
-    const clipEnd = clip.startBar + clip.bars;
-
-    // Skip trimming MIDI clips
-    if (clip.type === "midi") continue;
-
-    // Only care if existing clip starts before new clip and overlaps its start
-    if (clipStart < newStart && clipEnd > newStart) {
-      const newLengthBars = newStart - clipStart;
-      clip.bars = Math.max(1, newLengthBars);
-
-      // Update durationSeconds to match new bar length
-      const barDuration = window.barsToSeconds(1);
-      clip.durationSeconds = clip.bars * barDuration;
-    }
-  }
+  // Allow overlapping clips without auto-trim
+  return;
 }
 
 

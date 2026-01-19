@@ -1,224 +1,156 @@
-let basicMidiClip = null;
+// ---------------------------------------------
+// 1. MANUAL FOLDER DEFINITIONS (supports nesting)
+// ---------------------------------------------
+// window.LOOP_FOLDERS = { ... };
 
-// 2. Ensure otherLoops is a valid array
-const otherLoops = Array.isArray(window.otherLoops) ? window.otherLoops : [];
 
-// 3. Define populateSidebar
-// Helper function to render pack folders recursively
-function renderPackFolder(folderData, level = 0) {
-  const folderDiv = document.createElement("div");
-  folderDiv.className = "pack-folder";
-  folderDiv.style.paddingLeft = `${level * 6}px`;
+// ---------------------------------------------
+// 2. RENDERING HELPERS (recursive folder renderer)
+// ---------------------------------------------
+function renderFolder(container, name, content, loops) {
+  const header = document.createElement("div");
+  header.className = "loop-folder";
+  header.textContent = name;
 
-  const folderHeader = document.createElement("div");
-  folderHeader.className = "pack-folder-header";
-  folderHeader.innerHTML = `<span class="folder-icon">📁</span> ${folderData.name}`;
-  
-  const folderContent = document.createElement("div");
-  folderContent.className = "pack-folder-content";
-  folderContent.style.display = "none"; // Collapsed by default
+  const body = document.createElement("div");
+  body.className = "loop-folder-content hidden";
 
-  // Toggle folder on click
-  folderHeader.addEventListener("click", () => {
-    const isOpen = folderContent.style.display !== "none";
-    folderContent.style.display = isOpen ? "none" : "block";
-    folderHeader.querySelector(".folder-icon").textContent = isOpen ? "📁" : "📂";
-  });
-
-  // Render children (subfolders and files)
-  if (folderData.children && folderData.children.length > 0) {
-    folderData.children.forEach(child => {
-      if (child.type === "folder") {
-        folderContent.appendChild(renderPackFolder(child, level + 1));
-      } else if (child.type === "audio" || child.type === "midi") {
-        const fileItem = renderPackFile(child, level + 1);
-        folderContent.appendChild(fileItem);
+  header.addEventListener("click", () => {
+    Array.from(header.parentElement.children).forEach(el => {
+      if (el !== body && el.classList.contains("loop-folder-content")) {
+        el.classList.add("hidden");
+      }
+      if (el !== header && el.classList.contains("loop-folder")) {
+        el.classList.remove("open");
       }
     });
-  }
 
-  folderDiv.appendChild(folderHeader);
-  folderDiv.appendChild(folderContent);
-  return folderDiv;
-}
-
-// Helper function to render pack files (audio/midi)
-function renderPackFile(fileData, level = 0) {
-  const item = document.createElement("div");
-  item.className = "loop-item";
-  item.classList.add(fileData.type === "audio" ? "audio-loop" : "midi-loop");
-  item.draggable = true;
-  item.style.paddingLeft = `${level * 6}px`;
-
-  // Display just the filename
-  item.textContent = fileData.name;
-
-  // Set up drag data
-  item.addEventListener("dragstart", () => {
-    const rawPath = `assets/packs/${fileData.path}`;
-    // Encode spaces and special chars (#, parentheses) for fetch
-    const encodedPath = encodeURI(rawPath).replace(/#/g, "%23");
-
-    if (fileData.type === "audio") {
-      window.draggedLoop = {
-        type: "audio",
-        packFile: true,
-        path: encodedPath,
-        rawPath,
-        fileName: fileData.name
-      };
-    } else if (fileData.type === "midi") {
-      window.draggedLoop = {
-        type: "midi",
-        packFile: true,
-        path: encodedPath,
-        rawPath,
-        fileName: fileData.name
-      };
-    }
+    body.classList.toggle("hidden");
+    header.classList.toggle("open");
   });
 
-  item.addEventListener("dragend", () => {
-    window.draggedLoop = null;
-  });
+  container.appendChild(header);
+  container.appendChild(body);
 
-  return item;
-}
+  // Array = list of loopIds
+  if (Array.isArray(content)) {
+    content.forEach(loopId => {
+      const loop = loops[loopId];
+      if (!loop) return;
 
-// Define populateSidebar
-window.populateSidebar = function(loops) {
-  const container = document.getElementById("sidebar-loops");
-  container.innerHTML = "";
+      const item = document.createElement("div");
+      item.className = "loop-item";
+      item.title = loop.displayName || loop.id;
 
-  loops.forEach(loop => {
-    const item = document.createElement("div");
-    item.className = "loop-item";
-    item.draggable = true;
+      item.draggable = true;
 
-    if (loop.type === "audio") {
-      // AUDIO LOOP
-      item.classList.add("audio-loop");
-      item.textContent = `${loop.displayName || loop.id} (${loop.bars} bars, ${loop.bpm} bpm)`;
+      if (loop.type === "audio") {
+        item.classList.add("audio-loop");
+        item.textContent = `${loop.displayName} (${loop.bpm} bpm)`;
 
-      item.addEventListener("dragstart", () => {
-        window.draggedLoop = {
-          type: "audio",
-          id: loop.id,
-          url: loop.url,
-          bpm: loop.bpm,
-          bars: loop.bars
-        };
-      });
-
-    } else if (loop.type === "midi") {
-      // MIDI LOOP (lazy-loaded)
-      item.classList.add("midi-loop");
-      item.textContent = `${loop.displayName || loop.id} (MIDI)`;
-
-      item.addEventListener("dragstart", () => {
-        // Built-in MIDI clip has notes → use them
-        if (loop.notes) {
+        item.addEventListener("dragstart", () => {
           window.draggedLoop = {
-            type: "midi",
+            type: "audio",
             id: loop.id,
-            notes: JSON.parse(JSON.stringify(loop.notes)),
+            url: loop.url,
+            bpm: loop.bpm,
             bars: loop.bars
           };
-        } else {
-          // Dropbox MIDI → lazy-load on drop
+        });
+      }
+
+      if (loop.type === "midi") {
+        item.classList.add("midi-loop");
+        item.textContent = `${loop.displayName} (MIDI)`;
+
+        item.addEventListener("dragstart", () => {
           window.draggedLoop = {
             type: "midi",
             id: loop.id,
             url: loop.url,
             displayName: loop.displayName
           };
-        }
+        });
+      }
+
+      item.addEventListener("dragend", () => {
+        window.draggedLoop = null;
       });
-    }
 
-    item.addEventListener("dragend", () => {
-      window.draggedLoop = null;
+      body.appendChild(item);
     });
+  }
 
-    container.appendChild(item);
-  });
+  // Object = nested folders
+  else if (typeof content === "object") {
+    Object.keys(content).forEach(subName => {
+      renderFolder(body, subName, content[subName], loops);
+    });
+  }
+}
+
+
+
+// ---------------------------------------------
+// 3. SIDEBAR POPULATION
+// ---------------------------------------------
+window.populateSidebar = function() {
+  console.log("MIDI_LOOPS:", window.MIDI_LOOPS);
+console.log("DROPBOX_LOOP_MAP:", window.DROPBOX_LOOP_MAP);
+console.log("LOOP_FOLDERS:", window.LOOP_FOLDERS);
+
+
+  const container = document.getElementById("sidebar-loops");
+  container.innerHTML = "";
+
+  const loops = window.DROPBOX_LOOP_MAP || {};
+
+  if (window.LOOP_FOLDERS) {
+    Object.keys(window.LOOP_FOLDERS).forEach(folderName => {
+      renderFolder(container, folderName, window.LOOP_FOLDERS[folderName], loops);
+    });
+  }
 };
 
-
+// ---------------------------------------------
+// 4. INIT
+// ---------------------------------------------
 
 window.addEventListener("DOMContentLoaded", () => {
 
-  // ----------------------------------------------------
-  // 1. Load AUDIO LOOPS (old system)
-  // ----------------------------------------------------
   window.DROPBOX_LOOP_MAP = {};
 
   window.DROPBOX_LOOPS.forEach(url => {
-    const filename = url.split("/").pop().split("?")[0];
-    const meta = parseLoopMetadata(filename);
+    const filename = decodeURIComponent(url.split("/").pop().split("?")[0]);
 
-    if (!meta || !meta.loopId) return;
 
-    window.DROPBOX_LOOP_MAP[meta.loopId] = {
-      id: meta.loopId,
-      url: url,
-      bpm: meta.bpm,
-      bars: meta.bars,
-      displayName: meta.displayName,
-      type: "audio"
-    };
+    // AUDIO (.wav)
+    if (filename.toLowerCase().endsWith(".wav")) {
+      const meta = parseLoopMetadata(filename);
+      if (!meta || !meta.loopId) return;
+
+      window.DROPBOX_LOOP_MAP[meta.loopId] = {
+        id: meta.loopId,
+        url,
+        bpm: meta.bpm,
+        bars: meta.bars,
+        displayName: meta.displayName,
+        type: "audio"
+      };
+    }
+
+    // MIDI (.mid)
+    else if (filename.toLowerCase().endsWith(".mid")) {
+      const id = filename.replace(".mid", "");
+
+      window.DROPBOX_LOOP_MAP[id] = {
+        id,
+        url,
+        displayName: id,
+        type: "midi"
+      };
+    }
   });
 
-  const audioLoops = Object.values(window.DROPBOX_LOOP_MAP);
-
-  // ----------------------------------------------------
-  // 2. MIDI METADATA (lazy-loaded on drop)
-  // ----------------------------------------------------
-  const midiLoops = Array.isArray(window.MIDI_LOOPS) ? window.MIDI_LOOPS : [];
-
-  // ----------------------------------------------------
-  // 3. Built-in MIDI clip (optional, pre-baked)
-  // ----------------------------------------------------
-  basicMidiClip = {
-    id: "basic-midi-clip",
-    type: "midi",
-    displayName: "Basic MIDI Clip (C4 x4)",
-    bars: 1,
-    // you can keep notes here if you want this one pre-defined
-    notes: [
-      { pitch: 60, start: 0, end: 0.5 },
-      { pitch: 60, start: 1, end: 1.5 },
-      { pitch: 64, start: 2, end: 2.5 },
-      { pitch: 67, start: 3, end: 3.5 }
-    ]
-  };
-
-  // ----------------------------------------------------
-  // 4. FINAL unified sidebar population (metadata only)
-  // ----------------------------------------------------
-  window.populateSidebar([
-    basicMidiClip,
-    ...midiLoops,
-    ...audioLoops
-  ]);
-
-    // ----------------------------------------------------
-    // 5. Add PACKS section (from assets/packs.js)
-    // ----------------------------------------------------
-    if (window.PACKS && window.PACKS.length > 0) {
-      const container = document.getElementById("sidebar-loops");
-    
-      // Add a separator
-      const separator = document.createElement("div");
-      separator.className = "sidebar-separator";
-      separator.textContent = "— PACKS —";
-      container.appendChild(separator);
-
-      // Render each pack
-      window.PACKS.forEach(pack => {
-        if (pack.type === "folder") {
-          container.appendChild(renderPackFolder(pack, 0));
-        }
-      });
-    }
+  window.populateSidebar();
 });

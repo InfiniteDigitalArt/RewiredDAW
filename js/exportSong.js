@@ -7,6 +7,10 @@ const EXPORT_START_OFFSET = 0.05;
 
 
 window.exportSong = async function() {
+  // Show loading bar
+  window.showLoadingBar("Exporting...");
+  window.updateLoadingBar(5, "Finding clips...");
+
   // ------------------------------------------------------
   // 1. Find the last bar in the song
   // ------------------------------------------------------
@@ -21,8 +25,11 @@ window.clips.forEach(clip => {
 
   if (lastBar === 0) {
     alert("No clips to export.");
+    window.hideLoadingBar();
     return;
   }
+
+  window.updateLoadingBar(15, "Setting up audio context...");
 
   // ------------------------------------------------------
   // 2. Convert bars → seconds
@@ -184,18 +191,30 @@ const synth = new BasicSawSynthForContext(
   // ------------------------------------------------------
   // 6. Render the full mix
   // ------------------------------------------------------
+  window.updateLoadingBar(75, "Rendering audio...");
   const renderedBuffer = await offline.startRendering();
+
+  window.updateLoadingBar(90, "Normalizing...");
 
   // ------------------------------------------------------
   // 7. Final normalization to -1 dB
   // ------------------------------------------------------
   normalizeToMinus1dB(renderedBuffer);
 
+  window.updateLoadingBar(95, "Converting to WAV...");
+
   // ------------------------------------------------------
   // 8. Convert to WAV and download
   // ------------------------------------------------------
   const wavBlob = bufferToWavBlob(renderedBuffer);
   triggerDownload(wavBlob, "rewired_export.wav");
+  
+  window.updateLoadingBar(100, "Complete!");
+  
+  // Hide after a brief delay so user sees "Complete!"
+  setTimeout(() => {
+    window.hideLoadingBar();
+  }, 500);
 };
 
 
