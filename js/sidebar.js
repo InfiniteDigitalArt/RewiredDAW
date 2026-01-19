@@ -364,6 +364,40 @@ async function showMidiPreview(loop) {
   }
 }
 
+// Show empty MIDI preview
+function showEmptyMidiPreview() {
+  const midiContainer = document.getElementById("midi-preview");
+  const filenameEl = midiContainer.querySelector(".audio-preview-filename");
+  const canvas = document.getElementById("midi-preview-canvas");
+
+  // Stop both audio and MIDI previews
+  stopAudioPreview({ hidePlayhead: true, clearPending: true });
+  stopMidiPreview({ hidePlayhead: true, clearPending: true });
+  
+  // Hide audio preview
+  const audioContainer = document.getElementById("audio-preview");
+  if (audioContainer) audioContainer.classList.add("hidden");
+  
+  midiPreviewState.pendingLoopId = "empty-midi";
+  midiPreviewState.currentLoopId = "empty-midi";
+  
+  // Show container and update filename
+  midiContainer.classList.remove("hidden");
+  filenameEl.textContent = "New MIDI Clip";
+  
+  // Draw empty piano roll
+  midiPreviewState.notes = [];
+  midiPreviewState.duration = 4; // 4 seconds = 1 bar at 120 BPM
+  
+  drawMidiNotes(canvas, [], 4);
+  
+  const playheadEl = document.getElementById("midi-preview-playhead");
+  if (playheadEl) {
+    playheadEl.style.transform = "translateX(0px)";
+    playheadEl.classList.add("hidden");
+  }
+}
+
 function drawWaveform(canvas, audioBuffer) {
   const ctx = canvas.getContext("2d");
   const width = canvas.width = canvas.offsetWidth;
@@ -613,6 +647,46 @@ console.log("LOOP_FOLDERS:", window.LOOP_FOLDERS);
 
   const container = document.getElementById("sidebar-loops");
   container.innerHTML = "";
+
+  // Add Browser header
+  const browserHeader = document.createElement("div");
+  browserHeader.className = "browser-header";
+  browserHeader.textContent = "Browser";
+  container.appendChild(browserHeader);
+
+  // Add separator
+  const separator = document.createElement("div");
+  separator.className = "browser-separator";
+  container.appendChild(separator);
+
+  // Add Empty MIDI item at the top
+  const emptyMidiItem = document.createElement("div");
+  emptyMidiItem.className = "loop-item midi-loop";
+  emptyMidiItem.textContent = "New MIDI Clip";
+  emptyMidiItem.title = "Drag to create an empty MIDI clip";
+  emptyMidiItem.draggable = true;
+
+  emptyMidiItem.addEventListener("dragstart", () => {
+    window.draggedLoop = {
+      type: "midi",
+      id: "empty-midi",
+      displayName: "New MIDI Clip",
+      notes: [],
+      bars: 1
+    };
+  });
+
+  emptyMidiItem.addEventListener("dragend", () => {
+    window.draggedLoop = null;
+  });
+
+  // Add click handler for empty MIDI preview (shows empty piano roll)
+  emptyMidiItem.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showEmptyMidiPreview();
+  });
+
+  container.appendChild(emptyMidiItem);
 
   const loops = window.DROPBOX_LOOP_MAP || {};
 

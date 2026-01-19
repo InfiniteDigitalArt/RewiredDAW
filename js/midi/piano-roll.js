@@ -29,6 +29,8 @@ const maxRowHeight = 48;
 let canvas, ctx;
 let activeClip = null;
 let currentTool = 'pencil'; // Track selected tool: 'pencil', 'select', or 'slice'
+let toolBeforeCtrl = null; // Remember tool before Ctrl was pressed
+let isCtrlHeld = false; // Track if Ctrl is currently held
 
 
 
@@ -140,6 +142,41 @@ window.initPianoRoll = function () {
     });
   });
 
+
+  // Ctrl key detection for temporary box select mode
+  window.addEventListener('keydown', function(e) {
+    // Ctrl key temporarily switches to select tool
+    if ((e.key === 'Control' || e.ctrlKey) && !isCtrlHeld && currentTool !== 'select') {
+      isCtrlHeld = true;
+      toolBeforeCtrl = currentTool;
+      currentTool = 'select';
+      
+      // Update UI to show select tool is active
+      const toolButtons = Array.from(document.querySelectorAll('.piano-roll-tool-btn')).filter(btn => btn.id !== 'piano-roll-magnet-toggle');
+      toolButtons.forEach(b => b.classList.remove('active'));
+      if (toolButtons[1]) { // Select tool is second button
+        toolButtons[1].classList.add('active');
+      }
+    }
+  });
+
+  window.addEventListener('keyup', function(e) {
+    // Release Ctrl key switches back to previous tool
+    if ((e.key === 'Control' || !e.ctrlKey) && isCtrlHeld && toolBeforeCtrl) {
+      isCtrlHeld = false;
+      currentTool = toolBeforeCtrl;
+      toolBeforeCtrl = null;
+      
+      // Update UI to show previous tool is active
+      const toolButtons = Array.from(document.querySelectorAll('.piano-roll-tool-btn')).filter(btn => btn.id !== 'piano-roll-magnet-toggle');
+      toolButtons.forEach(b => b.classList.remove('active'));
+      const tools = ['pencil', 'select', 'slice'];
+      const toolIndex = tools.indexOf(currentTool);
+      if (toolButtons[toolIndex]) {
+        toolButtons[toolIndex].classList.add('active');
+      }
+    }
+  });
 
   // Keyboard Delete key removes selected notes
   window.addEventListener('keydown', function(e) {
@@ -741,6 +778,7 @@ let duplicatingSelection = false;
 let duplicatedNotes = [];
 let duplicateOriginMap = new Map();
 let selectionStartPositions = new Map();
+let temporaryBoxSelectMode = false;
 
 // Right-click deletion state
 let isDeletingWithRightClick = false;
@@ -860,6 +898,22 @@ if (beat < 0) return; // optional, but NO pianoWidth check
         start: orig.start,
         end: orig.end,
         pitch: orig.pitch
+      });
+    });
+    return;
+  }
+
+  // Pencil mode: Click on selected note to move selection (without Shift or Ctrl)
+  if (currentTool === 'pencil' && e.button === 0 && !e.shiftKey && !e.ctrlKey && selectedNotes.length > 0 && clicked && selectedNotes.includes(clicked.note)) {
+    movingSelection = true;
+    moveStartX = x;
+    moveStartBeat = beat;
+    selectionStartPositions.clear();
+    selectedNotes.forEach(note => {
+      selectionStartPositions.set(note, {
+        start: note.start,
+        end: note.end,
+        pitch: note.pitch
       });
     });
     return;
@@ -995,24 +1049,35 @@ function onMouseMove(e) {
   // ---------------------------------------------
   // 0. DRAWING SELECTION BOX
   // ---------------------------------------------
-  if (selectBoxStart && currentTool === 'select') {
+  if (selectBoxStart && (currentTool === 'select' || temporaryBoxSelectMode)) {
     selectBoxCurrent = { x, y };
     renderPianoRoll();
     return;
   }
 
   // ---------------------------------------------
-  // 0b. MOVING SELECTED NOTES (in select mode or duplicating in pencil mode)
+  // 0b. MOVING SELECTED NOTES (in select mode or duplicating in pencil mode, or Ctrl+drag move)
   // ---------------------------------------------
-  // --- FIX: Only allow moving selection in pencil mode (with duplication), not in select mode ---
-  if (movingSelection && currentTool === 'pencil' && duplicatingSelection) {
+  if (movingSelection && (currentTool === 'select' || (currentTool === 'pencil' && (duplicatingSelection || selectionStartPositions.size > 0)))) {
     const deltaBeats = (x - moveStartX) / pxPerBeat;
     const snapped = Math.round(deltaBeats / snap) * snap;
     // use global rowHeight
     const currentPitch = pitchMax - Math.floor(y / rowHeight);
-    // In pencil mode, use the difference from the original pitch of the first selected note
-    const orig = duplicateOriginMap.get(duplicatedNotes[0]);
-    const pitchDelta = currentPitch - orig.pitch;
+    
+    let pitchDelta;
+    if (duplicatingSelection) {
+      // In duplication mode, use the difference from the original pitch of the first duplicated note
+      const orig = duplicateOriginMap.get(duplicatedNotes[0]);
+      pitchDelta = currentPitch - orig.pitch;
+    } else {
+      // In move mode (select tool or Ctrl+drag), use moveStartBeat to find the reference note
+      const firstNote = selectedNotes[0];
+      const firstOriginal = selectionStartPositions.get(firstNote);
+      if (firstOriginal) {
+        pitchDelta = currentPitch - firstOriginal.pitch;
+      }
+    }
+    
     selectedNotes.forEach(note => {
       const original = selectionStartPositions.get(note);
       if (original) {
@@ -1038,7 +1103,7 @@ function onMouseMove(e) {
     let deltaBeats = (x - resizeStartX) / pxPerBeat;
     let snapped;
     let minSize;
-    if (e.shiftKey) {
+    if (e.altKey) {
       snapped = deltaBeats;
       minSize = 0.01; // allow very small notes when shift is held
     } else {
@@ -1220,7 +1285,7 @@ if (needsRedraw) renderPianoRoll();
 
 function onMouseUp() {
   // Finalize selection box
-  if (selectBoxStart && selectBoxCurrent && currentTool === 'select') {
+  if (selectBoxStart && selectBoxCurrent && (currentTool === 'select' || temporaryBoxSelectMode)) {
     const minX = Math.min(selectBoxStart.x, selectBoxCurrent.x);
     const maxX = Math.max(selectBoxStart.x, selectBoxCurrent.x);
     const minY = Math.min(selectBoxStart.y, selectBoxCurrent.y);
@@ -1248,6 +1313,7 @@ function onMouseUp() {
     
     selectBoxStart = null;
     selectBoxCurrent = null;
+    temporaryBoxSelectMode = false;
     renderPianoRoll();
   }
 
@@ -1273,6 +1339,7 @@ function onMouseUp() {
   movingNote = null;
   movingSelection = false;
   isDeletingWithRightClick = false;
+  temporaryBoxSelectMode = false;
 }
 
 // ======================================================

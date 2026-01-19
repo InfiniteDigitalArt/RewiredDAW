@@ -75,3 +75,32 @@ function generateMidiClipName() {
   window.midiClipCounter++;
   return `MIDI Clip ${num}`;
 }
+
+// Generate unique name for New MIDI Clip with auto-numbering
+function generateUniqueNewMidiClipName(baseName) {
+  // Check if baseName already exists
+  const existingNames = window.clips
+    .filter(c => c.type === "midi" && c.name)
+    .map(c => c.name);
+  
+  if (!existingNames.includes(baseName)) {
+    return baseName;
+  }
+  
+  // Find the highest number used
+  let maxNum = 0;
+  const pattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #(\\d+)$`);
+  
+  existingNames.forEach(name => {
+    if (name === baseName) {
+      maxNum = Math.max(maxNum, 0);
+    }
+    const match = name.match(pattern);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      maxNum = Math.max(maxNum, num);
+    }
+  });
+  
+  return `${baseName} #${maxNum + 1}`;
+}

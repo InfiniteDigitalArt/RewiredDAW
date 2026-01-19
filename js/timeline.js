@@ -746,7 +746,12 @@ if (loop.notes) {
     clip.notes = JSON.parse(JSON.stringify(loop.notes));
     clip.sampleBuffer = window.defaultMidiSampleBuffer;
     clip.sampleName = window.defaultMidiSampleName;
-    clip.name = loop.displayName || generateMidiClipName();
+    // Use unique name generator for "New MIDI Clip"
+    if (loop.displayName === "New MIDI Clip") {
+      clip.name = generateUniqueNewMidiClipName("New MIDI Clip");
+    } else {
+      clip.name = loop.displayName || generateMidiClipName();
+    }
     window.clips.push(clip);
     resolveClipCollisions(clip);
     window.activeClip = clip;
