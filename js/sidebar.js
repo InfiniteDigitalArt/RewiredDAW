@@ -7,6 +7,110 @@
 // ---------------------------------------------
 // 2. RENDERING HELPERS (recursive folder renderer)
 // ---------------------------------------------
+
+// Show audio preview with waveform
+async function showAudioPreview(loop) {
+  const previewContainer = document.getElementById("audio-preview");
+  const filenameEl = previewContainer.querySelector(".audio-preview-filename");
+  const canvas = document.getElementById("audio-preview-canvas");
+  
+  // Show container and update filename
+  previewContainer.classList.remove("hidden");
+  filenameEl.textContent = loop.displayName;
+  
+  // Draw waveform
+  try {
+    // Fetch and decode audio
+    const response = await fetch(loop.url);
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await window.audioContext.decodeAudioData(arrayBuffer);
+    
+    // Draw waveform on canvas
+    drawWaveform(canvas, audioBuffer);
+  } catch (error) {
+    console.error("Error loading audio for preview:", error);
+    filenameEl.textContent = `${loop.displayName} (Error loading)`;
+  }
+}
+
+function drawWaveform(canvas, audioBuffer) {
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width = canvas.offsetWidth;
+  const height = canvas.height = canvas.offsetHeight;
+  
+  // Clear canvas
+  ctx.fillStyle = "#0f0f12";
+  ctx.fillRect(0, 0, width, height);
+  
+  // Get channel data
+  const channelData = audioBuffer.getChannelData(0);
+  const step = Math.max(1, Math.floor(channelData.length / width));
+  const amp = height / 2;
+  
+  // Find peak value for normalization
+  let peakValue = 0;
+  for (let i = 0; i < channelData.length; i++) {
+    const absValue = Math.abs(channelData[i]);
+    if (absValue > peakValue) peakValue = absValue;
+  }
+  
+  // Avoid division by zero
+  const normalizationFactor = peakValue > 0 ? 1 / peakValue : 1;
+  
+  // Create vertical gradient for waveform
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, "#ff3380");    // Pink at top
+  gradient.addColorStop(0.5, "#ac2257");  // Purple in middle
+  gradient.addColorStop(1, "#5e122f");    // Blue at bottom
+  
+  ctx.fillStyle = gradient;
+  
+  for (let i = 0; i < width; i++) {
+    let min = 1.0;
+    let max = -1.0;
+    
+    const start = i * step;
+    const end = Math.min(channelData.length, start + step);
+    
+    for (let j = start; j < end; j++) {
+      const v = channelData[j] * normalizationFactor;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    
+    ctx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+  }
+  
+  // Add subtle glow effect
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = "rgba(153, 69, 255, 0.3)";
+  
+  // Redraw with glow (lighter pass)
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = 0.4;
+  
+  for (let i = 0; i < width; i++) {
+    let min = 1.0;
+    let max = -1.0;
+    
+    const start = i * step;
+    const end = Math.min(channelData.length, start + step);
+    
+    for (let j = start; j < end; j++) {
+      const v = channelData[j] * normalizationFactor;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    
+    ctx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+  }
+  
+  // Reset composite mode
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1.0;
+  ctx.shadowBlur = 0;
+}
+
 function renderFolder(container, name, content, loops) {
   const header = document.createElement("div");
   header.className = "loop-folder";
@@ -56,6 +160,12 @@ function renderFolder(container, name, content, loops) {
             bpm: loop.bpm,
             bars: loop.bars
           };
+        });
+
+        // Add click handler for audio preview
+        item.addEventListener("click", (e) => {
+          e.stopPropagation();
+          showAudioPreview(loop);
         });
       }
 
