@@ -159,7 +159,28 @@ window.DROPBOX_LOOPS = [
   "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Bass_Fmajor_175bpm.wav",
   "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Melody1_Fmajor_175bpm.wav",
   "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Melody2_Fmajor_175bpm.wav",
-  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Pads_Fmajor_175bpm.wav"
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Construction%20Kits/3.%20Infinite%20-%20Listen%20(F%20Major%20-%20175bpm)/Wavs/RRML1_Song3_Pads_Fmajor_175bpm.wav",
+  //Clap Loops//
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Claps/RRML1_Clap_1_160bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Claps/RRML1_Clap_2_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Claps/RRML1_Clap_3_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Claps/RRML1_Clap_4_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Claps/RRML1_Clap_5_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Claps/RRML1_Clap_6_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Claps/RRML1_Clap_7_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Claps/RRML1_Clap_8_165bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Claps/RRML1_Clap_9_165bpm.wav",
+  //Snare Loops//
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Snares/RRML1_Snare_Build_1_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Snares/RRML1_Snare_Build_2_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Snares/RRML1_Snare_Build_3_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Snares/RRML1_Snare_Build_4_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Snares/RRML1_Snare_Build_5_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Snares/RRML1_Snare_Build_6_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Snares/RRML1_Snare_Build_7_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Snares/RRML1_Snare_Build_8_175bpm.wav",
+  "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Loops/Drum%20Loops/Snares/RRML1_Snare_Build_9_175bpm.wav"
+
 
   
 
@@ -188,8 +209,28 @@ window.LOOP_FOLDERS = {
     "RRML1_Kick_14_175bpm",
     "RRML1_Kick_15_175bpm"
   ],
-
-
+  "Claps": [
+  "RRML1_Clap_1_160bpm",
+  "RRML1_Clap_2_165bpm",
+  "RRML1_Clap_3_165bpm",
+  "RRML1_Clap_4_165bpm",
+  "RRML1_Clap_5_165bpm",
+  "RRML1_Clap_6_165bpm",
+  "RRML1_Clap_7_165bpm",
+  "RRML1_Clap_8_165bpm",
+  "RRML1_Clap_9_165bpm"
+  ],
+  "Snare Builds": [
+    "RRML1_Snare_Build_1_175bpm",
+  "RRML1_Snare_Build_2_175bpm",
+  "RRML1_Snare_Build_3_175bpm",
+  "RRML1_Snare_Build_4_175bpm",
+  "RRML1_Snare_Build_5_175bpm",
+  "RRML1_Snare_Build_6_175bpm",
+  "RRML1_Snare_Build_7_175bpm",
+  "RRML1_Snare_Build_8_175bpm",
+  "RRML1_Snare_Build_9_175bpm"
+  ],  
   "Percussion": [
     "RRML1_Perc_Loop_1_175bpm",
     "RRML1_Perc_Loop_2_175bpm",
