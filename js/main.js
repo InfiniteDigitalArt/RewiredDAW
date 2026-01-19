@@ -281,6 +281,9 @@ function updateMeters() {
 updateMeters();
 
 async function saveProjectZip() {
+  window.showLoadingBar("Saving project...");
+  window.updateLoadingBar(5);
+
   const zip = new JSZip();
 
   // Folder for audio files
@@ -305,6 +308,7 @@ async function saveProjectZip() {
   }
 
   const serializedClips = [];
+  window.updateLoadingBar(20, "Processing clips...");
 
   for (const clip of window.clips) {
 
@@ -393,8 +397,11 @@ async function saveProjectZip() {
   // ----------------------------------------------------
   // 2. PROJECT JSON
   // ----------------------------------------------------
+  window.updateLoadingBar(70, "Creating archive...");
+  
   const project = {
     tempo: Number(document.getElementById("tempoSlider").value),
+    timelineBars: window.timelineBars,
     tracks,
     clips: serializedClips
   };
@@ -404,6 +411,8 @@ async function saveProjectZip() {
   // ----------------------------------------------------
   // 3. GENERATE ZIP (no compression)
   // ----------------------------------------------------
+  window.updateLoadingBar(85, "Finalizing...");
+  
   const blob = await zip.generateAsync({
     type: "blob",
     compression: "STORE"
@@ -412,17 +421,25 @@ async function saveProjectZip() {
   // ----------------------------------------------------
   // 4. DOWNLOAD
   // ----------------------------------------------------
+  window.updateLoadingBar(95);
+  
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = "rewired_project.zip";
   a.click();
   URL.revokeObjectURL(url);
+  
+  window.updateLoadingBar(100);
+  window.hideLoadingBar();
 }
 
 
 
 async function loadProjectZip(json, zip) {
+  window.showLoadingBar("Loading project...");
+  window.updateLoadingBar(10);
+  
   stopAll();
   stopPlayhead();
 
@@ -440,6 +457,11 @@ async function loadProjectZip(json, zip) {
   
   window.setTempo(json.tempo);
 
+  // Restore timeline bars (defaults to 64 if not present for backwards compatibility)
+  window.timelineBars = json.timelineBars || 64;
+  
+  window.updateLoadingBar(30, "Building timeline...");
+
   // --- FIX: Remove any manual playhead/seekMarker offset on load ---
   // Ensure seekMarker and playhead are reset to bar 1 (x=0)
   const marker = document.getElementById("seekMarker");
@@ -455,6 +477,21 @@ async function loadProjectZip(json, zip) {
   window.clips = [];
   document.getElementById("tracks").innerHTML = "";
   initTimeline(); // builds 16 fresh tracks with correct knob values
+
+  // Update timeline widths based on loaded timelineBars
+  const trackMinWidth = window.timelineBars * window.PIXELS_PER_BAR;
+  const trackElements = document.querySelectorAll('.track');
+  trackElements.forEach(track => {
+    track.style.minWidth = trackMinWidth + 'px';
+  });
+  const dropAreas = document.querySelectorAll('.track-drop-area');
+  dropAreas.forEach(dropArea => {
+    dropArea.style.minWidth = trackMinWidth + 'px';
+  });
+  window.renderGrid();
+  window.renderTimelineBar(window.timelineBars);
+  
+  window.updateLoadingBar(40, "Loading clips...");
 
   // --- Remove redundant knob/pan sync here, timeline.js now handles it on init ---
   // ----------------------------------------------------
@@ -608,6 +645,9 @@ async function loadProjectZip(json, zip) {
       continue;
     }
   }
+  
+  window.updateLoadingBar(100);
+  window.hideLoadingBar();
 }
 
 
@@ -660,10 +700,14 @@ document.getElementById("projectFileInput").addEventListener("change", async fun
 
 
 
-window.renderTimelineBar = function(totalBars = 64) {
+window.renderTimelineBar = function(totalBars = 128) {
   const barWidth = window.PIXELS_PER_BAR;
   const container = document.getElementById("timeline-bar");
   container.innerHTML = "";
+  
+  // Update the timeline-bar min-width to match the total width
+  const timelineBarWidth = totalBars * barWidth + 156; // 156 is the padding-left
+  container.style.minWidth = timelineBarWidth + 'px';
 
 
 
