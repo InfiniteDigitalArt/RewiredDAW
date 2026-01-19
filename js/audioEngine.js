@@ -459,4 +459,3 @@ window.makeSmallReverbBuffer = function(ctx) {
   }
   return impulse;
 };
-
