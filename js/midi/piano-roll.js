@@ -538,12 +538,46 @@ function midiToNoteName(pitch) {
   return name + octave;
 }
 
+const SCALE_INTERVALS = {
+  chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  'C-major': [0, 2, 4, 5, 7, 9, 11],
+  'D-major': [2, 4, 6, 7, 9, 11, 1],
+  'E-major': [4, 6, 8, 9, 11, 1, 3],
+  'F-major': [5, 7, 9, 10, 0, 2, 4],
+  'G-major': [7, 9, 11, 0, 2, 4, 6],
+  'A-major': [9, 11, 1, 2, 4, 6, 8],
+  'B-major': [11, 1, 3, 4, 6, 8, 10],
+  'A-minor': [9, 11, 0, 2, 4, 5, 7],
+  'B-minor': [11, 1, 2, 4, 6, 7, 9],
+  'C-minor': [0, 2, 3, 5, 7, 8, 10],
+  'D-minor': [2, 4, 5, 7, 9, 10, 0],
+  'E-minor': [4, 6, 7, 9, 11, 0, 2],
+  'F-minor': [5, 7, 8, 10, 0, 1, 3],
+  'G-minor': [7, 9, 10, 0, 2, 3, 5]
+};
+
+let currentScale = 'chromatic';
+
+// ======================================================
+//  SCALE HELPER
+// ======================================================
+
+function isNoteInScale(pitch) {
+  const intervals = SCALE_INTERVALS[currentScale];
+  if (!intervals) return true; // chromatic
+
+  const pitchClass = pitch % 12;
+  return intervals.includes(pitchClass);
+}
+
 function drawGrid(ctx) {
   // use global rowHeight
   const styles = getComputedStyle(document.documentElement);
 
   const bgDark     = styles.getPropertyValue('--bg-panel');
   const bgLight    = styles.getPropertyValue('--bg-track-even');
+  const bgInScale  = styles.getPropertyValue('--bg-track-even')
+  const bgOutScale = styles.getPropertyValue('--bg-panel'); // darker red for out-of-scale
   const lineRegular = styles.getPropertyValue('--border-dark');
   const lineOctave  = styles.getPropertyValue('--border-light');
   const beatLine    = styles.getPropertyValue('--accent-beat');

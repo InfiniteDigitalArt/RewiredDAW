@@ -647,6 +647,73 @@ if (window.activeClip) {
   ------------------------- */
   if (loop.type === "midi") {
 
+      // PACK MIDI FILE (from assets/packs/)
+      if (loop.packFile && (loop.path || loop.url)) {
+        if (window.location.protocol === "file:") {
+          console.error("Pack MIDI fetch requires running the app over http/https (file:// cannot be fetched by browsers). Please start a local server, e.g. 'npx http-server .' or 'python -m http.server'.");
+          return;
+        }
+
+        // Try multiple path variants (raw + encoded) so we don't fail on encoding mismatches
+        const pathCandidates = [loop.rawPath, loop.path, loop.url].filter(Boolean);
+        let lastError = null;
+
+        for (const candidate of pathCandidates) {
+          try {
+            const fetchUrl = candidate.startsWith("http")
+              ? candidate
+              : new URL(candidate, window.location.href).toString();
+
+            const resp = await fetch(fetchUrl, { cache: "no-cache" });
+            if (!resp.ok) {
+              throw new Error(`HTTP ${resp.status} while fetching ${fetchUrl}`);
+            }
+
+            const arrayBuffer = await resp.arrayBuffer();
+            const midi = new Midi(new Uint8Array(arrayBuffer));
+
+            const notes = [];
+            const ppq = midi.header.ppq;
+            midi.tracks.forEach(track => {
+              track.notes.forEach(n => {
+                const startBeats = n.ticks / ppq;
+                const endBeats = (n.ticks + n.durationTicks) / ppq;
+                notes.push({ pitch: n.midi, start: startBeats, end: endBeats, velocity: n.velocity });
+              });
+            });
+
+            const maxEnd = notes.length > 0 ? Math.max(...notes.map(n => n.end)) : 1;
+            const bars = Math.ceil(maxEnd / 4);
+
+            const clip = new MidiClip(startBar, bars);
+            clip.trackIndex = trackIndex;
+            clip.notes = notes;
+            clip.sampleBuffer = window.defaultMidiSampleBuffer;
+            clip.sampleName = window.defaultMidiSampleName;
+            clip.name = loop.fileName || generateMidiClipName();
+
+            window.clips.push(clip);
+            resolveClipCollisions(clip);
+            window.activeClip = clip;
+            const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+            window.refreshClipDropdown(uniqueClips);
+
+            drop.innerHTML = "";
+            window.clips
+              .filter(c => c.trackIndex === trackIndex)
+              .forEach(c => window.renderClip(c, drop));
+
+            return; // success, stop trying fallbacks
+          } catch (err) {
+            lastError = err;
+            console.warn(`Pack MIDI fetch failed for ${candidate}:`, err);
+          }
+        }
+
+        console.error("Failed to load pack MIDI after trying all paths:", lastError);
+        return;
+      }
+
     // BUILT-IN MIDI CLIP (already has notes)
 if (loop.notes) {
   if (targetClip) {
@@ -1861,6 +1928,29 @@ el.appendChild(labelWrap);
 const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
 window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips at end of render
 
+/* -------------------------------------------------------
+   DROPDOWN TRIANGLE
+------------------------------------------------------- */
+const triangle = document.createElement("div");
+triangle.style.position = "absolute";
+triangle.style.top = "6px";
+triangle.style.left = "4px";
+triangle.style.width = "0";
+triangle.style.height = "0";
+triangle.style.borderLeft = "4px solid transparent";
+triangle.style.borderRight = "4px solid transparent";
+triangle.style.borderTop = "6px solid #fff";
+triangle.style.pointerEvents = "none";
+
+el.appendChild(triangle);
+
+// Adjust label left padding to account for triangle
+label.style.left = "14px";
+
+el.appendChild(triangle);
+
+// Adjust label left padding to account for triangle
+label.style.left = "14px";
 
 /* -------------------------------------------------------
    DRAGGABLE CLIP (child-safe)
