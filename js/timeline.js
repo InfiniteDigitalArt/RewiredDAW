@@ -650,12 +650,40 @@ if (window.activeClip) {
     // BUILT-IN MIDI CLIP (already has notes)
 if (loop.notes) {
   if (targetClip) {
-    // Replace notes in the existing MIDI clip
-    targetClip.notes = JSON.parse(JSON.stringify(loop.notes));
-    targetClip.bars = loop.bars;
-    targetClip.name = loop.displayName || generateMidiClipName();
-    window.activeClip = targetClip;
-    resolveClipCollisions(targetClip);
+    const newNotes = JSON.parse(JSON.stringify(loop.notes));
+    const newBars = loop.bars;
+    const newName = loop.displayName || generateMidiClipName();
+
+    const replacedIds = [];
+    const targetName = targetClip.name;
+
+    window.clips.forEach(c => {
+      if (c.type === "midi" && (c === targetClip || c.name === targetName)) {
+        c.notes = JSON.parse(JSON.stringify(newNotes));
+        c.bars = newBars;
+        c.name = newName;
+        replacedIds.push(c.id);
+        resolveClipCollisions(c);
+      }
+    });
+
+    // Update active clip if linked
+    if (window.activeClip && replacedIds.includes(window.activeClip.id)) {
+      const realActive = window.clips.find(c => c.id === window.activeClip.id);
+      if (realActive) {
+        window.activeClip = realActive;
+        if (typeof window.renderPianoRoll === "function") {
+          window.renderPianoRoll(realActive);
+        }
+      }
+    } else if (window.activeClip && window.activeClip.name === targetName) {
+      window.activeClip.notes = JSON.parse(JSON.stringify(newNotes));
+      window.activeClip.bars = newBars;
+      window.activeClip.name = newName;
+      if (typeof window.renderPianoRoll === "function") {
+        window.renderPianoRoll(window.activeClip);
+      }
+    }
   } else {
     const clip = new MidiClip(startBar, loop.bars);
     clip.trackIndex = trackIndex;
@@ -689,12 +717,40 @@ if (loop.url) {
     clip.sampleBuffer = window.defaultMidiSampleBuffer;
     clip.sampleName = window.defaultMidiSampleName;
 
-    clip.name = generateMidiClipName();
+    const newName = loop.displayName || generateMidiClipName();
 
+    if (targetClip) {
+      const targetName = targetClip.name;
+      const replacedIds = [];
 
-    window.clips.push(clip);
-    resolveClipCollisions(clip);
-    window.activeClip = clip;  // Set as active immediately after creation
+      window.clips.forEach(c => {
+        if (c.type === "midi" && (c === targetClip || c.name === targetName)) {
+          c.notes = JSON.parse(JSON.stringify(clip.notes));
+          c.bars = clip.bars;
+          c.name = newName;
+          c.sampleBuffer = window.defaultMidiSampleBuffer;
+          c.sampleName = window.defaultMidiSampleName;
+          replacedIds.push(c.id);
+          resolveClipCollisions(c);
+        }
+      });
+
+      if (window.activeClip && replacedIds.includes(window.activeClip.id)) {
+        const realActive = window.clips.find(c => c.id === window.activeClip.id);
+        if (realActive) {
+          window.activeClip = realActive;
+          if (typeof window.renderPianoRoll === "function") {
+            window.renderPianoRoll(realActive);
+          }
+        }
+      }
+    } else {
+      clip.name = newName;
+      window.clips.push(clip);
+      resolveClipCollisions(clip);
+      window.activeClip = clip;  // Set as active immediately after creation
+    }
+
     const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
     window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
 
@@ -728,24 +784,64 @@ if (loop.url) {
         const bars = loopData ? loopData.bars : 1;
         const durationSeconds = loopData.buffer.duration;
 
-        const clip = {
-          id: crypto.randomUUID(),
-          type: "audio",
-          loopId: loop.id,
-          audioBuffer: null,
-          trackIndex,
-          startBar,
-          bars,
-          bpm: loop.bpm,
-          fileName: loop.displayName || loop.id,
-          startOffset: 0,
-          durationSeconds,
-          originalBars: bars
-        };
+        const newBuffer = loopData?.buffer || null;
 
-        window.clips.push(clip);
-        resolveClipCollisions(clip);
-        window.activeClip = clip;  // Set as active immediately after creation
+        if (targetAudioClip) {
+          const targetBuffer = targetAudioClip.audioBuffer;
+          const targetLoopId = targetAudioClip.loopId;
+          const targetFileName = targetAudioClip.fileName;
+          const replacedIds = [];
+
+          window.clips.forEach(c => {
+            if (c.type === "audio" && (c === targetAudioClip || c.audioBuffer === targetBuffer || c.loopId === targetLoopId || c.fileName === targetFileName)) {
+              c.audioBuffer = newBuffer;
+              c.loopId = loop.id;
+              c.fileName = loop.displayName || loop.id;
+              c.bars = bars;
+              c.durationSeconds = durationSeconds;
+              c.bpm = loop.bpm;
+              c.originalBars = bars;
+              c.startOffset = 0;
+              replacedIds.push(c.id);
+              resolveClipCollisions(c);
+            }
+          });
+
+          if (window.activeClip) {
+            const realActive = window.clips.find(c => c.id === window.activeClip.id);
+            if (realActive && realActive.type === "audio" && replacedIds.includes(realActive.id)) {
+              window.activeClip = realActive;
+            } else if (window.activeClip.type === "audio" && (window.activeClip.audioBuffer === targetBuffer || window.activeClip.loopId === targetLoopId || window.activeClip.fileName === targetFileName)) {
+              window.activeClip.audioBuffer = newBuffer;
+              window.activeClip.loopId = loop.id;
+              window.activeClip.fileName = loop.displayName || loop.id;
+              window.activeClip.bars = bars;
+              window.activeClip.durationSeconds = durationSeconds;
+              window.activeClip.bpm = loop.bpm;
+              window.activeClip.originalBars = bars;
+              window.activeClip.startOffset = 0;
+            }
+          }
+        } else {
+          const clip = {
+            id: crypto.randomUUID(),
+            type: "audio",
+            loopId: loop.id,
+            audioBuffer: newBuffer,
+            trackIndex,
+            startBar,
+            bars,
+            bpm: loop.bpm,
+            fileName: loop.displayName || loop.id,
+            startOffset: 0,
+            durationSeconds,
+            originalBars: bars
+          };
+
+          window.clips.push(clip);
+          resolveClipCollisions(clip);
+          window.activeClip = clip;  // Set as active immediately after creation
+        }
         
         window.updateLoadingBar(100);
         
