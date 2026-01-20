@@ -32,6 +32,21 @@ let currentTool = 'pencil'; // Track selected tool: 'pencil', 'select', or 'slic
 let toolBeforeCtrl = null; // Remember tool before Ctrl was pressed
 let isCtrlHeld = false; // Track if Ctrl is currently held
 
+// Piano roll preview playback state
+let pianoRollPreviewState = {
+  isPlaying: false,
+  voices: [],
+  startTime: 0,
+  rafId: null,
+  playheadEl: null,
+  scheduledNotes: new Set(), // Track which notes have been scheduled
+  currentBeat: 0, // Track current playback position in beats
+  restartTimeout: null // Debounce timer for live editing restarts
+};
+
+// Expose state globally for external access (e.g., Space bar handler)
+window.pianoRollPreviewState = pianoRollPreviewState;
+
 
 
 const loadSampleBtn = document.getElementById("piano-roll-load-sample");
@@ -84,6 +99,15 @@ function isNoteInScale(pitch, scaleName) {
   return scale.includes((pitch % 12));
 }
 
+// Helper function to safely set pitch (prevents NaN)
+function setSafePitch(note, newPitch) {
+  if (!isFinite(newPitch)) {
+    console.warn("Attempted to set invalid pitch:", newPitch, "on note:", note);
+    return;
+  }
+  note.pitch = Math.max(pitchMin, Math.min(pitchMax, newPitch));
+}
+
 // ======================================================
 //  INITIALIZATION
 // ======================================================
@@ -94,7 +118,8 @@ window.initPianoRoll = function () {
   if (magnetBtn) {
     // Helper to shift a pitch up to the next in-scale pitch
     function shiftUpToScale(pitch) {
-      let p = pitch;
+      if (!isFinite(pitch)) return pitchMax;
+      let p = Math.round(pitch);
       while (p <= pitchMax) {
         if (isNoteInScale(p, currentScale)) return p;
         p++;
@@ -110,11 +135,12 @@ window.initPianoRoll = function () {
       // If enabling snap, shift all out-of-scale notes up to the next in-scale pitch
       if (!wasEnabled && snapEnabled && activeClip) {
         activeClip.notes.forEach(n => {
-          if (!isNoteInScale(n.pitch, currentScale)) {
-            n.pitch = shiftUpToScale(n.pitch);
+          if (isFinite(n.pitch) && !isNoteInScale(n.pitch, currentScale)) {
+            setSafePitch(n, shiftUpToScale(n.pitch));
           }
         });
         renderPianoRoll();
+        restartPreviewFromCurrentPosition();
       }
     });
     // Initialize state (disabled by default)
@@ -186,10 +212,12 @@ window.initPianoRoll = function () {
       selectedNotes = [];
       shrinkClipIfNeeded();
       renderPianoRoll();
+      restartPreviewFromCurrentPosition();
       e.preventDefault();
     }
 
     // --- ARROW KEYS: Move selected notes in pencil mode ---
+    // Don't allow movement during preview playback
     if (
       currentTool === 'pencil' &&
       selectedNotes.length > 0 &&
@@ -198,11 +226,11 @@ window.initPianoRoll = function () {
     ) {
       let moved = false;
       if (e.key === 'ArrowUp') {
-        selectedNotes.forEach(n => n.pitch = Math.min(pitchMax, n.pitch + 1));
+        selectedNotes.forEach(n => setSafePitch(n, n.pitch + 1));
         moved = true;
       }
       if (e.key === 'ArrowDown') {
-        selectedNotes.forEach(n => n.pitch = Math.max(pitchMin, n.pitch - 1));
+        selectedNotes.forEach(n => setSafePitch(n, n.pitch - 1));
         moved = true;
       }
       if (e.key === 'ArrowLeft') {
@@ -222,6 +250,7 @@ window.initPianoRoll = function () {
       if (moved) {
         renderPianoRoll();
         updateClipPreview();
+        restartPreviewFromCurrentPosition();
         e.preventDefault();
       }
     }
@@ -340,18 +369,39 @@ window.initPianoRoll = function () {
     activeClip.reverbGain.gain.value = Number(reverbSlider.value);
   });
 
+  // Piano roll preview play button
+  const previewPlayBtn = document.getElementById("piano-roll-preview-play");
+  const previewStopBtn = document.getElementById("piano-roll-preview-stop");
+  
+  if (previewPlayBtn) {
+    previewPlayBtn.addEventListener("click", () => {
+      if (!activeClip) return;
+      playPianoRollPreview();
+    });
+  }
+  
+  if (previewStopBtn) {
+    previewStopBtn.addEventListener("click", () => {
+      stopPianoRollPreview();
+    });
+  }
+
 
 
   // Transpose buttons
   document.addEventListener("click", e => {
-    if (!e.target.classList.contains("transpose-btn")) return;
+    // Only handle actual transpose buttons that define data-step
+    const btn = e.target.closest('.transpose-btn[data-step]');
+    if (!btn) return;
     if (!activeClip) return;
 
-    const step = Number(e.target.dataset.step);
+    const step = Number(btn.dataset.step);
+    if (!Number.isFinite(step)) return;
 
     // Helper to snap a pitch up to the next in-scale pitch (or itself if already in scale)
     function snapUpToScale(pitch) {
-      let p = pitch;
+      if (!isFinite(pitch)) return pitchMax;
+      let p = Math.round(pitch);
       while (p <= pitchMax) {
         if (isNoteInScale(p, currentScale)) return p;
         p++;
@@ -360,7 +410,8 @@ window.initPianoRoll = function () {
     }
     // Helper to snap a pitch down to the next in-scale pitch (or itself if already in scale)
     function snapDownToScale(pitch) {
-      let p = pitch;
+      if (!isFinite(pitch)) return pitchMin;
+      let p = Math.round(pitch);
       while (p >= pitchMin) {
         if (isNoteInScale(p, currentScale)) return p;
         p--;
@@ -371,32 +422,27 @@ window.initPianoRoll = function () {
     // If notes are selected, only transpose selected notes
     if (selectedNotes.length > 0) {
       selectedNotes.forEach(n => {
+        if (!isFinite(n.pitch)) return; // Skip notes with invalid pitch
         let newPitch = n.pitch + step;
         if (snapEnabled) {
-          if (step > 0) {
-            newPitch = snapUpToScale(newPitch);
-          } else {
-            newPitch = snapDownToScale(newPitch);
-          }
+          newPitch = step > 0 ? snapUpToScale(newPitch) : snapDownToScale(newPitch);
         }
-        n.pitch = newPitch;
+        setSafePitch(n, newPitch);
       });
     } else {
       // Otherwise transpose all notes
       activeClip.notes.forEach(n => {
+        if (!isFinite(n.pitch)) return; // Skip notes with invalid pitch
         let newPitch = n.pitch + step;
         if (snapEnabled) {
-          if (step > 0) {
-            newPitch = snapUpToScale(newPitch);
-          } else {
-            newPitch = snapDownToScale(newPitch);
-          }
+          newPitch = step > 0 ? snapUpToScale(newPitch) : snapDownToScale(newPitch);
         }
-        n.pitch = newPitch;
+        setSafePitch(n, newPitch);
       });
     }
 
-    renderPianoRoll();
+    scheduleRender();
+    restartPreviewFromCurrentPosition();
   });
 
   // ⭐ Mouse events only on the GRID canvas
@@ -427,7 +473,8 @@ window.initPianoRoll = function () {
   if (scaleSelect) {
     // Helper to shift a pitch up to the next in-scale pitch
     function shiftUpToScale(pitch) {
-      let p = pitch;
+      if (!isFinite(pitch)) return pitchMax;
+      let p = Math.round(pitch);
       while (p <= pitchMax) {
         if (isNoteInScale(p, currentScale)) return p;
         p++;
@@ -440,12 +487,13 @@ window.initPianoRoll = function () {
       // If snap is enabled, shift all out-of-scale notes up to the next in-scale pitch
       if (snapEnabled && activeClip) {
         activeClip.notes.forEach(n => {
-          if (!isNoteInScale(n.pitch, currentScale)) {
-            n.pitch = shiftUpToScale(n.pitch);
+          if (isFinite(n.pitch) && !isNoteInScale(n.pitch, currentScale)) {
+            setSafePitch(n, shiftUpToScale(n.pitch));
           }
         });
       }
       renderPianoRoll();
+      restartPreviewFromCurrentPosition();
     });
     // Set initial value
     currentScale = scaleSelect.value;
@@ -457,6 +505,11 @@ window.initPianoRoll = function () {
 
 
 window.openPianoRoll = function (clip) {
+  // Stop any playing preview when opening a different clip
+  if (activeClip !== clip) {
+    stopPianoRollPreview();
+  }
+  
   activeClip = clip;
 
   const container = document.getElementById("piano-roll-container");
@@ -505,6 +558,16 @@ function resizeCanvas() {
   gridCanvas.height = pitchRange * rowHeight;
 
   renderPianoRoll();
+}
+
+// Schedule a render using requestAnimationFrame to throttle updates
+function scheduleRender() {
+  if (renderScheduled) return;
+  renderScheduled = true;
+  requestAnimationFrame(() => {
+    renderScheduled = false;
+    renderPianoRoll();
+  });
 }
 
 function renderPianoRoll() {
@@ -564,9 +627,6 @@ function drawPiano(ctx) {
   ctx.lineTo(pianoWidth, pianoCanvas.height);
   ctx.stroke();
 }
-
-
-
 
 function midiToNoteName(pitch) {
   const names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -784,6 +844,10 @@ let temporaryBoxSelectMode = false;
 let isDeletingWithRightClick = false;
 
 let lastNoteLength = snap; // Remember last used note length
+
+// Performance optimization: throttle rendering
+let renderScheduled = false;
+let lastHoverNote = null;
 
 
 function onMouseDown(e) {
@@ -1086,12 +1150,12 @@ function onMouseMove(e) {
         const duration = original.end - original.start;
         note.start = newStart;
         note.end = newStart + duration;
-        note.pitch = original.pitch + pitchDelta;
+        setSafePitch(note, original.pitch + pitchDelta);
         extendClipIfNeeded(note.end);
       }
     });
     updateClipPreview();
-    renderPianoRoll();
+    scheduleRender();
     return;
   }
 
@@ -1121,7 +1185,7 @@ function onMouseMove(e) {
 
     extendClipIfNeeded(resizingNote.end);
     resizeCanvas();
-    renderPianoRoll();
+    scheduleRender();
     updateClipPreview();
     return;
   }
@@ -1135,6 +1199,8 @@ function onMouseMove(e) {
 
     // Helper to find the nearest pitch in scale
     function getNearestScalePitch(targetPitch) {
+      if (!isFinite(targetPitch)) return pitchMin;
+      targetPitch = Math.round(targetPitch);
       // Find all scale pitches in the visible range
       let minDist = Infinity;
       let bestPitch = targetPitch;
@@ -1176,7 +1242,7 @@ function onMouseMove(e) {
           }
           note.start = newStart;
           note.end = newStart + duration;
-          note.pitch = newPitch;
+          setSafePitch(note, newPitch);
 
           extendClipIfNeeded(note.end);
         }
@@ -1221,7 +1287,7 @@ function onMouseMove(e) {
         );
 
         if (!pitchCollision) {
-          movingNote.pitch = newPitch;
+          setSafePitch(movingNote, newPitch);
         }
       }
       extendClipIfNeeded(movingNote.end);
@@ -1229,7 +1295,7 @@ function onMouseMove(e) {
 
     updateClipPreview();
     //refreshClipInTimeline(activeClip);
-    renderPianoRoll();
+    scheduleRender();
     return;
   }
 
@@ -1246,40 +1312,36 @@ if (drawingNote) {
   drawingNote.end = snapped;
 
   extendClipIfNeeded(snapped);
-  renderPianoRoll();
+  scheduleRender();
   return;
 }
-
 
 // ---------------------------------------------
 // 4. HOVER DETECTION (pencil and slice tools)
 // ---------------------------------------------
 const hit = findNoteAt(x, y);
-let needsRedraw = false;
 
 if (hit && currentTool === 'pencil') {
   gridCanvas.style.cursor = hit.onRightEdge ? "ew-resize" : "pointer";
 
   if (hoverNote !== hit.note) {
     hoverNote = hit.note;
-    needsRedraw = true;
+    scheduleRender();
   }
 } else if (hit && currentTool === 'slice') {
   gridCanvas.style.cursor = "text";
 
   if (hoverNote !== hit.note) {
     hoverNote = hit.note;
-    needsRedraw = true;
+    scheduleRender();
   }
 } else {
   if (hoverNote !== null) {
     hoverNote = null;
-    needsRedraw = true;
+    scheduleRender();
   }
   gridCanvas.style.cursor = "default";
 }
-
-if (needsRedraw) renderPianoRoll();
 }
 
 
@@ -1321,11 +1383,14 @@ function onMouseUp() {
     updateClipPreview();
     resizeCanvas();
     renderPianoRoll();
+    // Schedule the newly drawn note if playing
+    scheduleNoteIfPlaying(drawingNote);
   }
 
-  if (movingSelection) {
+  if (movingSelection || resizingNote || movingNote) {
     updateClipPreview();
     refreshClipInTimeline(activeClip);
+    restartPreviewFromCurrentPosition();
     // If we were duplicating, keep only the duplicates selected
     if (duplicatingSelection) {
       selectedNotes = duplicatedNotes.slice();
@@ -1399,8 +1464,178 @@ function updateClipPreview() {
     .forEach(c => window.renderClip(c, dropArea));
 }
 
+// Helper function to restart preview from current position (for live editing)
+function restartPreviewFromCurrentPosition() {
+  if (!pianoRollPreviewState.isPlaying || !activeClip) return;
+  
+  // Clear any pending restart
+  if (pianoRollPreviewState.restartTimeout) {
+    clearTimeout(pianoRollPreviewState.restartTimeout);
+  }
+  
+  // Debounce rapid restarts (wait 50ms for user to finish dragging)
+  pianoRollPreviewState.restartTimeout = setTimeout(() => {
+    const bpm = 175;
+    const secondsPerBeat = 60 / bpm;
+    const elapsed = window.audioContext.currentTime - pianoRollPreviewState.startTime;
+    const currentBeat = elapsed / secondsPerBeat;
+    
+    // Store current position
+    pianoRollPreviewState.currentBeat = currentBeat;
+    
+    // Stop all currently playing voices
+    pianoRollPreviewState.voices.forEach(({ source }) => {
+      try {
+        source.stop();
+      } catch (e) {
+        // Already stopped
+      }
+    });
+    pianoRollPreviewState.voices = [];
+    pianoRollPreviewState.scheduledNotes.clear();
+    
+    // Restart from current position
+    const now = window.audioContext.currentTime;
+    pianoRollPreviewState.startTime = now - (currentBeat * secondsPerBeat);
+    
+    // Use the clip's sample buffer or default MIDI sample
+    const sampleBuffer = activeClip.sampleBuffer || window.defaultMidiSampleBuffer;
+    if (!sampleBuffer) return;
+    
+    // Schedule all notes that should play from current position onwards
+    activeClip.notes.forEach(note => {
+      // Validate note
+      if (!note || 
+          typeof note.pitch !== 'number' || !isFinite(note.pitch) ||
+          typeof note.start !== 'number' || !isFinite(note.start) ||
+          typeof note.end !== 'number' || !isFinite(note.end)) {
+        return;
+      }
+      
+      // Only schedule notes that haven't finished playing yet
+      if (note.end <= currentBeat) return;
+      
+      const startBeats = Math.max(note.start, currentBeat);
+      const endBeats   = note.end;
 
+      const { t, effectiveDuration } =
+        computeScheduleTimes(startBeats, endBeats, secondsPerBeat, pianoRollPreviewState.startTime);
 
+      if (effectiveDuration <= 0.001) return;
+
+      const source = window.audioContext.createBufferSource();
+      source.buffer = sampleBuffer;
+
+      const semitone = note.pitch - 60;
+      const playbackRate = Math.pow(2, semitone / 12);
+      if (!isFinite(playbackRate)) return;
+      source.playbackRate.value = playbackRate;
+
+      const gain = window.audioContext.createGain();
+      const velocity = note.velocity || 0.8;
+      const isMidNote = startBeats > note.start + 1e-6;
+
+      // Envelope: if resuming mid-note, jump straight to sustain to avoid clicks
+      if (isMidNote) {
+        gain.gain.setValueAtTime(velocity * 0.6, t);
+        gain.gain.setValueAtTime(velocity * 0.6, t + effectiveDuration);
+        gain.gain.linearRampToValueAtTime(0.0001, t + effectiveDuration + RELEASE_SEC);
+      } else {
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(velocity * 0.6, t + ATTACK_SEC);
+        gain.gain.setValueAtTime(velocity * 0.6, t + effectiveDuration);
+        gain.gain.linearRampToValueAtTime(0.0001, t + effectiveDuration + RELEASE_SEC);
+      }
+
+      source.connect(gain);
+      gain.connect(window.masterGain || window.audioContext.destination);
+
+      try {
+        source.start(t);
+        source.stop(t + effectiveDuration + RELEASE_SEC);
+      } catch (e) {
+        // Skip invalid schedules
+        return;
+      }
+
+      pianoRollPreviewState.voices.push({ source, gain });
+      pianoRollPreviewState.scheduledNotes.add(note);
+    });
+    
+    pianoRollPreviewState.restartTimeout = null;
+  }, 50); // 50ms debounce
+}
+
+// Helper function to schedule a single note during live playback
+function scheduleNoteIfPlaying(note) {
+  if (!pianoRollPreviewState.isPlaying || !activeClip) return;
+  
+  const bpm = 175;
+  const secondsPerBeat = 60 / bpm;
+  const now = window.audioContext.currentTime;
+  const elapsed = now - pianoRollPreviewState.startTime;
+  const currentBeat = elapsed / secondsPerBeat;
+  
+  // Only schedule if note hasn't been played yet
+  if (note.start > currentBeat) {
+    const sampleBuffer = activeClip.sampleBuffer || window.defaultMidiSampleBuffer;
+    if (!sampleBuffer) return;
+
+    const startBeats = note.start;
+    const endBeats   = note.end;
+
+    const { t, effectiveDuration } =
+      computeScheduleTimes(startBeats, endBeats, secondsPerBeat, pianoRollPreviewState.startTime);
+
+    if (effectiveDuration <= 0.001) return;
+
+    const source = window.audioContext.createBufferSource();
+    source.buffer = sampleBuffer;
+
+    const semitone = note.pitch - 60;
+    const playbackRate = Math.pow(2, semitone / 12);
+    if (!isFinite(playbackRate)) return;
+    source.playbackRate.value = playbackRate;
+
+    const gain = window.audioContext.createGain();
+    const velocity = note.velocity || 0.8;
+
+    // Fresh note envelope
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(velocity * 0.6, t + ATTACK_SEC);
+    gain.gain.setValueAtTime(velocity * 0.6, t + effectiveDuration);
+    gain.gain.linearRampToValueAtTime(0.0001, t + effectiveDuration + RELEASE_SEC);
+
+    source.connect(gain);
+    gain.connect(window.masterGain || window.audioContext.destination);
+
+    try {
+      source.start(t);
+      source.stop(t + effectiveDuration + RELEASE_SEC);
+    } catch (e) {
+      return;
+    }
+
+    pianoRollPreviewState.voices.push({ source, gain });
+    pianoRollPreviewState.scheduledNotes.add(note);
+  }
+}
+
+// Small scheduling lookahead and envelope constants
+const SCHEDULE_AHEAD_SEC = 0.02;
+const ATTACK_SEC = 0.005;
+const RELEASE_SEC = 0.05;
+
+// Helper: compute safe start time and effective duration
+function computeScheduleTimes(startBeats, endBeats, secondsPerBeat, baseStartTime) {
+  const startTime = baseStartTime + (startBeats * secondsPerBeat);
+  const endTime   = baseStartTime + (endBeats  * secondsPerBeat);
+  const now       = window.audioContext.currentTime;
+  // Ensure start is always in the future by at least lookahead
+  const t = Math.max(now + SCHEDULE_AHEAD_SEC, startTime + SCHEDULE_AHEAD_SEC);
+  const effectiveDuration = Math.max(0.001, endTime - t);
+  return { t, effectiveDuration, startTime, endTime };
+}
 
 // ======================================================
 //  MIDI IMPORT
@@ -1418,6 +1653,78 @@ async function onMidiDrop(e) {
     return;
   }
 
+  // Check if dropping from sidebar
+  if (window.draggedLoop && window.draggedLoop.type === "midi") {
+    const loop = window.draggedLoop;
+    
+    // Handle built-in MIDI with notes array
+    if (loop.notes && Array.isArray(loop.notes)) {
+      activeClip.notes = JSON.parse(JSON.stringify(loop.notes));
+      
+      if (activeClip.notes.length > 0) {
+        const maxEnd = Math.max(...activeClip.notes.map(n => n.end));
+        const midiBars = Math.ceil(maxEnd / 4);
+        activeClip.bars = Math.max(1, midiBars);
+      } else {
+        activeClip.bars = 1;
+      }
+      
+      resizeCanvas();
+      scheduleRender();
+      updateClipPreview();
+      refreshClipInTimeline(activeClip);
+      
+      window.draggedLoop = null;
+      return;
+    }
+    
+    // Handle Dropbox MIDI with URL
+    if (loop.url) {
+      try {
+        const response = await fetch(loop.url);
+        const arrayBuffer = await response.arrayBuffer();
+        const midi = new Midi(arrayBuffer);
+        
+        const importedNotes = [];
+        const ppq = midi.header.ppq;
+        
+        midi.tracks.forEach(track => {
+          track.notes.forEach(n => {
+            const startBeats = n.ticks / ppq;
+            const endBeats = (n.ticks + n.durationTicks) / ppq;
+            const pitch = Math.min(pitchMax, Math.max(pitchMin, n.midi));
+            
+            importedNotes.push({
+              pitch,
+              start: startBeats,
+              end: endBeats,
+              velocity: n.velocity
+            });
+          });
+        });
+        
+        activeClip.notes = importedNotes;
+        
+        const maxEnd = Math.max(...importedNotes.map(n => n.end));
+        const midiBars = Math.ceil(maxEnd / 4);
+        activeClip.bars = Math.max(1, midiBars);
+        
+        resizeCanvas();
+        scheduleRender();
+        updateClipPreview();
+        refreshClipInTimeline(activeClip);
+        
+        window.draggedLoop = null;
+        return;
+      } catch (error) {
+        console.error("Error loading MIDI from sidebar:", error);
+        window.draggedLoop = null;
+        return;
+      }
+    }
+  }
+
+  // Handle local file drop
   const file = e.dataTransfer.files[0];
   if (!file || (!file.name.toLowerCase().endsWith(".mid") &&
                 !file.name.toLowerCase().endsWith(".midi"))) {
@@ -1464,7 +1771,7 @@ async function onMidiDrop(e) {
 
 
     resizeCanvas();
-    renderPianoRoll();
+    scheduleRender();
     updateClipPreview();
     refreshClipInTimeline(activeClip);
 
@@ -1509,4 +1816,241 @@ async function loadSampleIntoClip(clip, file) {
 
   clip.sampleBuffer = audioBuffer;
   clip.sampleName = file.name;
+}
+
+// ======================================================
+//  PIANO ROLL PREVIEW PLAYBACK
+// ======================================================
+
+window.stopPianoRollPreview = function stopPianoRollPreview() {
+  // Clear any pending restart
+  if (pianoRollPreviewState.restartTimeout) {
+    clearTimeout(pianoRollPreviewState.restartTimeout);
+    pianoRollPreviewState.restartTimeout = null;
+  }
+  
+  // Stop all playing voices immediately
+  pianoRollPreviewState.voices.forEach(({ source }) => {
+    try {
+      source.stop();
+    } catch (e) {
+      // Already stopped
+    }
+  });
+  
+  pianoRollPreviewState.voices = [];
+  pianoRollPreviewState.scheduledNotes.clear();
+  pianoRollPreviewState.isPlaying = false;
+  
+  // Stop animation frame
+  if (pianoRollPreviewState.rafId) {
+    cancelAnimationFrame(pianoRollPreviewState.rafId);
+    pianoRollPreviewState.rafId = null;
+  }
+  
+  // Hide playhead
+  if (pianoRollPreviewState.playheadEl) {
+    pianoRollPreviewState.playheadEl.style.display = 'none';
+  }
+  
+  // Update button states
+  const playBtn = document.getElementById("piano-roll-preview-play");
+  const stopBtn = document.getElementById("piano-roll-preview-stop");
+  if (playBtn) playBtn.style.opacity = '1';
+  if (stopBtn) stopBtn.style.opacity = '0.5';
+}
+
+async function playPianoRollPreview() {
+  // Set isPlaying to true immediately
+  pianoRollPreviewState.isPlaying = true;
+  pianoRollPreviewState.scheduledNotes.clear();
+  
+  // Capture the active clip reference at the start to prevent issues if it changes during async operations
+  const clipToPlay = activeClip;
+  
+  if (!clipToPlay || !clipToPlay.notes || clipToPlay.notes.length === 0) {
+    pianoRollPreviewState.isPlaying = false;
+    return;
+  }
+  
+  // Stop main song playback if playing
+  if (window.isPlaying && window.stopAll) {
+    window.stopAll();
+    if (window.stopPlayhead) window.stopPlayhead();
+    
+    const playToggleBtn = document.getElementById("playToggleBtn");
+    if (playToggleBtn) {
+      playToggleBtn.textContent = "Play";
+      playToggleBtn.classList.remove("active");
+    }
+    
+    const playhead = document.getElementById("playhead");
+    if (playhead) playhead.classList.add("hidden");
+  }
+  
+  // Stop any existing playback (but keep isPlaying true)
+  const voices = pianoRollPreviewState.voices.slice();
+  voices.forEach(({ source }) => {
+    try {
+      source.stop();
+    } catch (e) {
+      // Already stopped
+    }
+  });
+  pianoRollPreviewState.voices = [];
+  
+  if (pianoRollPreviewState.rafId) {
+    cancelAnimationFrame(pianoRollPreviewState.rafId);
+    pianoRollPreviewState.rafId = null;
+  }
+  
+  // Ensure audio context is running
+  if (!window.audioContext) {
+    console.error("Audio context not initialized");
+    pianoRollPreviewState.isPlaying = false;
+    return;
+  }
+  
+  if (window.audioContext.state === "suspended") {
+    await window.audioContext.resume();
+  }
+  
+  const now = window.audioContext.currentTime;
+  pianoRollPreviewState.startTime = now;
+  
+  // Use the clip's sample buffer or default MIDI sample
+  const sampleBuffer = clipToPlay.sampleBuffer || window.defaultMidiSampleBuffer;
+  if (!sampleBuffer) {
+    console.warn("No MIDI sample buffer loaded");
+    pianoRollPreviewState.isPlaying = false;
+    return;
+  }
+  
+  // Make sure we have notes to play
+  if (!clipToPlay.notes || !Array.isArray(clipToPlay.notes) || clipToPlay.notes.length === 0) {
+    console.warn("No notes to play");
+    pianoRollPreviewState.isPlaying = false;
+    return;
+  }
+  
+  // Convert notes from ticks to seconds
+  const beatsPerBar = 4;
+  const bpm = 175; // Use project BPM
+  const secondsPerBeat = 60 / bpm;
+  
+  // Schedule all notes with error handling
+  try {
+    clipToPlay.notes.forEach(note => {
+      // Validate note has all required properties and they are finite numbers
+      if (!note || 
+          typeof note.pitch !== 'number' || !isFinite(note.pitch) ||
+          typeof note.start !== 'number' || !isFinite(note.start) ||
+          typeof note.end !== 'number' || !isFinite(note.end)) {
+        console.warn("Skipping invalid note:", note);
+        return;
+      }
+      
+      const startBeats = note.start;
+      const endBeats   = note.end;
+
+      const { t, effectiveDuration } =
+        computeScheduleTimes(startBeats, endBeats, secondsPerBeat, now);
+
+      if (effectiveDuration <= 0.001) return;
+
+      const source = window.audioContext.createBufferSource();
+      source.buffer = sampleBuffer;
+
+      const semitone = note.pitch - 60;
+      const playbackRate = Math.pow(2, semitone / 12);
+      if (!isFinite(playbackRate)) return;
+      source.playbackRate.value = playbackRate;
+
+      const gain = window.audioContext.createGain();
+      const velocity = note.velocity || 0.8;
+
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(velocity * 0.6, t + ATTACK_SEC);
+      gain.gain.setValueAtTime(velocity * 0.6, t + effectiveDuration);
+      gain.gain.linearRampToValueAtTime(0.0001, t + effectiveDuration + RELEASE_SEC);
+
+      source.connect(gain);
+      gain.connect(window.masterGain || window.audioContext.destination);
+
+      source.start(t);
+      source.stop(t + effectiveDuration + RELEASE_SEC);
+
+      pianoRollPreviewState.voices.push({ source, gain });
+      pianoRollPreviewState.scheduledNotes.add(note);
+    });
+  } catch (error) {
+    console.error("Error scheduling piano roll preview notes:", error);
+    pianoRollPreviewState.isPlaying = false;
+    // Re-render to ensure UI is in sync
+    if (activeClip) {
+      renderPianoRoll();
+    }
+    return;
+  }
+  
+  // Create or update playhead
+  if (!pianoRollPreviewState.playheadEl) {
+    const playhead = document.createElement('div');
+    playhead.id = 'piano-roll-playhead';
+    playhead.style.position = 'absolute';
+    playhead.style.left = '0';
+    playhead.style.top = '0';
+    playhead.style.width = '2px';
+    playhead.style.height = gridCanvas.height + 'px';
+    playhead.style.backgroundColor = '#007aff';
+    playhead.style.pointerEvents = 'none';
+    playhead.style.zIndex = '1000';
+    playhead.style.display = 'block';
+    
+    const scrollContainer = document.getElementById('piano-roll-scroll');
+    if (scrollContainer) {
+      scrollContainer.appendChild(playhead);
+      pianoRollPreviewState.playheadEl = playhead;
+    }
+  } else {
+    pianoRollPreviewState.playheadEl.style.display = 'block';
+    pianoRollPreviewState.playheadEl.style.left = '0';
+    pianoRollPreviewState.playheadEl.style.height = gridCanvas.height + 'px';
+  }
+  
+  // Update button states
+  const playBtn = document.getElementById("piano-roll-preview-play");
+  const stopBtn = document.getElementById("piano-roll-preview-stop");
+  if (playBtn) playBtn.style.opacity = '0.5';
+  if (stopBtn) stopBtn.style.opacity = '1';
+  
+  // Start playhead animation
+  updatePianoRollPlayhead();
+}
+
+function updatePianoRollPlayhead() {
+  if (!pianoRollPreviewState.isPlaying) return;
+  
+  const elapsed = window.audioContext.currentTime - pianoRollPreviewState.startTime;
+  
+  // Calculate clip duration in seconds
+  const beatsPerBar = 4;
+  const bpm = 175;
+  const secondsPerBeat = 60 / bpm;
+  const clipDurationBeats = activeClip.bars * beatsPerBar;
+  const clipDuration = clipDurationBeats * secondsPerBeat;
+  
+  if (elapsed >= clipDuration) {
+    stopPianoRollPreview();
+    return;
+  }
+  
+  // Update playhead position
+  if (pianoRollPreviewState.playheadEl) {
+    const elapsedBeats = elapsed / secondsPerBeat;
+    const x = elapsedBeats * pxPerBeat;
+    pianoRollPreviewState.playheadEl.style.left = x + 'px';
+  }
+  
+  pianoRollPreviewState.rafId = requestAnimationFrame(updatePianoRollPlayhead);
 }

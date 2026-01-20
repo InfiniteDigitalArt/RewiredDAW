@@ -34,6 +34,30 @@ window.onScheduleMidiClip = (clip, track, startTime) => {
 
 window.addEventListener("keydown", e => {
   if (e.key === "Shift") window.shiftDown = true;
+  
+  // Space bar: play/stop piano roll preview if open, otherwise play/stop main song
+  if (e.code === "Space" && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+    e.preventDefault();
+    const pianoRollContainer = document.getElementById("piano-roll-container");
+    const isPianoRollOpen = pianoRollContainer && !pianoRollContainer.classList.contains("hidden");
+    
+    if (isPianoRollOpen) {
+      // Piano roll is open - toggle piano roll preview
+      const playBtn = document.getElementById("piano-roll-preview-play");
+      const stopBtn = document.getElementById("piano-roll-preview-stop");
+      if (window.pianoRollPreviewState && window.pianoRollPreviewState.isPlaying) {
+        // Currently playing - stop it
+        if (stopBtn) stopBtn.click();
+      } else {
+        // Not playing - start it
+        if (playBtn) playBtn.click();
+      }
+    } else {
+      // Piano roll is not open - toggle main song playback
+      const playToggleBtn = document.getElementById("playToggleBtn");
+      if (playToggleBtn) playToggleBtn.click();
+    }
+  }
 });
 
 window.addEventListener("keyup", e => {
@@ -55,6 +79,11 @@ window.addEventListener("DOMContentLoaded", () => {
 
   playToggleBtn.addEventListener("click", async () => {
     if (!window.isPlaying) {
+      // Stop piano roll preview when starting main playback
+      if (window.stopPianoRollPreview) {
+        window.stopPianoRollPreview();
+      }
+      
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }
@@ -369,7 +398,8 @@ async function saveProjectZip() {
       trackIndex: clip.trackIndex,
       startBar: clip.startBar,
       bars: clip.bars,
-      bpm: clip.bpm,
+      bpm: clip.bpm,                         // current stored bpm (source)
+      sourceBpm: clip.sourceBpm || clip.bpm, // persist source BPM explicitly
       fileName: clip.fileName,
       startOffset: clip.startOffset || 0,
       durationSeconds: clip.durationSeconds,
@@ -576,24 +606,32 @@ async function loadProjectZip(json, zip) {
     // 1. LOOP CLIP (external library)
     if (raw.loopId) {
       const loopInfo = DROPBOX_LOOP_MAP[raw.loopId];
-
       await window.loadLoop(raw.loopId, loopInfo.url, loopInfo.bpm);
-
       const loadedClip = window.createLoopClip(
         raw.loopId,
         raw.trackIndex,
         raw.startBar,
         raw.bars
       );
-
       if (!loadedClip) {
         console.error("Failed to create loop clip for", raw.loopId);
         continue;
       }
 
       loadedClip.type = "audio";
-      // Add a name property for loop clips
       loadedClip.name = loopInfo.displayName || loopInfo.id || "Audio Clip";
+
+      // Recompute bars at source BPM (loop bpm) from loaded buffer
+      const ld = window.loopBuffers.get(raw.loopId);
+      if (ld && ld.buffer) {
+        const barsAtSource = window.calculateBarsFromAudio(ld.buffer, loopInfo.bpm);
+        loadedClip.bars = barsAtSource;
+        loadedClip.originalBars = barsAtSource;
+        loadedClip.sourceBpm = loopInfo.bpm;
+        loadedClip.bpm = loopInfo.bpm;
+        loadedClip.durationSeconds = ld.buffer.duration;
+        loadedClip.startOffset = 0;
+      }
 
       resolveClipCollisions(loadedClip);
 
@@ -603,9 +641,7 @@ async function loadProjectZip(json, zip) {
         window.renderClip(loadedClip, dropArea);
       }
 
-      // Refresh dropdown after adding loop clip
       window.refreshClipDropdown(window.clips);
-
       continue;
     }
 
@@ -614,19 +650,23 @@ async function loadProjectZip(json, zip) {
       const wavData = await zip.file(`audio/${raw.audioFile}`).async("arraybuffer");
       const audioBuffer = await audioContext.decodeAudioData(wavData);
 
+      // Fit bars to the original source BPM captured at save (fallback to raw.bpm)
+      const sourceBpm = Number(raw.sourceBpm || raw.bpm) || 175;
+      const barsAtSource = window.calculateBarsFromAudio(audioBuffer, sourceBpm);
+
       const clip = {
         id: raw.id,
         type: "audio",
         audioBuffer,
         trackIndex: raw.trackIndex,
         startBar: raw.startBar,
-        bars: raw.bars,
-        bpm: raw.bpm,
+        bars: barsAtSource,                 // recomputed at source BPM
+        bpm: sourceBpm,
+        sourceBpm,                          // persist source BPM on the clip
         fileName: raw.fileName,
-        startOffset: raw.startOffset || 0,
-        durationSeconds: raw.durationSeconds,
-        originalBars: raw.originalBars,
-        // Add a name property for audio clips
+        startOffset: 0,
+        durationSeconds: audioBuffer.duration,
+        originalBars: barsAtSource,
         name: raw.name || raw.fileName || `Audio Clip`
       };
 
@@ -639,9 +679,7 @@ async function loadProjectZip(json, zip) {
         window.renderClip(clip, dropArea);
       }
 
-      // Refresh dropdown after adding audio clip
       window.refreshClipDropdown(window.clips);
-
       continue;
     }
   }
@@ -942,6 +980,10 @@ sampleNameBox.style.borderRadius = "4px";
 
 
 document.getElementById("piano-roll-close").addEventListener("click", () => {
+  // Stop any playing preview
+  if (window.stopPianoRollPreview) {
+    window.stopPianoRollPreview();
+  }
   document.getElementById("piano-roll-container").classList.add("hidden"); // ⭐ hide using class toggle
   activeClip = null;
 });

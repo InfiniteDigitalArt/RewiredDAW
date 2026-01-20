@@ -20,14 +20,15 @@ window.BasicSawSynth = class BasicSawSynth {
   playNoteFromClip(clip, pitch, startTime, duration, velocity = 0.8, trackIndex = 0) {
     if (!clip.sampleBuffer) return;
 
-    const src = this.audioCtx.createBufferSource();
-    src.buffer = clip.sampleBuffer;
+    try {
+      const src = this.audioCtx.createBufferSource();
+      src.buffer = clip.sampleBuffer;
 
-    // MIDI pitch → playbackRate
-    const semitone = pitch - 60;
-    src.playbackRate.value = Math.pow(2, semitone / 12);
+      // MIDI pitch → playbackRate
+      const semitone = pitch - 60;
+      src.playbackRate.value = Math.pow(2, semitone / 12);
 
-    const gain = this.audioCtx.createGain();
+      const gain = this.audioCtx.createGain();
 
     // --- ADSR ---
     const attack = 0.001;
@@ -98,5 +99,14 @@ window.BasicSawSynth = class BasicSawSynth {
     window.scheduledMidiVoices.add(src);
     window.scheduledMidiVoices.add(gain);
 
+    } catch (err) {
+      console.error("Error playing MIDI note:", err, {
+        pitch,
+        startTime,
+        duration,
+        hasSampleBuffer: !!clip.sampleBuffer,
+        clipId: clip.id
+      });
+    }
   }
 };

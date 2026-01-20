@@ -647,12 +647,10 @@ if (window.activeClip) {
 
     const meta = window.parseLoopMetadata(file.name);
     
-    const loopBpm = meta.bpm || 175;
+    const sourceBpm = meta.bpm || 175;
     const durationSeconds = normalizedBuffer.duration;
-    // Calculate bars based on PROJECT tempo (175bpm), not file's BPM
-    // Audio is always pitch-shifted to match project tempo, so bars must be calculated accordingly
-    const projectBpm = 175;
-    const bars = window.calculateBarsFromAudio(normalizedBuffer, loopBpm);
+    // Calculate bars using the loop's own BPM (source BPM)
+    const bars = window.calculateBarsFromAudio(normalizedBuffer, sourceBpm);
 
     if (targetAudioClip) {
       // Replace all audio clips that share the same fileName as the target (i.e., all duplicates)
@@ -661,13 +659,14 @@ if (window.activeClip) {
       window.clips.forEach(c => {
         if (c.type === "audio" && c.fileName === targetFileName) {
           c.audioBuffer = normalizedBuffer;
-          c.loopId = null; // Clear loopId since we're now using direct audioBuffer
+          c.loopId = null;
           c.fileName = meta.displayName || file.name;
           c.bars = bars;
           c.durationSeconds = durationSeconds;
-          c.bpm = loopBpm;
+          c.bpm = sourceBpm;
+          c.sourceBpm = sourceBpm;           // persist source BPM
           c.originalBars = bars;
-          c.startOffset = 0; // Reset playback offset to start from beginning
+          c.startOffset = 0;
           replacedIds.push(c.id);
           resolveClipCollisions(c);
         }
@@ -684,13 +683,14 @@ if (window.activeClip) {
           window.activeClip.fileName = meta.displayName || file.name;
           window.activeClip.bars = bars;
           window.activeClip.durationSeconds = durationSeconds;
-          window.activeClip.bpm = loopBpm;
+          window.activeClip.bpm = sourceBpm;
+          window.activeClip.sourceBpm = sourceBpm;
           window.activeClip.originalBars = bars;
           window.activeClip.startOffset = 0;
         }
       }
     } else {
-      // Create new audio clip as before
+      // Create new audio clip using source BPM
       const clip = {
         id: crypto.randomUUID(),
         type: "audio",
@@ -700,7 +700,8 @@ if (window.activeClip) {
         trackIndex,
         startBar,
         bars,
-        bpm: loopBpm,
+        bpm: sourceBpm,
+        sourceBpm,                 // persist source BPM
         originalBars: bars,
         startOffset: 0,
         durationSeconds,
@@ -879,8 +880,11 @@ if (loop.url) {
         
         const loopData = window.loopBuffers.get(loop.id);
 
-        const bars = loopData ? loopData.bars : 1;
-        const durationSeconds = loopData.buffer.duration;
+        // Recompute bars using loop's source BPM, not project BPM
+        const bars = loopData && loopData.buffer
+          ? window.calculateBarsFromAudio(loopData.buffer, loop.bpm)
+          : 1;
+        const durationSeconds = loopData?.buffer?.duration || 0;
 
         const newBuffer = loopData?.buffer || null;
 
@@ -898,6 +902,7 @@ if (loop.url) {
               c.bars = bars;
               c.durationSeconds = durationSeconds;
               c.bpm = loop.bpm;
+              c.sourceBpm = loop.bpm;     // persist source BPM
               c.originalBars = bars;
               c.startOffset = 0;
               replacedIds.push(c.id);
@@ -915,7 +920,8 @@ if (loop.url) {
               window.activeClip.fileName = loop.displayName || loop.id;
               window.activeClip.bars = bars;
               window.activeClip.durationSeconds = durationSeconds;
-              window.activeClip.bpm = loop.bpm;
+              window.activeClip.bpm = loop.bpm;   // fix: use loop.bpm, not undefined loopBpm
+              window.activeClip.sourceBpm = loop.bpm;
               window.activeClip.originalBars = bars;
               window.activeClip.startOffset = 0;
             }
@@ -930,6 +936,7 @@ if (loop.url) {
             startBar,
             bars,
             bpm: loop.bpm,
+            sourceBpm: loop.bpm,          // persist source BPM
             fileName: loop.displayName || loop.id,
             startOffset: 0,
             durationSeconds,
