@@ -34,7 +34,7 @@ window.clips.forEach(clip => {
   // ------------------------------------------------------
   // 2. Convert bars → seconds
   // ------------------------------------------------------
-  const durationSeconds = window.barsToSeconds(lastBar);
+  const durationSeconds = window.barsToSeconds(lastBar) + EXPORT_START_OFFSET;
 
   // ------------------------------------------------------
   // 3. Create OfflineAudioContext
@@ -55,9 +55,7 @@ window.clips.forEach(clip => {
   masterGain.gain.setValueAtTime(0, 0);
 
   // Jump to full level at the offset
-  masterGain.gain.setValueAtTime(0.89, EXPORT_START_OFFSET);
-
-
+  masterGain.gain.setValueAtTime(0.8, EXPORT_START_OFFSET);
 
   const limiter = offline.createDynamicsCompressor();
   limiter.threshold.value = -1.0;
@@ -128,9 +126,39 @@ window.clips.forEach(clip => {
   src.buffer = buffer;
   src.playbackRate.value = window.BPM / bpm;
 
-  // ⭐ Correct routing: use shared offline mixer
+  // ⭐ FIX: Define trackIndex before using it
   const trackIndex = clip.trackIndex ?? 0;
-  src.connect(offlineTrackGains[trackIndex]);
+
+  // ⭐ Apply fade envelope for audio clips
+  let destination = offlineTrackGains[trackIndex];
+  if (clip.type === "audio" && (clip.fadeIn > 0 || clip.fadeOut > 0)) {
+    const fadeGain = offline.createGain();
+    src.connect(fadeGain);
+    fadeGain.connect(destination);
+    destination = fadeGain;
+    
+    const when = EXPORT_START_OFFSET + window.barsToSeconds(clip.startBar);
+    const duration = window.barsToSeconds(clip.bars);
+    const fadeInSeconds = window.barsToSeconds(clip.fadeIn || 0);
+    const fadeOutSeconds = window.barsToSeconds(clip.fadeOut || 0);
+    
+    // Fade in
+    if (fadeInSeconds > 0) {
+      fadeGain.gain.setValueAtTime(0, when);
+      fadeGain.gain.linearRampToValueAtTime(1, when + fadeInSeconds);
+    } else {
+      fadeGain.gain.setValueAtTime(1, when);
+    }
+    
+    // Fade out
+    if (fadeOutSeconds > 0) {
+      const fadeOutStart = when + duration - fadeOutSeconds;
+      fadeGain.gain.setValueAtTime(1, fadeOutStart);
+      fadeGain.gain.linearRampToValueAtTime(0, fadeOutStart + fadeOutSeconds);
+    }
+  } else {
+    src.connect(destination);
+  }
 
   const when = EXPORT_START_OFFSET + window.barsToSeconds(clip.startBar);
   src.start(when);
@@ -194,19 +222,41 @@ const synth = new BasicSawSynthForContext(
   window.updateLoadingBar(75, "Rendering audio...");
   const renderedBuffer = await offline.startRendering();
 
+  window.updateLoadingBar(85, "Trimming...");
+
+  // ------------------------------------------------------
+  // 6B. Trim off the EXPORT_START_OFFSET from the beginning
+  // ------------------------------------------------------
+  const offsetSamples = Math.floor(EXPORT_START_OFFSET * sampleRate);
+  const trimmedLength = renderedBuffer.length - offsetSamples;
+  const trimmedBuffer = offline.createBuffer(
+    renderedBuffer.numberOfChannels,
+    trimmedLength,
+    sampleRate
+  );
+
+  // Copy audio data after the offset
+  for (let ch = 0; ch < renderedBuffer.numberOfChannels; ch++) {
+    const sourceData = renderedBuffer.getChannelData(ch);
+    const destData = trimmedBuffer.getChannelData(ch);
+    for (let i = 0; i < trimmedLength; i++) {
+      destData[i] = sourceData[i + offsetSamples];
+    }
+  }
+
   window.updateLoadingBar(90, "Normalizing...");
 
   // ------------------------------------------------------
-  // 7. Final normalization to -1 dB
+  // 7. Final normalization to -0.3 dB (after limiting)
   // ------------------------------------------------------
-  normalizeToMinus1dB(renderedBuffer);
+  normalizeToMinus1dB(trimmedBuffer);
 
   window.updateLoadingBar(95, "Converting to WAV...");
 
   // ------------------------------------------------------
   // 8. Convert to WAV and download
   // ------------------------------------------------------
-  const wavBlob = bufferToWavBlob(renderedBuffer);
+  const wavBlob = bufferToWavBlob(trimmedBuffer);
   triggerDownload(wavBlob, "rewired_export.wav");
   
   window.updateLoadingBar(100, "Complete!");
@@ -219,7 +269,7 @@ const synth = new BasicSawSynthForContext(
 
 
 // ======================================================
-//  NORMALIZE FINAL BUFFER TO -1 dB
+//  NORMALIZE FINAL BUFFER TO -0.3 dB
 // ======================================================
 
 function normalizeToMinus1dB(buffer) {
@@ -235,7 +285,7 @@ function normalizeToMinus1dB(buffer) {
 
   if (peak < 0.00001) return; // silent
 
-  const target = 0.89; // -1 dB
+  const target = 0.97; // -0.3 dB (safe commercial loudness)
   const scale = target / peak;
 
   // Apply gain

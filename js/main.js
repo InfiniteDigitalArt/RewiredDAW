@@ -403,7 +403,9 @@ async function saveProjectZip() {
       fileName: clip.fileName,
       startOffset: clip.startOffset || 0,
       durationSeconds: clip.durationSeconds,
-      originalBars: clip.originalBars || clip.bars
+      originalBars: clip.originalBars || clip.bars,
+      fadeIn: Number(clip.fadeIn) || 0,
+      fadeOut: Number(clip.fadeOut) || 0
     };
 
     if (clip.loopId) {
@@ -633,6 +635,9 @@ async function loadProjectZip(json, zip) {
         loadedClip.startOffset = 0;
       }
 
+      loadedClip.fadeIn = Number(raw.fadeIn) || 0;
+      loadedClip.fadeOut = Number(raw.fadeOut) || 0;
+
       resolveClipCollisions(loadedClip);
 
       const trackEl = document.querySelectorAll(".track")[loadedClip.trackIndex];
@@ -667,7 +672,9 @@ async function loadProjectZip(json, zip) {
         startOffset: 0,
         durationSeconds: audioBuffer.duration,
         originalBars: barsAtSource,
-        name: raw.name || raw.fileName || `Audio Clip`
+        name: raw.name || raw.fileName || `Audio Clip`,
+        fadeIn: Number(raw.fadeIn) || 0,
+        fadeOut: Number(raw.fadeOut) || 0
       };
 
       window.clips.push(clip);
