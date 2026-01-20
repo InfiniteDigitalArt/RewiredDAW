@@ -655,13 +655,11 @@ if (window.activeClip) {
     const bars = window.calculateBarsFromAudio(normalizedBuffer, loopBpm);
 
     if (targetAudioClip) {
-      // Replace all audio clips that share the same audioBuffer or loopId as the target (i.e., all duplicates)
-      const targetBuffer = targetAudioClip.audioBuffer;
-      const targetLoopId = targetAudioClip.loopId;
+      // Replace all audio clips that share the same fileName as the target (i.e., all duplicates)
       const targetFileName = targetAudioClip.fileName;
       const replacedIds = [];
       window.clips.forEach(c => {
-        if (c.type === "audio" && (c.audioBuffer === targetBuffer || c.loopId === targetLoopId || c.fileName === targetFileName)) {
+        if (c.type === "audio" && c.fileName === targetFileName) {
           c.audioBuffer = normalizedBuffer;
           c.loopId = null; // Clear loopId since we're now using direct audioBuffer
           c.fileName = meta.displayName || file.name;
@@ -680,7 +678,7 @@ if (window.activeClip) {
         const realActiveClip = window.clips.find(c => c.id === window.activeClip.id);
         if (realActiveClip && realActiveClip.type === "audio" && replacedIds.includes(realActiveClip.id)) {
           window.activeClip = realActiveClip;
-        } else if (window.activeClip.type === "audio" && (window.activeClip.audioBuffer === targetBuffer || window.activeClip.loopId === targetLoopId || window.activeClip.fileName === targetFileName)) {
+        } else if (window.activeClip.type === "audio" && window.activeClip.fileName === targetFileName) {
           window.activeClip.audioBuffer = normalizedBuffer;
           window.activeClip.loopId = null;
           window.activeClip.fileName = meta.displayName || file.name;
@@ -710,6 +708,7 @@ if (window.activeClip) {
 
       window.clips.push(clip);
       resolveClipCollisions(clip);
+      window.activeClip = clip;  // Set as active immediately after creation
     }
   }
 
