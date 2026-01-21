@@ -192,7 +192,7 @@ function makeSaturationCurve(samples, amount) {
 }
 
 
-window.exportSong = async function(preset = "premaster") {
+window.exportSong = async function(preset = "premaster", songTitle = "Untitled", presetName = "Pre-Master") {
   // Show loading bar
   window.showLoadingBar("Exporting...");
   window.updateLoadingBar(5, "Finding clips...");
@@ -563,7 +563,9 @@ const synth = new BasicSawSynthForContext(
     calculatedDuration: wavDurationSeconds,
   });
 
-  triggerDownload(wavBlob, "rewired_export.wav");
+  // Create filename with song title and preset name
+  const filename = `${songTitle} (${presetName}).wav`;
+  triggerDownload(wavBlob, filename);
   
   window.updateLoadingBar(100, "Complete!");
   

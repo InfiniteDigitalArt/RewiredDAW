@@ -871,11 +871,22 @@ if (window.isPlaying) {
       const selectedPreset = document.querySelector('input[name="exportPreset"]:checked');
       const preset = selectedPreset ? selectedPreset.value : "premaster";
       
+      // Get song title
+      const songTitle = document.getElementById("export-song-title").value.trim() || "Untitled";
+      
+      // Map preset value to display name
+      const presetNames = {
+        "premaster": "Pre-Master",
+        "clubmaster": "Club Master",
+        "streaming": "Streaming Platform"
+      };
+      const presetName = presetNames[preset] || preset;
+      
       // Close dialog
       closeExportDialog();
       
-      // Start export with selected preset
-      window.exportSong(preset);
+      // Start export with selected preset and song title
+      window.exportSong(preset, songTitle, presetName);
     });
   }
 

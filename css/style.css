@@ -1849,6 +1849,35 @@ body {
   flex: 1;
 }
 
+.export-title-section {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.export-title-input {
+  padding: 10px 12px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.export-title-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  background: #1a1a20;
+}
+
+.export-title-input::placeholder {
+  color: var(--text-secondary);
+}
+
 .export-preset-section {
   display: flex;
   flex-direction: column;
