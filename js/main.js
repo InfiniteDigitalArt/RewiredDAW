@@ -134,11 +134,35 @@ window.addEventListener("DOMContentLoaded", () => {
 const tempoSlider = document.getElementById("tempoSlider");
 const tempoValue = document.getElementById("tempoValue");
 
-tempoSlider.addEventListener("input", () => {
-  const bpm = parseInt(tempoSlider.value);
-  if (tempoValue) tempoValue.textContent = bpm + " BPM";
+function applyProjectTempo(rawBpm, { updateUI = true } = {}) {
+  let bpm = Number(rawBpm);
+  if (!isFinite(bpm)) bpm = 175;
+
+  // Keep in the same range as the UI control
+  bpm = Math.max(100, Math.min(200, Math.round(bpm)));
+
   window.setTempo(bpm);
-});
+
+  if (!updateUI) return bpm;
+
+  if (tempoSlider) tempoSlider.value = bpm;
+  if (tempoValue) tempoValue.textContent = bpm + " BPM";
+
+  const tempoBox = document.getElementById("tempoBox");
+  if (tempoBox) {
+    tempoBox.dataset.tempo = bpm;
+    const valueEl = tempoBox.querySelector(".tempo-box-value");
+    if (valueEl) valueEl.textContent = bpm;
+  }
+
+  return bpm;
+}
+
+if (tempoSlider) {
+  tempoSlider.addEventListener("input", () => {
+    applyProjectTempo(tempoSlider.value);
+  });
+}
 
 // Tempo Box Drag Handler
 const tempoBox = document.getElementById("tempoBox");
@@ -165,16 +189,7 @@ if (tempoBox) {
     // Clamp between 100-200
     newTempo = Math.max(100, Math.min(200, newTempo));
     
-    // Update display
-    tempoBox.dataset.tempo = newTempo;
-    tempoBox.querySelector(".tempo-box-value").textContent = newTempo;
-    
-    // Sync with hidden slider
-    tempoSlider.value = newTempo;
-    if (tempoValue) tempoValue.textContent = newTempo + " BPM";
-    
-    // Update engine
-    window.setTempo(newTempo);
+    applyProjectTempo(newTempo);
   });
 
   document.addEventListener("mouseup", () => {
@@ -432,7 +447,7 @@ async function saveProjectZip() {
   window.updateLoadingBar(70, "Creating archive...");
   
   const project = {
-    tempo: Number(document.getElementById("tempoSlider").value),
+    tempo: Number(window.BPM || 175),
     timelineBars: window.timelineBars,
     tracks,
     clips: serializedClips
@@ -475,19 +490,8 @@ async function loadProjectZip(json, zip) {
   stopAll();
   stopPlayhead();
 
-  // Reset UI
-  document.getElementById("tempoSlider").value = json.tempo;
-  const tempoValueEl = document.getElementById("tempoValue");
-  if (tempoValueEl) tempoValueEl.textContent = json.tempo + " BPM";
-  
-  // Update tempo box if it exists
-  const tempoBox = document.getElementById("tempoBox");
-  if (tempoBox) {
-    tempoBox.dataset.tempo = json.tempo;
-    tempoBox.querySelector(".tempo-box-value").textContent = json.tempo;
-  }
-  
-  window.setTempo(json.tempo);
+  // Reset UI + engine tempo
+  applyProjectTempo(json.tempo);
 
   // Restore timeline bars (defaults to 64 if not present for backwards compatibility)
   window.timelineBars = json.timelineBars || 64;
@@ -627,12 +631,12 @@ async function loadProjectZip(json, zip) {
       const ld = window.loopBuffers.get(raw.loopId);
       if (ld && ld.buffer) {
         const barsAtSource = window.calculateBarsFromAudio(ld.buffer, loopInfo.bpm);
-        loadedClip.bars = barsAtSource;
-        loadedClip.originalBars = barsAtSource;
+        loadedClip.originalBars = raw.originalBars || barsAtSource;
+        loadedClip.bars = raw.bars || loadedClip.originalBars;
         loadedClip.sourceBpm = loopInfo.bpm;
         loadedClip.bpm = loopInfo.bpm;
         loadedClip.durationSeconds = ld.buffer.duration;
-        loadedClip.startOffset = 0;
+        loadedClip.startOffset = raw.startOffset || 0;
       }
 
       loadedClip.fadeIn = Number(raw.fadeIn) || 0;
@@ -665,13 +669,13 @@ async function loadProjectZip(json, zip) {
         audioBuffer,
         trackIndex: raw.trackIndex,
         startBar: raw.startBar,
-        bars: barsAtSource,                 // recomputed at source BPM
+        bars: raw.bars || barsAtSource,      // keep trimmed length if saved
         bpm: sourceBpm,
         sourceBpm,                          // persist source BPM on the clip
         fileName: raw.fileName,
-        startOffset: 0,
+        startOffset: raw.startOffset || 0,
         durationSeconds: audioBuffer.duration,
-        originalBars: barsAtSource,
+        originalBars: raw.originalBars || barsAtSource,
         name: raw.name || raw.fileName || `Audio Clip`,
         fadeIn: Number(raw.fadeIn) || 0,
         fadeOut: Number(raw.fadeOut) || 0

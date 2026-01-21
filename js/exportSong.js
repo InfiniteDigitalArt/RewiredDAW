@@ -3,7 +3,7 @@
 // ======================================================
 
 // Prevent OfflineAudioContext fade-in at time 0
-const EXPORT_START_OFFSET = 0.05;
+const EXPORT_START_OFFSET = 0.1;
 
 
 window.exportSong = async function() {
@@ -12,11 +12,14 @@ window.exportSong = async function() {
   window.updateLoadingBar(5, "Finding clips...");
 
   // ------------------------------------------------------
-  // 1. Find the last bar in the song
+  // 1. Find the last bar in the song based on clip durations
+  // Clip.bars determines the actual playback duration at project BPM
   // ------------------------------------------------------
 let lastBar = 0;
 
 window.clips.forEach(clip => {
+  // For audio clips, the bars value determines timeline duration
+  // For MIDI clips, use clip.bars directly
   const bars = clip.bars || 1;
   const clipEnd = clip.startBar + bars;
   if (clipEnd > lastBar) lastBar = clipEnd;
@@ -111,12 +114,11 @@ window.clips.forEach(clip => {
 
     buffer = loopData.buffer;
     bpm = loopData.bpm;
-    bars = loopData.bars;
 
   // CASE B: Dropped audio
   } else if (clip.audioBuffer) {
     buffer = clip.audioBuffer;
-    bpm = clip.bpm || window.BPM;
+    bpm = clip.sourceBpm || clip.bpm || window.BPM;
     bars = clip.bars;
   }
 
@@ -125,6 +127,34 @@ window.clips.forEach(clip => {
   const src = offline.createBufferSource();
   src.buffer = buffer;
   src.playbackRate.value = window.BPM / bpm;
+
+  // Respect trimming/slip the same way as realtime playback
+  const fallbackOriginalBars = (clip.loopId && window.loopBuffers.get(clip.loopId)?.bars) || bars || 1;
+  const originalBars = (clip.originalBars && clip.originalBars > 0)
+    ? clip.originalBars
+    : fallbackOriginalBars;
+  const safeOriginalBars = Math.max(0.0001, originalBars);
+  let playbackBars = (isFinite(bars) && bars > 0) ? bars : safeOriginalBars;
+  if (!isFinite(playbackBars) || playbackBars <= 0) playbackBars = safeOriginalBars;
+
+  // Timeline clip length in seconds at project tempo
+  const bufferDuration = window.barsToSeconds(playbackBars);
+
+  // Support slip editing offsets (in buffer seconds)
+  const startOffset = Math.max(0, clip.startOffset || 0);
+  
+  // Timeline clip length in seconds at project tempo
+  const timelineDurationSeconds = window.barsToSeconds(playbackBars)+1;
+
+  // Convert timeline seconds → buffer seconds (because playbackRate scales time)
+  const playbackDuration = (timelineDurationSeconds * src.playbackRate.value)+1;
+
+  // Respect slip edit offset and avoid reading past buffer end
+  const maxDuration = Math.max(0, bufferDuration - startOffset);
+  const actualPlaybackDuration = Math.min(playbackDuration, maxDuration);
+
+  // Only prevent obviously invalid durations
+  if (actualPlaybackDuration <= 0) return; // nothing audible
 
   // ⭐ FIX: Define trackIndex before using it
   const trackIndex = clip.trackIndex ?? 0;
@@ -136,23 +166,24 @@ window.clips.forEach(clip => {
     src.connect(fadeGain);
     fadeGain.connect(destination);
     destination = fadeGain;
-    
+
     const when = EXPORT_START_OFFSET + window.barsToSeconds(clip.startBar);
-    const duration = window.barsToSeconds(clip.bars);
     const fadeInSeconds = window.barsToSeconds(clip.fadeIn || 0);
     const fadeOutSeconds = window.barsToSeconds(clip.fadeOut || 0);
-    
+    // Clip duration in seconds at project BPM (after playback rate adjustment)
+    const clipDurationSeconds = actualPlaybackDuration / Math.max(0.0001, src.playbackRate.value);
+
     // Fade in
     if (fadeInSeconds > 0) {
       fadeGain.gain.setValueAtTime(0, when);
-      fadeGain.gain.linearRampToValueAtTime(1, when + fadeInSeconds);
+      fadeGain.gain.linearRampToValueAtTime(1, when + Math.min(fadeInSeconds, clipDurationSeconds));
     } else {
       fadeGain.gain.setValueAtTime(1, when);
     }
-    
+
     // Fade out
     if (fadeOutSeconds > 0) {
-      const fadeOutStart = when + duration - fadeOutSeconds;
+      const fadeOutStart = when + Math.max(0, clipDurationSeconds - fadeOutSeconds);
       fadeGain.gain.setValueAtTime(1, fadeOutStart);
       fadeGain.gain.linearRampToValueAtTime(0, fadeOutStart + fadeOutSeconds);
     }
@@ -161,7 +192,7 @@ window.clips.forEach(clip => {
   }
 
   const when = EXPORT_START_OFFSET + window.barsToSeconds(clip.startBar);
-  src.start(when);
+  src.start(when, startOffset, actualPlaybackDuration);
 });
 
 
