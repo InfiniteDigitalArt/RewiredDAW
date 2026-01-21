@@ -39,4 +39,4 @@ window.PACKS = ${JSON.stringify(packs, null, 2)};
 `;
 
 fs.writeFileSync(path.join(__dirname, "packs.js"), output, "utf8");
-console.log("packs.js generated successfully!");
+

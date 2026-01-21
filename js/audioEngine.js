@@ -14,7 +14,7 @@ async function loadDefaultMidiSample() {
   const arrayBuf = await res.arrayBuffer();
   window.defaultMidiSampleBuffer = await audioContext.decodeAudioData(arrayBuf);
 
-  console.log("Default MIDI sample loaded", window.defaultMidiSampleBuffer);
+  
 }
 
 loadDefaultMidiSample();
@@ -242,12 +242,19 @@ window.scheduleClip = function(clip, seekBars = 0) {
   const rate = window.BPM / clipBpm;
   source.playbackRate.value = isFinite(rate) ? rate : 1;
 
-  // store BPM for tempo changes
   source._clipBpm = clipBpm;
 
-  const trackGain = window.trackGains[clip.trackIndex];
-  source.connect(trackGain);
-/* -------------------------------------------------------
+  // --- APPLY FADE ENVELOPE ---
+  let gainNode = null;
+  if (clip.fadeIn > 0 || clip.fadeOut > 0) {
+    gainNode = audioContext.createGain();
+    source.connect(gainNode);
+    gainNode.connect(window.trackGains[clip.trackIndex]);
+  } else {
+    source.connect(window.trackGains[clip.trackIndex]);
+  }
+
+  /* -------------------------------------------------------
    4. Scheduling logic (correct + DAW-accurate)
 ------------------------------------------------------- */
 
@@ -257,13 +264,16 @@ const clipEnd   = clip.startBar + clip.bars;
 // CASE A: Transport BEFORE the clip → schedule normally
 if (seekBars < clipStart) {
   const when = transportStartTime + barsToSeconds(clipStart);
-
   let dur = visibleDuration;
   if (!isFinite(dur) || dur <= 0) dur = 0.001;
 
+  // Apply fade envelope
+  if (gainNode) {
+    applyFadeEnvelope(gainNode, clip, when, dur);
+  }
+
   window.scheduledSources.add(source);
   source.onended = () => window.scheduledSources.delete(source);
-
   source.start(when, startOffset, dur);
   return;
 }
@@ -271,12 +281,10 @@ if (seekBars < clipStart) {
 // CASE B: Transport INSIDE the clip → start from offset
 if (seekBars >= clipStart && seekBars < clipEnd) {
   const barsIntoClip = seekBars - clipStart;
-
   const secondsPerBarInSource = sourceDuration / clip.originalBars;
   const offsetSeconds = barsIntoClip * secondsPerBarInSource;
 
-  // Cap playback to the trimmed clip length
-  if (offsetSeconds >= visibleDuration) return; // already past the trimmed region
+  if (offsetSeconds >= visibleDuration) return;
 
   let safeDuration = Math.min(
     sourceDuration - offsetSeconds,
@@ -284,9 +292,33 @@ if (seekBars >= clipStart && seekBars < clipEnd) {
   );
   if (!isFinite(safeDuration) || safeDuration <= 0.001) safeDuration = 0.001;
 
+  // Apply fade envelope with offset
+  if (gainNode) {
+    const fadeInSeconds = barsToSeconds(clip.fadeIn);
+    const fadeOutSeconds = barsToSeconds(clip.fadeOut);
+    const totalDuration = visibleDuration;
+    
+    if (offsetSeconds < fadeInSeconds) {
+      // Still in fade-in region
+      gainNode.gain.setValueAtTime(offsetSeconds / fadeInSeconds, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + (fadeInSeconds - offsetSeconds));
+    } else {
+      gainNode.gain.setValueAtTime(1, audioContext.currentTime);
+    }
+    
+    // Fade out
+    if (fadeOutSeconds > 0) {
+      const fadeOutStart = totalDuration - fadeOutSeconds;
+      if (offsetSeconds < fadeOutStart) {
+        const fadeOutTime = audioContext.currentTime + (fadeOutStart - offsetSeconds);
+        gainNode.gain.setValueAtTime(1, fadeOutTime);
+        gainNode.gain.linearRampToValueAtTime(0, fadeOutTime + fadeOutSeconds);
+      }
+    }
+  }
+
   window.scheduledSources.add(source);
   source.onended = () => window.scheduledSources.delete(source);
-
   source.start(audioContext.currentTime, offsetSeconds, safeDuration);
   return;
 }
@@ -328,6 +360,26 @@ return;
 
 };
 
+// Helper function to apply fade envelope
+function applyFadeEnvelope(gainNode, clip, startTime, duration) {
+  const fadeInSeconds = barsToSeconds(clip.fadeIn || 0);
+  const fadeOutSeconds = barsToSeconds(clip.fadeOut || 0);
+  
+  // Fade in
+  if (fadeInSeconds > 0) {
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(1, startTime + fadeInSeconds);
+  } else {
+    gainNode.gain.setValueAtTime(1, startTime);
+  }
+  
+  // Fade out
+  if (fadeOutSeconds > 0 && duration > fadeOutSeconds) {
+    const fadeOutStart = startTime + duration - fadeOutSeconds;
+    gainNode.gain.setValueAtTime(1, fadeOutStart);
+    gainNode.gain.linearRampToValueAtTime(0, fadeOutStart + fadeOutSeconds);
+  }
+}
 
 // add this near the top of audioEngine.js
 window.onScheduleMidiClip = window.onScheduleMidiClip || null;

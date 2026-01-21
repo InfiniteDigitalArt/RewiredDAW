@@ -640,9 +640,7 @@ function renderFolder(container, name, content, loops) {
 // 3. SIDEBAR POPULATION
 // ---------------------------------------------
 window.populateSidebar = function() {
-  console.log("MIDI_LOOPS:", window.MIDI_LOOPS);
-console.log("DROPBOX_LOOP_MAP:", window.DROPBOX_LOOP_MAP);
-console.log("LOOP_FOLDERS:", window.LOOP_FOLDERS);
+
 
 
   const container = document.getElementById("sidebar-loops");

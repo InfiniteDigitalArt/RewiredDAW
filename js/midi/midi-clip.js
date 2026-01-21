@@ -1,4 +1,4 @@
-console.log("midi-clip.js loaded");
+
 
 window.MidiClip = class MidiClip {
   constructor(startBar, bars) {

@@ -141,8 +141,8 @@ window.checkAndExpandTimeline = function() {
 window.initTimeline = function () {
   // Track current timeline tool
   window.timelineCurrentTool = 'pencil';
-  let timelineToolBeforeCtrl = null; // Remember tool before Ctrl was pressed
-  let isTimelineCtrlHeld = false; // Track if Ctrl is currently held
+  let timelineToolBeforeCtrl = null;
+  let isTimelineCtrlHeld = false;
   
   const tracksEl = document.getElementById("tracks");
   const controlsColumn = document.getElementById("track-controls-column");
@@ -155,12 +155,24 @@ window.initTimeline = function () {
   if (timelineToolButtons.length > 0) {
     timelineToolButtons[0].classList.add('active');
   }
-  const toolNames = ['pencil', 'select', 'slice'];
+  const toolNames = ['pencil', 'select', 'slice', 'fade'];
   timelineToolButtons.forEach((btn, index) => {
     btn.addEventListener('click', () => {
       timelineToolButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       window.timelineCurrentTool = toolNames[index] || 'pencil';
+      
+      // ⭐ Re-render all clips when tool changes
+      const tracks = document.querySelectorAll('.track');
+      tracks.forEach((track, trackIndex) => {
+        const dropArea = track.querySelector('.track-drop-area');
+        if (dropArea) {
+          dropArea.innerHTML = "";
+          window.clips
+            .filter(c => c.trackIndex === trackIndex)
+            .forEach(c => window.renderClip(c, dropArea));
+        }
+      });
     });
   });
 
@@ -1704,6 +1716,61 @@ if (clip.type === "audio" && bufferToDraw) {
   el.style.overflow = "hidden";
 
   el.appendChild(waveform);
+  
+  // --- FADE OVERLAYS ---
+  if ((clip.fadeIn > 0 || clip.fadeOut > 0)) {
+    const fadeCanvas = document.createElement("canvas");
+    fadeCanvas.className = "fade-overlay";
+    fadeCanvas.width = clipWidth;
+    fadeCanvas.height = 40;
+    fadeCanvas.style.position = "absolute";
+    fadeCanvas.style.bottom = "0";
+    fadeCanvas.style.left = "0";
+    fadeCanvas.style.pointerEvents = "none";
+    
+    const ctx = fadeCanvas.getContext("2d");
+    const gradient = ctx.createLinearGradient(0, 0, clipWidth, 0);
+    
+    const fadeInPx = (clip.fadeIn / clip.bars) * clipWidth;
+    const fadeOutPx = (clip.fadeOut / clip.bars) * clipWidth;
+    
+    // Fade in gradient
+    if (clip.fadeIn > 0) {
+      gradient.addColorStop(0, "rgba(0,0,0,0.5)");
+      gradient.addColorStop(fadeInPx / clipWidth, "rgba(0,0,0,0)");
+    }
+    
+    // Fade out gradient
+    if (clip.fadeOut > 0) {
+      const fadeOutStart = 1 - (fadeOutPx / clipWidth);
+      gradient.addColorStop(fadeOutStart, "rgba(0,0,0,0)");
+      gradient.addColorStop(1, "rgba(0,0,0,0.5)");
+    }
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, clipWidth, 40);
+    
+    // Draw fade curves
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    
+    // Fade in curve
+    if (clip.fadeIn > 0) {
+      ctx.moveTo(0, 40);
+      ctx.lineTo(fadeInPx, 0);
+    }
+    
+    // Fade out curve
+    if (clip.fadeOut > 0) {
+      ctx.moveTo(clipWidth - fadeOutPx, 0);
+      ctx.lineTo(clipWidth, 40);
+    }
+    
+    ctx.stroke();
+    
+    el.appendChild(fadeCanvas);
+  }
 }
 
 
@@ -1768,10 +1835,6 @@ if (clip.type === "midi") {
     ctx.strokeStyle = "rgba(255,255,255,0.4)";
     ctx.strokeRect(x, y, w, h);
   });
-
-
-
-  el.appendChild(midiCanvas);
 }
 
 
@@ -1865,6 +1928,8 @@ if (clip.type === "midi") {
             newClip.sampleBuffer = clip.sampleBuffer;
           }
         }
+
+
       }
       if (clip.reverbGain) {
         // Create a new GainNode for reverb
@@ -2164,7 +2229,281 @@ el.addEventListener("touchend", () => {
   dropArea.appendChild(el);
   
 
-};
+  // Initialize fade values if not present
+  if (clip.type === "audio") {
+    if (clip.fadeIn === undefined) clip.fadeIn = 0;
+    if (clip.fadeOut === undefined) clip.fadeOut = 0;
+  }
+  // Utility: ensure fades don't overlap past clip length
+  function clampFadeLengths(clip) {
+    if (clip.type !== "audio") return;
+    const maxFadeIn = Math.max(0, clip.bars - (clip.fadeOut || 0));
+    const maxFadeOut = Math.max(0, clip.bars - (clip.fadeIn || 0));
+    clip.fadeIn = Math.min(clip.fadeIn || 0, maxFadeIn);
+    clip.fadeOut = Math.min(clip.fadeOut || 0, maxFadeOut);
+  }
+
+  if (clip.type === "audio") {
+    if (clip.fadeIn === undefined) clip.fadeIn = 0;
+    if (clip.fadeOut === undefined) clip.fadeOut = 0;
+    clampFadeLengths(clip);
+  }
+
+  // --- FADE HANDLES (only for audio clips in fade mode) ---
+  if (clip.type === "audio" && window.timelineCurrentTool === 'fade') {
+    // Left fade handle
+    const fadeInHandle = document.createElement("div");
+    fadeInHandle.className = "fade-handle fade-in-handle";
+    fadeInHandle.style.left = "0px";
+    
+    fadeInHandle.addEventListener("mousedown", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const startX = e.clientX;
+      const startFade = clip.fadeIn || 0;
+      
+      function move(ev) {
+        const deltaPx = ev.clientX - startX;
+        const deltaBars = deltaPx / window.PIXELS_PER_BAR;
+        let newFade = Math.max(0, startFade + deltaBars);
+        newFade = Math.min(newFade, Math.max(0, clip.bars - (clip.fadeOut || 0)));
+        clip.fadeIn = newFade;
+        clampFadeLengths(clip);
+        dropArea.innerHTML = "";
+        window.clips
+          .filter(c => c.trackIndex === clip.trackIndex)
+          .forEach(c => window.renderClip(c, dropArea));
+      }
+      
+      function up() {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", up);
+      }
+      
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
+    });
+    el.appendChild(fadeInHandle);
+
+    // Right fade handle
+    const fadeOutHandle = document.createElement("div");
+    fadeOutHandle.className = "fade-handle fade-out-handle";
+    fadeOutHandle.style.right = "0px";
+    
+    fadeOutHandle.addEventListener("mousedown", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const startX = e.clientX;
+      const startFade = clip.fadeOut || 0;
+      
+      function move(ev) {
+        const deltaPx = startX - ev.clientX;
+        const deltaBars = deltaPx / window.PIXELS_PER_BAR;
+        let newFade = Math.max(0, startFade + deltaBars);
+        newFade = Math.min(newFade, Math.max(0, clip.bars - (clip.fadeIn || 0)));
+        clip.fadeOut = newFade;
+        clampFadeLengths(clip);
+        dropArea.innerHTML = "";
+        window.clips
+          .filter(c => c.trackIndex === clip.trackIndex)
+          .forEach(c => window.renderClip(c, dropArea));
+      }
+      
+      function up() {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", up);
+      }
+      
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
+    });
+    el.appendChild(fadeOutHandle);
+  }
+
+  // --- WAVEFORM AND MIDI PREVIEW RENDERING ---
+  //let bufferToDraw = null;
+
+  if (clip.type === "audio") {
+    if (clip.audioBuffer) {
+      bufferToDraw = clip.audioBuffer;
+    } else if (clip.loopId) {
+      const loopData = window.loopBuffers.get(clip.loopId);
+      if (loopData && loopData.buffer) {
+        bufferToDraw = loopData.buffer;
+
+        if (!clip.originalBars && loopData.bars) {
+          clip.originalBars = loopData.bars;
+        }
+      }
+    }
+  }
+
+
+  if (clip.type === "audio" && bufferToDraw) {
+    clampFadeLengths(clip);
+    const durationSeconds = bufferToDraw.duration;
+    const barDuration = window.barsToSeconds(1);
+    const projectBars = durationSeconds / barDuration;
+
+    if (!isFinite(clip.originalBars) || clip.originalBars <= 0) {
+      clip.originalBars = projectBars;
+    }
+
+    if (!isFinite(clip.bars) || clip.bars <= 0) {
+      clip.bars = clip.originalBars;
+    }
+
+    const originalBars = clip.originalBars;
+    const playbackBars = clip.bars;
+
+    const waveformWidth = originalBars * window.PIXELS_PER_BAR;
+
+    const color = window.TRACK_COLORS[clip.trackIndex % 10];
+    const samples = bufferToDraw.getChannelData(0);
+
+    const waveform = window.renderWaveformSlice(
+      samples,
+      waveformWidth,
+      40,
+      color
+    );
+
+    waveform.style.position = "absolute";
+    waveform.style.bottom = "0";
+    waveform.style.left = "0";
+    waveform.style.pointerEvents = "none";
+
+    const clipWidth = playbackBars * window.PIXELS_PER_BAR;
+    el.style.width = clipWidth + "px";
+
+    waveform.style.width = waveformWidth + "px";
+    el.style.overflow = "hidden";
+
+    el.appendChild(waveform);
+    
+    // --- FADE OVERLAYS ---
+    if ((clip.fadeIn > 0 || clip.fadeOut > 0)) {
+      const fadeCanvas = document.createElement("canvas");
+      fadeCanvas.className = "fade-overlay";
+      fadeCanvas.width = clipWidth;
+      fadeCanvas.height = 40;
+      fadeCanvas.style.position = "absolute";
+      fadeCanvas.style.bottom = "0";
+      fadeCanvas.style.left = "0";
+      fadeCanvas.style.pointerEvents = "none";
+      
+      const ctx = fadeCanvas.getContext("2d");
+      const gradient = ctx.createLinearGradient(0, 0, clipWidth, 0);
+      
+      const fadeInPx = (clip.fadeIn / clip.bars) * clipWidth;
+      const fadeOutPx = (clip.fadeOut / clip.bars) * clipWidth;
+      
+      // Fade in gradient
+      if (clip.fadeIn > 0) {
+        gradient.addColorStop(0, "rgba(0,0,0,0.5)");
+        gradient.addColorStop(fadeInPx / clipWidth, "rgba(0,0,0,0)");
+      }
+      
+      // Fade out gradient
+      if (clip.fadeOut > 0) {
+        const fadeOutStart = 1 - (fadeOutPx / clipWidth);
+        gradient.addColorStop(fadeOutStart, "rgba(0,0,0,0)");
+        gradient.addColorStop(1, "rgba(0,0,0,0.5)");
+      }
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, clipWidth, 40);
+      
+      // Draw fade curves
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      
+      // Fade in curve
+      if (clip.fadeIn > 0) {
+        ctx.moveTo(0, 40);
+        ctx.lineTo(fadeInPx, 0);
+      }
+      
+      // Fade out curve
+      if (clip.fadeOut > 0) {
+        ctx.moveTo(clipWidth - fadeOutPx, 0);
+        ctx.lineTo(clipWidth, 40);
+      }
+      
+      ctx.stroke();
+      
+      el.appendChild(fadeCanvas);
+    }
+  }
+
+
+  if (clip.type === "midi") {
+    el.style.width = (clip.bars * window.PIXELS_PER_BAR) + "px";
+
+    const beatsPerBar = 4;
+    const pxPerBar = window.PIXELS_PER_BAR;
+    const pxPerBeat = pxPerBar / beatsPerBar;
+
+    // ⭐ Reuse or create preview canvas
+    let midiCanvas = el.querySelector(".midi-preview");
+    if (!midiCanvas) {
+      midiCanvas = document.createElement("canvas");
+      midiCanvas.className = "midi-preview";
+      midiCanvas.style.position = "absolute";
+      midiCanvas.style.bottom = "0";
+      midiCanvas.style.left = "0";
+      midiCanvas.style.pointerEvents = "none";
+      midiCanvas.style.zIndex = "2";
+      el.appendChild(midiCanvas);
+    }
+
+    // ⭐ Resize canvas
+    midiCanvas.width = clip.bars * pxPerBar;
+    midiCanvas.height = 40;
+
+    const ctx = midiCanvas.getContext("2d");
+    ctx.clearRect(0, 0, midiCanvas.width, midiCanvas.height);
+
+    // Match piano roll pitch range
+    // Auto-fit pitch range
+    let minPitch = Infinity;
+    let maxPitch = -Infinity;
+
+    clip.notes.forEach(n => {
+      if (n.pitch < minPitch) minPitch = n.pitch;
+      if (n.pitch > maxPitch) maxPitch = n.pitch;
+    });
+
+    // Add a little padding so notes aren't touching the edges
+    minPitch -= 1;
+    maxPitch += 1;
+
+    const pitchRange = Math.max(1, maxPitch - minPitch);
+    const rowHeight = midiCanvas.height / pitchRange;
+
+
+    clip.notes.forEach(note => {
+      const gap = 1;
+
+      const x = note.start * pxPerBeat + gap;
+      const w = (note.end - note.start) * pxPerBeat - gap * 2;
+
+      const y = (maxPitch - note.pitch) * rowHeight;
+
+      const h = Math.max(3, rowHeight - 2);
+
+      ctx.fillStyle = window.TRACK_COLORS[clip.trackIndex % 10];
+      ctx.fillRect(x, y, w, h);
+
+      ctx.strokeStyle = "rgba(255,255,255,0.4)";
+      ctx.strokeRect(x, y, w, h);
+    });
+  }
+
+
+
+}
 
 
 /* -------------------------------------------------------
