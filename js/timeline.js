@@ -97,7 +97,7 @@ window.hideLoadingBar = function() {
 window.checkAndExpandTimeline = function() {
   if (!window.clips || window.clips.length === 0) return;
   
-  // Find the maximum end point of all clips
+  // Find the maximum end point of all clips (startBar + bars = actual end position)
   let maxClipEnd = 0;
   window.clips.forEach(clip => {
     const clipEnd = clip.startBar + clip.bars;
@@ -107,9 +107,14 @@ window.checkAndExpandTimeline = function() {
   // Check if any clip extends within threshold of current end
   const expansionThreshold = window.timelineBars - TIMELINE_EXPANSION_THRESHOLD;
   
+  // Keep expanding until all clips fit comfortably
   if (maxClipEnd > expansionThreshold) {
-    // Expand timeline
-    window.timelineBars += TIMELINE_EXPANSION_SIZE;
+    // Calculate how many bars we need total (with some padding)
+    const requiredBars = Math.ceil(maxClipEnd) + TIMELINE_EXPANSION_THRESHOLD;
+    
+    // Expand to the required size (in multiples of EXPANSION_SIZE for consistency)
+    const expandedSize = Math.ceil(requiredBars / TIMELINE_EXPANSION_SIZE) * TIMELINE_EXPANSION_SIZE;
+    window.timelineBars = Math.max(window.timelineBars, expandedSize);
     
     // Update track min-width in CSS
     const trackMinWidth = window.timelineBars * window.PIXELS_PER_BAR;
