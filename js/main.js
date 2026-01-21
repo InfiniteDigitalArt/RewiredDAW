@@ -929,30 +929,8 @@ document.getElementById("masterVolumeSlider").addEventListener("input", e => {
 // ------------------------------------------------------
 // TRUE STEREO MASTER VU SETUP
 // ------------------------------------------------------
-
-// Create a stereo splitter AFTER masterGain
-const masterSplitter = audioContext.createChannelSplitter(2);
-
-// Disconnect old analyser if needed
-try { masterGain.disconnect(masterAnalyser); } catch {}
-
-// Connect masterGain → splitter
-masterGain.connect(masterSplitter);
-
-// ⭐ ADD THIS: connect masterGain to speakers
-masterGain.connect(audioContext.destination);
-
-// Create two analysers (L/R)
-window.masterAnalyserLeft = audioContext.createAnalyser();
-window.masterAnalyserRight = audioContext.createAnalyser();
-
-masterAnalyserLeft.fftSize = 256;
-masterAnalyserRight.fftSize = 256;
-
-// Connect splitter → analysers
-masterSplitter.connect(masterAnalyserLeft, 0);
-masterSplitter.connect(masterAnalyserRight, 1);
-
+// Note: Master stereo analysers are now created in audioEngine.js
+// This section just sets up the top bar VU meter drawing
 
 // ------------------------------------------------------
 // CANVAS + DRAWING
@@ -962,41 +940,84 @@ const vuRight = document.getElementById("vuRight");
 const ctxL = vuLeft.getContext("2d");
 const ctxR = vuRight.getContext("2d");
 
-const leftData = new Uint8Array(masterAnalyserLeft.frequencyBinCount);
-const rightData = new Uint8Array(masterAnalyserRight.frequencyBinCount);
+const leftData = new Uint8Array(window.masterAnalyserLeft.frequencyBinCount);
+const rightData = new Uint8Array(window.masterAnalyserRight.frequencyBinCount);
+
+// RMS smoothing state for top bar VU meters (matching mixer calculation)
+let vuLeftRMS = 0;
+let vuRightRMS = 0;
+const vuSmoothing = 0.7; // Exponential moving average smoothing
 
 function drawVUMeters() {
   requestAnimationFrame(drawVUMeters);
 
   // Read true stereo data
-  masterAnalyserLeft.getByteTimeDomainData(leftData);
-  masterAnalyserRight.getByteTimeDomainData(rightData);
+  window.masterAnalyserLeft.getByteTimeDomainData(leftData);
+  window.masterAnalyserRight.getByteTimeDomainData(rightData);
 
-  const leftLevel = getPeak(leftData);
-  const rightLevel = getPeak(rightData);
+  const leftRms = getRMS(leftData);
+  const rightRms = getRMS(rightData);
+  const leftPeak = getPeak(leftData);
+  const rightPeak = getPeak(rightData);
 
-  drawMeter(ctxL, leftLevel);
-  drawMeter(ctxR, rightLevel);
+  // Apply smoothing to match mixer behavior
+  vuLeftRMS = vuSmoothing * vuLeftRMS + (1 - vuSmoothing) * leftRms;
+  vuRightRMS = vuSmoothing * vuRightRMS + (1 - vuSmoothing) * rightRms;
+
+  drawMeter(ctxL, vuLeftRMS, leftPeak);
+  drawMeter(ctxR, vuRightRMS, rightPeak);
+}
+
+function getRMS(data) {
+  let sumSquares = 0;
+  for (let i = 0; i < data.length; i++) {
+    const normalized = (data[i] - 128) / 128;
+    sumSquares += normalized * normalized;
+  }
+  return Math.sqrt(sumSquares / data.length);
 }
 
 function getPeak(data) {
   let peak = 0;
   for (let i = 0; i < data.length; i++) {
-    const v = Math.abs(data[i] - 128) / 128;
+    const v = Math.abs((data[i] - 128) / 128);
     if (v > peak) peak = v;
   }
   return peak;
 }
 
-function drawMeter(ctx, level) {
+function drawMeter(ctx, rmsLevel, peakLevel) {
   const w = ctx.canvas.width;
   const h = ctx.canvas.height;
 
   ctx.clearRect(0, 0, w, h);
 
-  const barWidth = w * level;
-  ctx.fillStyle = level > 0.9 ? "#ff3b3b" : "#2aff2a";
+  // 0dB reference is true full-scale (1.0). We color by RMS dBFS thresholds.
+  const redDb = -0.5;
+  const yellowDb = -3;
+
+  const rmsDb = rmsLevel > 0 ? 20 * Math.log10(rmsLevel) : -Infinity;
+  let fillColor;
+  if (rmsDb >= redDb) {
+    fillColor = "#ff2b2b"; // Red: clipping
+  } else if (rmsDb >= yellowDb) {
+    fillColor = "#ffaa00"; // Yellow: approaching 0dB
+  } else {
+    fillColor = "#2aff2a"; // Green: safe
+  }
+
+  const barWidth = w * Math.min(1, rmsLevel);
+  ctx.fillStyle = fillColor;
   ctx.fillRect(0, 0, barWidth, h);
+
+  // Draw true-peak line (at the actual peak level up to 1.0)
+  const peakX = w * Math.min(1, peakLevel);
+  ctx.strokeStyle = "#ffd900";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(peakX, 0);
+  ctx.lineTo(peakX, h);
+  ctx.stroke();
 }
 
 // Start drawing

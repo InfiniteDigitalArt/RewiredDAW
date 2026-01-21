@@ -38,14 +38,28 @@ window.transportStartTime = 0;
    MASTER OUTPUT (must be created BEFORE tracks)
 ------------------------------------------------------- */
 window.masterGain = audioContext.createGain();
-window.masterGain.gain.value = 0.8;
+window.masterGain.gain.value = 1.0;
 
-window.masterAnalyser = audioContext.createAnalyser();
-window.masterAnalyser.fftSize = 256;
+// Create stereo splitter for master
+const masterSplitter = audioContext.createChannelSplitter(2);
+window.masterAnalyserLeft = audioContext.createAnalyser();
+window.masterAnalyserRight = audioContext.createAnalyser();
+window.masterAnalyserLeft.fftSize = 256;
+window.masterAnalyserRight.fftSize = 256;
 
-// Master → analyser → speakers
-window.masterGain.connect(window.masterAnalyser);
-window.masterAnalyser.connect(audioContext.destination);
+// Create merger to combine back to stereo
+const masterMerger = audioContext.createChannelMerger(2);
+
+// Master → splitter → [analysers] → merger → speakers
+window.masterGain.connect(masterSplitter);
+masterSplitter.connect(window.masterAnalyserLeft, 0);
+masterSplitter.connect(window.masterAnalyserRight, 1);
+window.masterAnalyserLeft.connect(masterMerger, 0, 0);
+window.masterAnalyserRight.connect(masterMerger, 0, 1);
+masterMerger.connect(audioContext.destination);
+
+// Keep old masterAnalyser for backwards compatibility
+window.masterAnalyser = window.masterAnalyserLeft;
 
 
 /* -------------------------------------------------------
@@ -60,7 +74,7 @@ window.trackSplitters = [];
 
 for (let i = 0; i < 16; i++) {
   const gain = audioContext.createGain();
-  gain.gain.value = 0.8;
+  gain.gain.value = 1.0;
 
   const panner = audioContext.createStereoPanner();
   panner.pan.value = 0; // center

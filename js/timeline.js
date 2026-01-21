@@ -183,8 +183,8 @@ window.initTimeline = function () {
 
   // Ctrl key detection for temporary timeline select mode
   window.addEventListener('keydown', function(e) {
-    // Ctrl key temporarily switches to select tool
-    if ((e.key === 'Control' || e.ctrlKey) && !isTimelineCtrlHeld && window.timelineCurrentTool !== 'select') {
+    // Ctrl key temporarily switches to select tool (but not when mixer is open)
+    if ((e.key === 'Control' || e.ctrlKey) && !isTimelineCtrlHeld && window.timelineCurrentTool !== 'select' && !window.mixer?.isOpen) {
       isTimelineCtrlHeld = true;
       timelineToolBeforeCtrl = window.timelineCurrentTool;
       window.timelineCurrentTool = 'select';
@@ -198,7 +198,7 @@ window.initTimeline = function () {
   });
 
   window.addEventListener('keyup', function(e) {
-    // Release Ctrl key switches back to previous tool
+    // Release Ctrl key switches back to previous tool (only if we had switched to select)
     if ((e.key === 'Control' || !e.ctrlKey) && isTimelineCtrlHeld && timelineToolBeforeCtrl) {
       isTimelineCtrlHeld = false;
       window.timelineCurrentTool = timelineToolBeforeCtrl;
@@ -217,7 +217,7 @@ window.initTimeline = function () {
   window.trackControls = [];
   // ⭐ Store per-track state for volume/pan
   window.trackStates = Array.from({ length: 16 }, (_, i) => ({
-    volume: 0.8,
+    volume: 1.0,
     pan: 0.5
   }));
 
@@ -229,11 +229,11 @@ window.initTimeline = function () {
     }));
     // Pad to 16 tracks if needed
     while (window.trackStates.length < 16) {
-      window.trackStates.push({ volume: 0.8, pan: 0.5 });
+      window.trackStates.push({ volume: 1.0, pan: 0.5 });
     }
   } else {
     window.trackStates = Array.from({ length: 16 }, () => ({
-      volume: 0.8,
+      volume: 1.0,
       pan: 0.5
     }));
   }
@@ -267,7 +267,7 @@ window.initTimeline = function () {
     knobRow.className = "knob-row";
 
     // Use trackStates for initial knob values
-    const initialVol = window.trackStates[i]?.volume ?? 0.8;
+    const initialVol = window.trackStates[i]?.volume ?? 1.0;
     const initialPan = window.trackStates[i]?.pan ?? 0.5;
 
     // Volume knob + label

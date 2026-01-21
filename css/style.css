@@ -2151,7 +2151,7 @@ body {
 /* VU Meter Container */
 .mixer-vu {
   width: 40px;
-  height: 140px;
+  height: 180px;
   display: flex;
   gap: 2px;
 }
@@ -2172,8 +2172,31 @@ body {
   left: 0;
   right: 0;
   height: 0%;
-  background: var(--accent);
-  transition: height 0.05s ease-out;
+  transition: background-color 0.1s ease, height 0.05s ease-out;
+}
+
+/* 0dB Reference Line on VU meters (true full scale at the top) */
+.mixer-vu-channel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #ffff00 0%, #ffaa00 50%, #ffff00 100%);
+  z-index: 5;
+  opacity: 0.7;
+}
+
+/* Peak Indicator */
+.mixer-vu-peak {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  opacity: 0.9;
+  box-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
 }
 
 /* Mute Button */
@@ -2241,7 +2264,6 @@ body {
   background: linear-gradient(to top, var(--accent), var(--accent-soft));
   transform: translateX(-50%);
   border-radius: 2px;
-  pointer-events: none;
 }
 
 .mixer-fader-thumb {
@@ -2252,7 +2274,7 @@ body {
   height: 20px;
   background: linear-gradient(to bottom, #4a4a4f, #2a2a2f);
   border: 1px solid var(--border-light);
-  border-radius: 2px;
+  border-radius: 4px;
   transform: translateX(-50%);
   cursor: grab;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
