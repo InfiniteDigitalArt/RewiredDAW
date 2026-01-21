@@ -100,6 +100,83 @@ function createClubMasterChain(offline) {
   return { input: highPass, output: outputGain };
 }
 
+function createStreamingPlatformChain(offline) {
+  // STREAMING PLATFORM: Optimized for Spotify, Apple Music, SoundCloud
+  // Target: -14 LUFS (streaming standard), preserve dynamics, minimize loudness compression
+  
+  // ===== 1. HIGH-PASS FILTER (20 Hz only) =====
+  const highPass = offline.createBiquadFilter();
+  highPass.type = "highpass";
+  highPass.frequency.value = 20;
+  highPass.Q.value = 0.7071;
+  
+  // ===== 2. SUBTLE TONAL EQ =====
+  // +0.5 dB @ 60-90 Hz (gentle bass presence)
+  const eqLow = offline.createBiquadFilter();
+  eqLow.type = "peaking";
+  eqLow.frequency.value = 75;
+  eqLow.gain.value = 0.5;
+  eqLow.Q.value = 0.7;
+  
+  // -0.5 dB @ 250-350 Hz (slight mud reduction)
+  const eqMid = offline.createBiquadFilter();
+  eqMid.type = "peaking";
+  eqMid.frequency.value = 300;
+  eqMid.gain.value = -0.5;
+  eqMid.Q.value = 0.7;
+  
+  // +0.3 dB @ 8-12 kHz (minimal presence)
+  const eqHigh = offline.createBiquadFilter();
+  eqHigh.type = "peaking";
+  eqHigh.frequency.value = 10000;
+  eqHigh.gain.value = 0.3;
+  eqHigh.Q.value = 0.7;
+  
+  // ===== 3. LIGHT COMPRESSION (preserve dynamics) =====
+  const lightComp = offline.createDynamicsCompressor();
+  lightComp.threshold.value = -12;
+  lightComp.knee.value = 8;
+  lightComp.ratio.value = 1.3; // Very gentle
+  lightComp.attack.setValueAtTime(0, 0);
+  lightComp.attack.setValueAtTime(0.040, EXPORT_START_OFFSET);
+  lightComp.release.value = 0.200; // Slower release
+  
+  // ===== 4. MINIMAL SATURATION =====
+  const saturation = offline.createWaveShaper();
+  saturation.curve = makeSaturationCurve(2048, 2); // 2% subtle warmth
+  saturation.oversample = "2x";
+  
+  // ===== 5. GENTLE PRE-LIMITER GAIN =====
+  const makeupGain = offline.createGain();
+  makeupGain.gain.setValueAtTime(0, 0);
+  makeupGain.gain.setValueAtTime(1.05, EXPORT_START_OFFSET); // Very modest boost
+  
+  // ===== 6. SOFT-KNEE LIMITER (prevent clipping) =====
+  const limiter = offline.createDynamicsCompressor();
+  limiter.threshold.value = -2.0; // Softer ceiling
+  limiter.knee.value = 6; // Soft knee
+  limiter.ratio.value = 8; // Less aggressive
+  limiter.attack.setValueAtTime(0, 0);
+  limiter.attack.setValueAtTime(0.005, EXPORT_START_OFFSET); // Slower attack
+  limiter.release.value = 0.080; // Longer release
+  
+  // Output gain
+  const outputGain = offline.createGain();
+  outputGain.gain.value = 1.0;
+  
+  // ===== ROUTING =====
+  highPass.connect(eqLow);
+  eqLow.connect(eqMid);
+  eqMid.connect(eqHigh);
+  eqHigh.connect(lightComp);
+  lightComp.connect(saturation);
+  saturation.connect(makeupGain);
+  makeupGain.connect(limiter);
+  limiter.connect(outputGain);
+  
+  return { input: highPass, output: outputGain };
+}
+
 // Helper: Create saturation curve for waveshaper
 function makeSaturationCurve(samples, amount) {
   const curve = new Float32Array(samples);
@@ -175,6 +252,11 @@ window.clips.forEach(clip => {
   if (preset === "clubmaster") {
     // CLUB MASTER preset
     const chain = createClubMasterChain(offline);
+    masterInput = chain.input;
+    chain.output.connect(offline.destination);
+  } else if (preset === "streaming") {
+    // STREAMING PLATFORM preset
+    const chain = createStreamingPlatformChain(offline);
     masterInput = chain.input;
     chain.output.connect(offline.destination);
   } else {
@@ -452,6 +534,9 @@ const synth = new BasicSawSynthForContext(
   if (preset === "premaster") {
     // Normalize to -6dB for pre-master
     normalizeToTarget(trimmedBuffer, 0.501); // -6dB ≈ 0.501
+  } else if (preset === "streaming") {
+    // Streaming platform: -14 LUFS with -1 dBTP true peak ceiling (0.89 amplitude)
+    normalizeToTarget(trimmedBuffer, 0.89); // -1 dBTP peak for -14 LUFS streaming
   } else {
     // Club master: normalize to -0.3dB (already limited, just safety)
     normalizeToTarget(trimmedBuffer, 0.97); // -0.3dB ≈ 0.97
