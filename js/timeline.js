@@ -329,6 +329,17 @@ window.initTimeline = function () {
           if (type === "pan" && window.trackPanners && window.trackPanners[idx]) {
             window.trackPanners[idx].pan.value = (v - 0.5) * 2;
           }
+          
+          // --- Update mixer fader if mixer is open ---
+          if (type === "volume" && window.mixer && window.mixer.tracks && window.mixer.tracks[idx]) {
+            const mixerTrack = window.mixer.tracks[idx];
+            if (mixerTrack && mixerTrack._volume !== undefined) {
+              mixerTrack._volume = v;
+              if (window.updateFaderPosition) {
+                window.updateFaderPosition(mixerTrack, v);
+              }
+            }
+          }
         }
         function up() {
           document.removeEventListener("mousemove", move);

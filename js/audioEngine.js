@@ -54,6 +54,9 @@ window.masterAnalyser.connect(audioContext.destination);
 window.trackGains = [];
 window.trackPanners = [];
 window.trackAnalysers = [];
+window.trackAnalysersLeft = [];
+window.trackAnalysersRight = [];
+window.trackSplitters = [];
 
 for (let i = 0; i < 16; i++) {
   const gain = audioContext.createGain();
@@ -62,17 +65,31 @@ for (let i = 0; i < 16; i++) {
   const panner = audioContext.createStereoPanner();
   panner.pan.value = 0; // center
 
-  const analyser = audioContext.createAnalyser();
-  analyser.fftSize = 256;
+  // Create stereo splitter and dual analysers
+  const splitter = audioContext.createChannelSplitter(2);
+  const analyserLeft = audioContext.createAnalyser();
+  const analyserRight = audioContext.createAnalyser();
+  analyserLeft.fftSize = 256;
+  analyserRight.fftSize = 256;
+  
+  // Create a merger to combine back to stereo for master
+  const merger = audioContext.createChannelMerger(2);
 
-  // Track → gain → panner → analyser → master
+  // Track → gain → panner → splitter → [analysers] → merger → master
   gain.connect(panner);
-  panner.connect(analyser);
-  analyser.connect(window.masterGain);
+  panner.connect(splitter);
+  splitter.connect(analyserLeft, 0);
+  splitter.connect(analyserRight, 1);
+  analyserLeft.connect(merger, 0, 0);
+  analyserRight.connect(merger, 0, 1);
+  merger.connect(window.masterGain);
 
   window.trackGains.push(gain);
   window.trackPanners.push(panner);
-  window.trackAnalysers.push(analyser);
+  window.trackAnalysers.push(analyserLeft); // Keep for backwards compatibility
+  window.trackAnalysersLeft.push(analyserLeft);
+  window.trackAnalysersRight.push(analyserRight);
+  window.trackSplitters.push(splitter);
 }
 
 

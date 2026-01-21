@@ -86,6 +86,14 @@
     </div>
   </div>
   <input type="file" id="projectFileInput" accept=".zip" style="display:none;">
+  
+  <!-- MIXER BUTTON -->
+  <button id="openMixerBtn" class="transport-btn" title="Open Mixer" style="margin-left: 12px;">
+    <svg width="18" height="18" viewBox="0 0 115.618 122.88" xmlns="http://www.w3.org/2000/svg" style="fill: currentColor;">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M16.151,0L16.151,0c5.292,0,9.621,4.33,9.621,9.622v21.595 c-2.864-1.43-6.095-2.236-9.514-2.236c-3.504,0-6.811,0.845-9.728,2.342V9.622C6.53,4.33,10.859,0,16.151,0L16.151,0z M99.36,34.06 c8.979,0,16.258,7.278,16.258,16.257c0,8.979-7.279,16.258-16.258,16.258s-16.257-7.278-16.257-16.258 C83.104,41.338,90.382,34.06,99.36,34.06L99.36,34.06z M99.254,0L99.254,0c5.292,0,9.621,4.33,9.621,9.622v21.595 c-2.864-1.43-6.095-2.236-9.515-2.236c-3.504,0-6.811,0.845-9.728,2.342V9.622C89.633,4.33,93.962,0,99.254,0L99.254,0z M108.875,69.417v43.842c0,5.291-4.329,9.621-9.621,9.621l0,0c-5.292,0-9.621-4.33-9.621-9.621V69.312 c2.917,1.496,6.224,2.341,9.728,2.341C102.78,71.652,106.011,70.847,108.875,69.417L108.875,69.417z M57.617,93.896 c8.979,0,16.257-7.278,16.257-16.257c0-8.979-7.278-16.258-16.257-16.258c-8.979,0-16.257,7.278-16.257,16.258 C41.36,86.617,48.638,93.896,57.617,93.896L57.617,93.896z M57.51,122.88L57.51,122.88c5.292,0,9.622-4.331,9.622-9.621V96.689 c-2.864,1.43-6.053,2.236-9.515,2.236s-6.811-0.846-9.728-2.343v16.676C47.89,118.55,52.219,122.88,57.51,122.88L57.51,122.88z M67.132,58.489V9.622C67.132,4.331,62.802,0,57.51,0l0,0c-5.292,0-9.621,4.33-9.621,9.622v48.974 c2.917-1.497,6.266-2.343,9.728-2.343S64.268,57.06,67.132,58.489L67.132,58.489z M16.257,34.06 c8.979,0,16.257,7.278,16.257,16.257c0,8.979-7.278,16.258-16.257,16.258C7.279,66.574,0,59.296,0,50.316 C0,41.338,7.279,34.06,16.257,34.06L16.257,34.06z M25.771,69.417v43.842c0,5.291-4.329,9.621-9.621,9.621l0,0 c-5.292,0-9.621-4.33-9.621-9.621V69.312c2.917,1.496,6.224,2.341,9.728,2.341C19.677,71.652,22.907,70.847,25.771,69.417 L25.771,69.417z"/>
+    </svg>
+  </button>
+  
   <!-- TRANSPORT -->
   <button id="playToggleBtn" class="transport-btn play">Play</button>
 
@@ -403,6 +411,83 @@
 
 </div>
 
+<!-- Mixer -->
+<div id="mixer-container" class="hidden">
+  <div id="mixer-header">
+    <div class="mixer-header-left">
+      <span class="strong-label">Mixer</span>
+    </div>
+    <div class="mixer-header-right">
+      <button id="mixer-close">×</button>
+    </div>
+  </div>
+
+  <div id="mixer-content">
+    <!-- Left 75%: Mixer Tracks -->
+    <div id="mixer-tracks">
+      <div id="mixer-tracks-scroll">
+        <!-- Tracks will be generated here -->
+      </div>
+    </div>
+
+    <!-- Right 25%: FX Slots -->
+    <div id="mixer-fx-panel">
+      <div class="mixer-fx-header">FX Slots</div>
+      <div id="mixer-fx-slots">
+        <!-- 10 FX slots -->
+        <div class="fx-slot" data-slot="1">
+          <div class="fx-slot-number">1</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+        <div class="fx-slot" data-slot="2">
+          <div class="fx-slot-number">2</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+        <div class="fx-slot" data-slot="3">
+          <div class="fx-slot-number">3</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+        <div class="fx-slot" data-slot="4">
+          <div class="fx-slot-number">4</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+        <div class="fx-slot" data-slot="5">
+          <div class="fx-slot-number">5</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+        <div class="fx-slot" data-slot="6">
+          <div class="fx-slot-number">6</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+        <div class="fx-slot" data-slot="7">
+          <div class="fx-slot-number">7</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+        <div class="fx-slot" data-slot="8">
+          <div class="fx-slot-number">8</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+        <div class="fx-slot" data-slot="9">
+          <div class="fx-slot-number">9</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+        <div class="fx-slot" data-slot="10">
+          <div class="fx-slot-number">10</div>
+          <div class="fx-slot-name">Empty</div>
+        </div>
+      </div>
+      
+      <!-- Equalizer placeholder -->
+      <div id="mixer-equalizer">
+        <div class="mixer-eq-header">Equalizer</div>
+        <div class="mixer-eq-display">
+          <!-- EQ visualization will go here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- Export Settings Dialog -->
 <div id="export-dialog" class="export-dialog hidden">
@@ -491,6 +576,7 @@
 <!-- UI + clip classes -->
 <script defer src="js/timeline.js"></script>
 <script defer src="js/sidebar.js"></script>
+<script defer src="js/mixer.js"></script>
 <script defer src="js/midi/midi-clip.js"></script>
 
 <!-- Tone.js MIDI parser -->

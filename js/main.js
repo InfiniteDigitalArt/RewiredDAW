@@ -71,8 +71,20 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Everything below MUST be inside DOMContentLoaded
   initTimeline();
+  
+  // Initialize mixer
+  if (window.initMixer) {
+    window.initMixer();
+  }
 
   document.getElementById("saveProjectBtn").addEventListener("click", saveProjectZip);
+  
+  // Open Mixer button
+  document.getElementById("openMixerBtn").addEventListener("click", () => {
+    if (window.openMixer) {
+      window.openMixer();
+    }
+  });
 
   const playToggleBtn = document.getElementById("playToggleBtn");
   const transportLabel = document.getElementById("transportLabel");
@@ -902,7 +914,16 @@ if (window.isPlaying) {
 // MASTER VOLUME
 // ------------------------------------------------------
 document.getElementById("masterVolumeSlider").addEventListener("input", e => {
-  masterGain.gain.value = Number(e.target.value);
+  const volume = Number(e.target.value);
+  masterGain.gain.value = volume;
+  
+  // Update mixer master fader if mixer is open
+  if (window.mixer && window.mixer.masterTrack) {
+    window.mixer.masterTrack._volume = volume;
+    if (window.updateFaderPosition) {
+      window.updateFaderPosition(window.mixer.masterTrack, volume);
+    }
+  }
 });
 
 // ------------------------------------------------------
@@ -1114,7 +1135,6 @@ async function loadAllMidiLoops() {
 document.getElementById("newProjectBtn").addEventListener("click", () => {
   location.reload();
 });
-
 
 const fileMenu = document.getElementById("fileMenu");
 const fileDropdown = document.getElementById("fileDropdown");
