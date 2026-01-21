@@ -404,11 +404,43 @@
 </div>
 
 
-
-
-
-
-
+<!-- Export Settings Dialog -->
+<div id="export-dialog" class="export-dialog hidden">
+  <div class="export-dialog-overlay"></div>
+  <div class="export-dialog-content">
+    <div class="export-dialog-header">
+      <h2>Export Settings</h2>
+      <button id="export-dialog-close" class="export-dialog-close" aria-label="Close">×</button>
+    </div>
+    
+    <div class="export-dialog-body">
+      <div class="export-preset-section">
+        <label class="export-label">Select Render Preset:</label>
+        
+        <div class="export-preset-option">
+          <input type="radio" id="preset-premaster" name="exportPreset" value="premaster" checked>
+          <label for="preset-premaster" class="export-preset-label">
+            <div class="export-preset-title">Pre-Master (-6dB)</div>
+            <div class="export-preset-desc">Normalize to -6dB, no limiting or mastering effects. Perfect for further processing.</div>
+          </label>
+        </div>
+        
+        <div class="export-preset-option">
+          <input type="radio" id="preset-clubmaster" name="exportPreset" value="clubmaster">
+          <label for="preset-clubmaster" class="export-preset-label">
+            <div class="export-preset-title">Club Master</div>
+            <div class="export-preset-desc">3-band EQ for tonal balance, gentle glue compression (2:1), clean saturation (10%), brick-wall limiter with aggressive makeup gain. Loud, punchy, club-ready.</div>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <div class="export-dialog-footer">
+      <button id="export-dialog-cancel" class="export-dialog-btn export-dialog-btn-secondary">Cancel</button>
+      <button id="export-dialog-export" class="export-dialog-btn export-dialog-btn-primary">Export WAV</button>
+    </div>
+  </div>
+</div>
 
 
   </div>

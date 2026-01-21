@@ -6,7 +6,116 @@
 const EXPORT_START_OFFSET = 0.1;
 
 
-window.exportSong = async function() {
+// ======================================================
+//  MASTERING CHAIN PRESETS
+// ======================================================
+
+function createPreMasterChain(offline) {
+  // Simple clean chain with just gain control
+  const masterGain = offline.createGain();
+  
+  // Mute master at time 0
+  masterGain.gain.setValueAtTime(0, 0);
+  
+  // Jump to full level at the offset
+  masterGain.gain.setValueAtTime(0.8, EXPORT_START_OFFSET);
+  
+  return masterGain;
+}
+
+function createClubMasterChain(offline) {
+  // CLUB MASTER: Professional mastering chain for loud, punchy dance tracks
+  // Simplified to keep bass intact
+  
+  // ===== 1. HIGH-PASS FILTER (20 Hz only) =====
+  const highPass = offline.createBiquadFilter();
+  highPass.type = "highpass";
+  highPass.frequency.value = 20;
+  highPass.Q.value = 0.7071;
+  
+  // ===== 2. TONAL EQ (3-band parametric) =====
+  // +1-2 dB @ 60-90 Hz (bass boost)
+  const eqLow = offline.createBiquadFilter();
+  eqLow.type = "peaking";
+  eqLow.frequency.value = 75;
+  eqLow.gain.value = 1.5;
+  eqLow.Q.value = 0.7;
+  
+  // -1 dB @ 250-350 Hz (mud reduction)
+  const eqMid = offline.createBiquadFilter();
+  eqMid.type = "peaking";
+  eqMid.frequency.value = 300;
+  eqMid.gain.value = -1.0;
+  eqMid.Q.value = 0.7;
+  
+  // +0.5-1 dB @ 8-12 kHz (presence/air)
+  const eqHigh = offline.createBiquadFilter();
+  eqHigh.type = "peaking";
+  eqHigh.frequency.value = 10000;
+  eqHigh.gain.value = 0.75;
+  eqHigh.Q.value = 0.7;
+  
+  // ===== 3. GENTLE GLUE COMPRESSION =====
+  const glueComp = offline.createDynamicsCompressor();
+  glueComp.threshold.value = -18;
+  glueComp.knee.value = 6;
+  glueComp.ratio.value = 2;
+  glueComp.attack.setValueAtTime(0, 0);
+  glueComp.attack.setValueAtTime(0.020, EXPORT_START_OFFSET);
+  glueComp.release.value = 0.120;
+  
+  // ===== 4. SATURATION / HARMONIC ENHANCER =====
+  const saturation = offline.createWaveShaper();
+  saturation.curve = makeSaturationCurve(2048, 10); // 10% drive
+  saturation.oversample = "4x";
+  
+  // ===== 5. PRE-LIMITER MAKEUP GAIN =====
+  const makeupGain = offline.createGain();
+  makeupGain.gain.setValueAtTime(0, 0);
+  makeupGain.gain.setValueAtTime(1.25, EXPORT_START_OFFSET); // Increased to push more through limiter
+  
+  // ===== 6. BRICK-WALL LIMITER =====
+  const limiter = offline.createDynamicsCompressor();
+  limiter.threshold.value = -1.0; // Ceiling
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20; // Brickwall
+  limiter.attack.setValueAtTime(0, 0);
+  limiter.attack.setValueAtTime(0.001, EXPORT_START_OFFSET);
+  limiter.release.value = 0.050;
+  
+  // Output gain
+  const outputGain = offline.createGain();
+  outputGain.gain.value = 1.0;
+  
+  // ===== ROUTING =====
+  highPass.connect(eqLow);
+  eqLow.connect(eqMid);
+  eqMid.connect(eqHigh);
+  eqHigh.connect(glueComp);
+  glueComp.connect(saturation);
+  saturation.connect(makeupGain);
+  makeupGain.connect(limiter);
+  limiter.connect(outputGain);
+  
+  return { input: highPass, output: outputGain };
+}
+
+// Helper: Create saturation curve for waveshaper
+function makeSaturationCurve(samples, amount) {
+  const curve = new Float32Array(samples);
+  const deg = Math.PI / 180;
+  const k = amount / 100; // 0-1 range for subtle effect
+  
+  for (let i = 0; i < samples; i++) {
+    const x = (i * 2) / samples - 1;
+    curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+  }
+  
+  return curve;
+}
+
+
+window.exportSong = async function(preset = "premaster") {
   // Show loading bar
   window.showLoadingBar("Exporting...");
   window.updateLoadingBar(5, "Finding clips...");
@@ -59,32 +168,20 @@ window.clips.forEach(clip => {
   );
 
   // ------------------------------------------------------
-  // 4. Master chain: Gain → Limiter → Destination
+  // 4. Master chain based on preset
   // ------------------------------------------------------
-  const masterGain = offline.createGain();
-
-  // Mute master at time 0
-  masterGain.gain.setValueAtTime(0, 0);
-
-  // Jump to full level at the offset
-  masterGain.gain.setValueAtTime(0.8, EXPORT_START_OFFSET);
-
-  const limiter = offline.createDynamicsCompressor();
-  limiter.threshold.value = -1.0;
-  limiter.knee.value = 0;
-  limiter.ratio.value = 20;
-  limiter.release.value = 0.050;
-
-  // Force attack = 0 at time 0
-  limiter.attack.setValueAtTime(0, 0);
-
-  // Restore your intended attack after the offset
-  limiter.attack.setValueAtTime(0.003, EXPORT_START_OFFSET);
-
-
-
-  masterGain.connect(limiter);
-  limiter.connect(offline.destination);
+  let masterInput;
+  
+  if (preset === "clubmaster") {
+    // CLUB MASTER preset
+    const chain = createClubMasterChain(offline);
+    masterInput = chain.input;
+    chain.output.connect(offline.destination);
+  } else {
+    // PRE-MASTER preset (default)
+    masterInput = createPreMasterChain(offline);
+    masterInput.connect(offline.destination);
+  }
 
 // ------------------------------------------------------
 // 4B. Create offline track gains + panners (for MIDI + audio)
@@ -101,7 +198,7 @@ for (let i = 0; i < window.trackGains.length; i++) {
 
 
   g.connect(p);
-  p.connect(masterGain);
+  p.connect(masterInput);
 
   offlineTrackGains.push(g);
   offlineTrackPans.push(p);
@@ -350,9 +447,15 @@ const synth = new BasicSawSynthForContext(
   window.updateLoadingBar(90, "Normalizing...");
 
   // ------------------------------------------------------
-  // 7. Final normalization to -0.3 dB (after limiting)
+  // 7. Final normalization based on preset
   // ------------------------------------------------------
-  normalizeToMinus1dB(trimmedBuffer);
+  if (preset === "premaster") {
+    // Normalize to -6dB for pre-master
+    normalizeToTarget(trimmedBuffer, 0.501); // -6dB ≈ 0.501
+  } else {
+    // Club master: normalize to -0.3dB (already limited, just safety)
+    normalizeToTarget(trimmedBuffer, 0.97); // -0.3dB ≈ 0.97
+  }
 
   window.updateLoadingBar(95, "Converting to WAV...");
 
@@ -387,10 +490,10 @@ const synth = new BasicSawSynthForContext(
 
 
 // ======================================================
-//  NORMALIZE FINAL BUFFER TO -0.3 dB
+//  NORMALIZE BUFFER TO TARGET LEVEL
 // ======================================================
 
-function normalizeToMinus1dB(buffer) {
+function normalizeToTarget(buffer, targetLevel = 0.97) {
   let peak = 0;
 
   // Find peak
@@ -403,8 +506,7 @@ function normalizeToMinus1dB(buffer) {
 
   if (peak < 0.00001) return; // silent
 
-  const target = 0.97; // -0.3 dB (safe commercial loudness)
-  const scale = target / peak;
+  const scale = targetLevel / peak;
 
   // Apply gain
   for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
@@ -413,6 +515,11 @@ function normalizeToMinus1dB(buffer) {
       data[i] *= scale;
     }
   }
+}
+
+// Legacy function for backward compatibility
+function normalizeToMinus1dB(buffer) {
+  normalizeToTarget(buffer, 0.97);
 }
 
 
