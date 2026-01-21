@@ -14,7 +14,7 @@ async function loadDefaultMidiSample() {
   const arrayBuf = await res.arrayBuffer();
   window.defaultMidiSampleBuffer = await audioContext.decodeAudioData(arrayBuf);
 
-  console.log("Default MIDI sample loaded", window.defaultMidiSampleBuffer);
+  
 }
 
 loadDefaultMidiSample();

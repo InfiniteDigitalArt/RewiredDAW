@@ -39,10 +39,19 @@ window.clips.forEach(clip => {
   // ------------------------------------------------------
   const durationSeconds = window.barsToSeconds(lastBar) + EXPORT_START_OFFSET;
 
+  // DEBUG: Log what we're rendering
+  console.log("EXPORT DEBUG - OfflineAudioContext setup:", {
+    lastBar,
+    durationSeconds,
+    barsToSecondsValue: window.barsToSeconds(lastBar),
+    projectBpm: window.BPM,
+    barsPerSecond: window.BPM / 120,
+  });
+
   // ------------------------------------------------------
   // 3. Create OfflineAudioContext
   // ------------------------------------------------------
-  const sampleRate = 44100;
+  const sampleRate = 48000; // Match your audio file sample rate
   const offline = new OfflineAudioContext(
     2, // stereo
     durationSeconds * sampleRate,
@@ -103,23 +112,25 @@ for (let i = 0; i < window.trackGains.length; i++) {
 // 5. Schedule all clips (loops + dropped audio)
 // ------------------------------------------------------
 window.clips.forEach(clip => {
+  console.log("Processing clip:", { clipId: clip.clipId, type: clip.type, hasAudioBuffer: !!clip.audioBuffer, hasLoopId: !!clip.loopId });
+  
   let buffer = null;
   let bpm = window.BPM;
   let bars = clip.bars || 1;
 
+  // CASE B: Dropped audio (check first - prioritize over loopId for accurate playback)
+  if (clip.audioBuffer && clip.sourceBpm) {
+    buffer = clip.audioBuffer;
+    bpm = clip.sourceBpm || clip.bpm || window.BPM;
+    bars = clip.bars;
+
   // CASE A: Library loop
-  if (clip.loopId) {
+  } else if (clip.loopId) {
     const loopData = window.loopBuffers.get(clip.loopId);
     if (!loopData) return;
 
     buffer = loopData.buffer;
     bpm = loopData.bpm;
-
-  // CASE B: Dropped audio
-  } else if (clip.audioBuffer) {
-    buffer = clip.audioBuffer;
-    bpm = clip.sourceBpm || clip.bpm || window.BPM;
-    bars = clip.bars;
   }
 
   if (!buffer) return;
@@ -128,30 +139,70 @@ window.clips.forEach(clip => {
   src.buffer = buffer;
   src.playbackRate.value = window.BPM / bpm;
 
-  // Respect trimming/slip the same way as realtime playback
-  const fallbackOriginalBars = (clip.loopId && window.loopBuffers.get(clip.loopId)?.bars) || bars || 1;
-  const originalBars = (clip.originalBars && clip.originalBars > 0)
-    ? clip.originalBars
-    : fallbackOriginalBars;
-  const safeOriginalBars = Math.max(0.0001, originalBars);
-  let playbackBars = (isFinite(bars) && bars > 0) ? bars : safeOriginalBars;
-  if (!isFinite(playbackBars) || playbackBars <= 0) playbackBars = safeOriginalBars;
+  // DEBUG: Log the clip details
+  if (clip.audioBuffer && clip.sourceBpm) {
+    console.log("=== FULL CLIP DEBUG (Clip at bar " + clip.startBar + ") ===");
+    console.log("Buffer info:", {
+      bufferDuration: buffer.duration,
+      bufferLength: buffer.length,
+      bufferSampleRate: buffer.sampleRate,
+    });
+    console.log("Clip properties:", {
+      bars: clip.bars,
+      originalBars: clip.originalBars,
+      sourceBpm: clip.sourceBpm,
+      startOffset: clip.startOffset,
+    });
+    console.log("Calculations:", {
+      projectBpm: window.BPM,
+      playbackRate: src.playbackRate.value,
+      expectedTimelineSeconds: window.barsToSeconds(bars),
+    });
+    console.log("===================================");
+  }
 
-  // Timeline clip length in seconds at project tempo
-  const bufferDuration = window.barsToSeconds(playbackBars);
+  // Respect trimming/slip the same way as realtime playback
+  // For dropped audio clips with sourceBpm, use bars directly (don't pull from loop)
+  let playbackBars = bars;
+  if (!isFinite(playbackBars) || playbackBars <= 0) {
+    // Fallback only if bars is invalid
+    const fallbackOriginalBars = (clip.loopId && window.loopBuffers.get(clip.loopId)?.bars) || bars || 1;
+    const originalBars = (clip.originalBars && clip.originalBars > 0)
+      ? clip.originalBars
+      : fallbackOriginalBars;
+    playbackBars = Math.max(0.0001, originalBars);
+  }
 
   // Support slip editing offsets (in buffer seconds)
   const startOffset = Math.max(0, clip.startOffset || 0);
-  
-  // Timeline clip length in seconds at project tempo
-  const timelineDurationSeconds = window.barsToSeconds(playbackBars)+1;
 
-  // Convert timeline seconds → buffer seconds (because playbackRate scales time)
-  const playbackDuration = (timelineDurationSeconds * src.playbackRate.value)+1;
+  // Actual buffer duration in seconds
+  const sourceBufferDuration = buffer.duration || 0;
 
-  // Respect slip edit offset and avoid reading past buffer end
-  const maxDuration = Math.max(0, bufferDuration - startOffset);
-  const actualPlaybackDuration = Math.min(playbackDuration, maxDuration);
+  // Desired timeline duration based on clip bars and project tempo
+  const desiredTimelineSeconds = window.barsToSeconds(playbackBars);
+
+  // Available buffer duration after offset
+  const availableBufferDuration = Math.max(0, sourceBufferDuration - startOffset);
+
+  // Convert desired timeline to buffer seconds using playback rate
+  // and clamp to actual available buffer duration
+  const playableDurationAtPlaybackRate = desiredTimelineSeconds * src.playbackRate.value;
+  const actualPlaybackDuration = Math.min(playableDurationAtPlaybackRate, availableBufferDuration);
+
+  // DEBUG: Log all calculations
+  if (clip.audioBuffer && clip.sourceBpm) {
+    console.log("EXPORT DEBUG - Duration Calculations:", {
+      sourceBufferDuration,
+      startOffset,
+      availableBufferDuration,
+      desiredTimelineSeconds,
+      playbackRate: src.playbackRate.value,
+      playableDurationAtPlaybackRate,
+      actualPlaybackDuration,
+      limitedBy: actualPlaybackDuration === availableBufferDuration ? "buffer length" : "playback calculation",
+    });
+  }
 
   // Only prevent obviously invalid durations
   if (actualPlaybackDuration <= 0) return; // nothing audible
@@ -193,6 +244,16 @@ window.clips.forEach(clip => {
 
   const when = EXPORT_START_OFFSET + window.barsToSeconds(clip.startBar);
   src.start(when, startOffset, actualPlaybackDuration);
+
+  // DEBUG: Log what we're passing to src.start
+  if (clip.audioBuffer && clip.sourceBpm) {
+    console.log("EXPORT DEBUG - src.start() call:", {
+      when,
+      startOffset,
+      actualPlaybackDuration,
+      expectedOutputDuration: actualPlaybackDuration / src.playbackRate.value,
+    });
+  }
 });
 
 
@@ -252,7 +313,13 @@ const synth = new BasicSawSynthForContext(
   // ------------------------------------------------------
   window.updateLoadingBar(75, "Rendering audio...");
   const renderedBuffer = await offline.startRendering();
-
+  // DEBUG: Log rendered buffer info
+  console.log("EXPORT DEBUG - Rendered Buffer:", {
+    renderedLength: renderedBuffer.length,
+    renderedDuration: renderedBuffer.length / renderedBuffer.sampleRate,
+    expectedLength: durationSeconds * 44100,
+    expectedDuration: durationSeconds,
+  });
   window.updateLoadingBar(85, "Trimming...");
 
   // ------------------------------------------------------
@@ -265,7 +332,12 @@ const synth = new BasicSawSynthForContext(
     trimmedLength,
     sampleRate
   );
-
+  // DEBUG: Log trimmed buffer info
+  console.log("EXPORT DEBUG - Trimmed Buffer:", {
+    offsetSamples,
+    trimmedLength,
+    trimmedDuration: trimmedLength / sampleRate,
+  });
   // Copy audio data after the offset
   for (let ch = 0; ch < renderedBuffer.numberOfChannels; ch++) {
     const sourceData = renderedBuffer.getChannelData(ch);
@@ -284,10 +356,25 @@ const synth = new BasicSawSynthForContext(
 
   window.updateLoadingBar(95, "Converting to WAV...");
 
+  // DEBUG: Log buffer before WAV encoding
+  console.log("EXPORT DEBUG - Before WAV Encoding:", {
+    trimmedBufferLength: trimmedBuffer.length,
+    trimmedBufferDuration: trimmedBuffer.length / trimmedBuffer.sampleRate,
+    channels: trimmedBuffer.numberOfChannels,
+  });
+
   // ------------------------------------------------------
   // 8. Convert to WAV and download
   // ------------------------------------------------------
   const wavBlob = bufferToWavBlob(trimmedBuffer);
+  
+  // DEBUG: Log WAV blob info
+  const wavDurationSeconds = (wavBlob.size - 44) / (2 * 2 * 44100); // assuming stereo, 16-bit
+  console.log("EXPORT DEBUG - WAV File Info:", {
+    blobSize: wavBlob.size,
+    calculatedDuration: wavDurationSeconds,
+  });
+
   triggerDownload(wavBlob, "rewired_export.wav");
   
   window.updateLoadingBar(100, "Complete!");
