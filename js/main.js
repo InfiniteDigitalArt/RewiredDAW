@@ -838,8 +838,65 @@ if (window.isPlaying) {
   });
 
   document.getElementById("exportBtn").addEventListener("click", () => {
-  window.exportSong();
-});
+    // Show export dialog instead of directly exporting
+    const exportDialog = document.getElementById("export-dialog");
+    if (exportDialog) {
+      exportDialog.classList.remove("hidden");
+    }
+  });
+
+  // Export dialog event handlers
+  const exportDialogClose = document.getElementById("export-dialog-close");
+  const exportDialogCancel = document.getElementById("export-dialog-cancel");
+  const exportDialogExport = document.getElementById("export-dialog-export");
+  const exportDialog = document.getElementById("export-dialog");
+
+  function closeExportDialog() {
+    if (exportDialog) {
+      exportDialog.classList.add("hidden");
+    }
+  }
+
+  if (exportDialogClose) {
+    exportDialogClose.addEventListener("click", closeExportDialog);
+  }
+
+  if (exportDialogCancel) {
+    exportDialogCancel.addEventListener("click", closeExportDialog);
+  }
+
+  if (exportDialogExport) {
+    exportDialogExport.addEventListener("click", () => {
+      // Get selected preset
+      const selectedPreset = document.querySelector('input[name="exportPreset"]:checked');
+      const preset = selectedPreset ? selectedPreset.value : "premaster";
+      
+      // Get song title
+      const songTitle = document.getElementById("export-song-title").value.trim() || "Untitled";
+      
+      // Map preset value to display name
+      const presetNames = {
+        "premaster": "Pre-Master",
+        "clubmaster": "Club Master",
+        "streaming": "Streaming Platform"
+      };
+      const presetName = presetNames[preset] || preset;
+      
+      // Close dialog
+      closeExportDialog();
+      
+      // Start export with selected preset and song title
+      window.exportSong(preset, songTitle, presetName);
+    });
+  }
+
+  // Close dialog when clicking overlay
+  if (exportDialog) {
+    const overlay = exportDialog.querySelector(".export-dialog-overlay");
+    if (overlay) {
+      overlay.addEventListener("click", closeExportDialog);
+    }
+  }
 
 // ------------------------------------------------------
 // MASTER VOLUME
