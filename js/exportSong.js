@@ -52,14 +52,16 @@ function buildTrackFxChainForExport(offline, trackIndex) {
 // ======================================================
 
 function createPreMasterChain(offline) {
-  // Simple clean chain with just gain control
+  // Simple clean chain with makeup gain
+  // Input will be normalized to -6dB, so we need to restore to -6dB output
   const masterGain = offline.createGain();
   
   // Mute master at time 0
   masterGain.gain.setValueAtTime(0, 0);
   
   // Jump to full level at the offset
-  masterGain.gain.setValueAtTime(0.8, EXPORT_START_OFFSET);
+  // Target is -6dB (0.501 amplitude), input is -6dB, so gain = 1.0
+  masterGain.gain.setValueAtTime(1.0, EXPORT_START_OFFSET);
   
   return masterGain;
 }
@@ -113,16 +115,18 @@ function createClubMasterChain(offline) {
   // ===== 5. PRE-LIMITER MAKEUP GAIN =====
   const makeupGain = offline.createGain();
   makeupGain.gain.setValueAtTime(0, 0);
-  makeupGain.gain.setValueAtTime(1.25, EXPORT_START_OFFSET); // Increased to push more through limiter
+  // Input is normalized to -6dB (0.501), reduced to 1.6 for more dynamics
+  // This allows the limiter to work less aggressively while still reaching ~-1dB
+  makeupGain.gain.setValueAtTime(1.8, EXPORT_START_OFFSET);
   
-  // ===== 6. BRICK-WALL LIMITER =====
+  // ===== 6. LIMITER (less aggressive for better dynamics) =====
   const limiter = offline.createDynamicsCompressor();
-  limiter.threshold.value = -1.0; // Ceiling
-  limiter.knee.value = 0;
-  limiter.ratio.value = 20; // Brickwall
+  limiter.threshold.value = -0.5; // Slightly higher threshold for more headroom
+  limiter.knee.value = 3; // Soft knee for more natural limiting
+  limiter.ratio.value = 14; // Less aggressive than brick-wall
   limiter.attack.setValueAtTime(0, 0);
-  limiter.attack.setValueAtTime(0.001, EXPORT_START_OFFSET);
-  limiter.release.value = 0.050;
+  limiter.attack.setValueAtTime(0.002, EXPORT_START_OFFSET); // Slightly longer attack
+  limiter.release.value = 0.075; // Longer release for smoother response
   
   // Output gain
   const outputGain = offline.createGain();
@@ -190,7 +194,9 @@ function createStreamingPlatformChain(offline) {
   // ===== 5. GENTLE PRE-LIMITER GAIN =====
   const makeupGain = offline.createGain();
   makeupGain.gain.setValueAtTime(0, 0);
-  makeupGain.gain.setValueAtTime(1.05, EXPORT_START_OFFSET); // Very modest boost
+  // Input is normalized to -6dB (0.501), target output is -1dBTP (0.89)
+  // Makeup gain needed: 0.89 / 0.501 ≈ 1.78 ≈ +5 dB
+  makeupGain.gain.setValueAtTime(1.78, EXPORT_START_OFFSET);
   
   // ===== 6. SOFT-KNEE LIMITER (prevent clipping) =====
   const limiter = offline.createDynamicsCompressor();
@@ -278,6 +284,7 @@ window.clips.forEach(clip => {
   // ------------------------------------------------------
   // 3. Create OfflineAudioContext
   // ------------------------------------------------------
+  window.updateLoadingBar(5, "Creating offline context...");
   const sampleRate = 48000; // Match your audio file sample rate
   const offline = new OfflineAudioContext(
     2, // stereo
@@ -288,6 +295,7 @@ window.clips.forEach(clip => {
   // ------------------------------------------------------
   // 4. Master chain based on preset
   // ------------------------------------------------------
+  window.updateLoadingBar(10, "Building mastering chain...");
   let masterInput;
   
   if (preset === "clubmaster") {
@@ -309,6 +317,7 @@ window.clips.forEach(clip => {
 // ------------------------------------------------------
 // 4B. Create offline track gains + panners + FX chains
 // ------------------------------------------------------
+window.updateLoadingBar(15, "Setting up tracks and effects...");
 const offlineTrackGains = [];
 const offlineTrackPans = [];
 const offlineTrackFxChains = [];
@@ -337,6 +346,7 @@ for (let i = 0; i < window.trackGains.length; i++) {
 // ------------------------------------------------------
 // 5. Schedule all clips (loops + dropped audio)
 // ------------------------------------------------------
+window.updateLoadingBar(25, "Scheduling audio clips...");
 window.clips.forEach(clip => {
   console.log("Processing clip:", { clipId: clip.clipId, type: clip.type, hasAudioBuffer: !!clip.audioBuffer, hasLoopId: !!clip.loopId });
   
@@ -486,6 +496,7 @@ window.clips.forEach(clip => {
 // ------------------------------------------------------
 // 5B. Schedule MIDI clips
 // ------------------------------------------------------
+window.updateLoadingBar(35, "Scheduling MIDI clips...");
 window.clips.forEach(clip => {
   if (clip.type !== "midi") return;
   if (!Array.isArray(clip.notes) || clip.notes.length === 0) return;
@@ -537,7 +548,7 @@ const synth = new BasicSawSynthForContext(
   // ------------------------------------------------------
   // 6. Render the full mix
   // ------------------------------------------------------
-  window.updateLoadingBar(75, "Rendering audio...");
+  window.updateLoadingBar(45, "Rendering full mix...");
   const renderedBuffer = await offline.startRendering();
   // DEBUG: Log rendered buffer info
   console.log("EXPORT DEBUG - Rendered Buffer:", {
@@ -546,7 +557,7 @@ const synth = new BasicSawSynthForContext(
     expectedLength: durationSeconds * 44100,
     expectedDuration: durationSeconds,
   });
-  window.updateLoadingBar(85, "Trimming...");
+  window.updateLoadingBar(60, "Trimming silence...");
 
   // ------------------------------------------------------
   // 6B. Trim off the EXPORT_START_OFFSET from the beginning
@@ -573,35 +584,34 @@ const synth = new BasicSawSynthForContext(
     }
   }
 
-  window.updateLoadingBar(90, "Normalizing...");
+  window.updateLoadingBar(70, "Normalizing to headroom...");
 
   // ------------------------------------------------------
-  // 7. Final normalization based on preset
+  // 7. Normalize the mix to -6dB (headroom for mastering)
   // ------------------------------------------------------
-  if (preset === "premaster") {
-    // Normalize to -6dB for pre-master
-    normalizeToTarget(trimmedBuffer, 0.501); // -6dB ≈ 0.501
-  } else if (preset === "streaming") {
-    // Streaming platform: -14 LUFS with -1 dBTP true peak ceiling (0.89 amplitude)
-    normalizeToTarget(trimmedBuffer, 0.89); // -1 dBTP peak for -14 LUFS streaming
-  } else {
-    // Club master: normalize to -0.3dB (already limited, just safety)
-    normalizeToTarget(trimmedBuffer, 0.97); // -0.3dB ≈ 0.97
-  }
+  normalizeToTarget(trimmedBuffer, 0.501); // -6dB ≈ 0.501
 
-  window.updateLoadingBar(95, "Converting to WAV...");
+  window.updateLoadingBar(75, "Applying mastering EQ and compression...");
+
+  // ------------------------------------------------------
+  // 8. Apply the mastering chain to the normalized buffer
+  // ------------------------------------------------------
+  const masteredBuffer = await applyMasteringToNormalizedBuffer(trimmedBuffer, preset);
+
+  window.updateLoadingBar(90, "Finalizing mastered audio...");
 
   // DEBUG: Log buffer before WAV encoding
   console.log("EXPORT DEBUG - Before WAV Encoding:", {
-    trimmedBufferLength: trimmedBuffer.length,
-    trimmedBufferDuration: trimmedBuffer.length / trimmedBuffer.sampleRate,
-    channels: trimmedBuffer.numberOfChannels,
+    masteredBufferLength: masteredBuffer.length,
+    masteredBufferDuration: masteredBuffer.length / masteredBuffer.sampleRate,
+    channels: masteredBuffer.numberOfChannels,
   });
 
   // ------------------------------------------------------
-  // 8. Convert to WAV and download
+  // 9. Convert to WAV and download
   // ------------------------------------------------------
-  const wavBlob = bufferToWavBlob(trimmedBuffer);
+  window.updateLoadingBar(95, "Encoding to WAV...");
+  const wavBlob = bufferToWavBlob(masteredBuffer);
   
   // DEBUG: Log WAV blob info
   const wavDurationSeconds = (wavBlob.size - 44) / (2 * 2 * 44100); // assuming stereo, 16-bit
@@ -656,6 +666,44 @@ function normalizeToMinus1dB(buffer) {
   normalizeToTarget(buffer, 0.97);
 }
 
+// ======================================================
+//  APPLY MASTERING CHAIN TO NORMALIZED BUFFER
+// ======================================================
+async function applyMasteringToNormalizedBuffer(buffer, preset) {
+  const sampleRate = buffer.sampleRate;
+  const masteringContext = new OfflineAudioContext(
+    buffer.numberOfChannels,
+    buffer.length,
+    sampleRate
+  );
+
+  // Create mastering chain based on preset
+  let masteringInput;
+  
+  if (preset === "clubmaster") {
+    const chain = createClubMasterChain(masteringContext);
+    masteringInput = chain.input;
+    chain.output.connect(masteringContext.destination);
+  } else if (preset === "streaming") {
+    const chain = createStreamingPlatformChain(masteringContext);
+    masteringInput = chain.input;
+    chain.output.connect(masteringContext.destination);
+  } else {
+    // PRE-MASTER preset
+    masteringInput = createPreMasterChain(masteringContext);
+    masteringInput.connect(masteringContext.destination);
+  }
+
+  // Create a buffer source from the normalized audio
+  const source = masteringContext.createBufferSource();
+  source.buffer = buffer;
+  source.connect(masteringInput);
+  source.start(0);
+
+  // Render through the mastering chain
+  const masteredBuffer = await masteringContext.startRendering();
+  return masteredBuffer;
+}
 
 // ======================================================
 //  WAV ENCODING

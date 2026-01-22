@@ -411,7 +411,7 @@ function applyFadeEnvelope(gainNode, clip, startTime, duration) {
   }
   
   // Fade out
-  if (fadeOutSeconds > 0 && duration > fadeOutSeconds) {
+  if (fadeOutSeconds > 0 && duration >= fadeOutSeconds) {
     const fadeOutStart = startTime + duration - fadeOutSeconds;
     gainNode.gain.setValueAtTime(1, fadeOutStart);
     gainNode.gain.linearRampToValueAtTime(0, fadeOutStart + fadeOutSeconds);

@@ -508,7 +508,9 @@ async function saveProjectZip() {
     tempo: Number(window.BPM || 175),
     timelineBars: window.timelineBars,
     tracks,
-    clips: serializedClips
+    clips: serializedClips,
+    // Persist FX slots (master + tracks) for all current and future effect types
+    fxSlots: window.trackFxSlots || {}
   };
 
   zip.file("project.json", JSON.stringify(project, null, 2));
@@ -568,9 +570,31 @@ async function loadProjectZip(json, zip) {
   // --- Set window.loadedProject so timeline.js uses correct values ---
   window.loadedProject = json;
 
+  // Reset all timeline state so load behaves like a fresh boot
   window.clips = [];
-  document.getElementById("tracks").innerHTML = "";
-  initTimeline(); // builds 16 fresh tracks with correct knob values
+  if (window.selectedClipIds) window.selectedClipIds.clear();
+  window.activeClip = null;
+
+  const pianoRoll = document.getElementById("piano-roll-container");
+  if (pianoRoll) pianoRoll.classList.add("hidden");
+
+  const clipDropdown = document.getElementById("clipListDropdown");
+  if (clipDropdown) clipDropdown.innerHTML = "";
+
+  const controlsCol = document.getElementById("track-controls-column");
+  if (controlsCol) controlsCol.innerHTML = "";
+
+  const tracksEl = document.getElementById("tracks");
+  if (tracksEl) tracksEl.innerHTML = "";
+
+  initTimeline(); // rebuilds controls + tracks from scratch
+
+  const timelineScroll = document.getElementById("timeline-scroll");
+  if (timelineScroll) {
+    timelineScroll.scrollLeft = 0;
+    timelineScroll.scrollTop = 0;
+  }
+  if (controlsCol) controlsCol.scrollTop = 0;
 
   // Update timeline widths based on loaded timelineBars
   const trackMinWidth = window.timelineBars * window.PIXELS_PER_BAR;
@@ -635,11 +659,52 @@ async function loadProjectZip(json, zip) {
   });
 
   // ----------------------------------------------------
-  // Load clips (your existing code)
+  // Restore FX slots (master + tracks) and rebuild routing
   // ----------------------------------------------------
-  for (const raw of json.clips) {
-    // 0. MIDI CLIP (with sample restore)
-    if (raw.type === "midi") {
+  if (json.fxSlots) {
+    window.trackFxSlots = json.fxSlots;
+  } else {
+    // Ensure defaults if older project without FX data
+    if (typeof initTrackFxSlots === 'function') {
+      initTrackFxSlots('master');
+      for (let i = 0; i < 16; i++) initTrackFxSlots(i);
+    }
+  }
+
+  // Recreate live FX chains for all tracks so realtime + export match
+  if (typeof applyEffectToTrack === 'function' && typeof initTrackFxSlots === 'function') {
+    for (let trackIndex = 0; trackIndex < 16; trackIndex++) {
+      initTrackFxSlots(trackIndex);
+      const slots = window.trackFxSlots?.[trackIndex] || [];
+      slots.forEach((slot, slotIndex) => {
+        if (!slot || !slot.type || slot.type === 'empty') return;
+        const params = slot.params || (typeof getDefaultEffectParams === 'function'
+          ? getDefaultEffectParams(slot.type)
+          : {});
+        applyEffectToTrack(trackIndex, slotIndex, slot.type, params);
+      });
+    }
+  }
+
+  // Refresh FX slot labels/settings UI if mixer is available
+  if (typeof updateFxSlotsDisplay === 'function') {
+    const currentTrackId = window.mixer?.selectedTrackIndex === null || window.mixer?.selectedTrackIndex === undefined
+      ? 'master'
+      : window.mixer.selectedTrackIndex;
+    updateFxSlotsDisplay(currentTrackId);
+    if (typeof renderFxSettingsPanel === 'function' && window.mixer?.selectedFxSlotIndex !== null) {
+      renderFxSettingsPanel(currentTrackId, window.mixer.selectedFxSlotIndex);
+    }
+  }
+
+  // ----------------------------------------------------
+  // Load clips (with backwards-compat fallbacks)
+  // ----------------------------------------------------
+  const clipsToLoad = Array.isArray(json.clips) ? json.clips : [];
+
+  for (const raw of clipsToLoad) {
+    // 0. MIDI CLIP (with sample restore) — accept old saves that only had notes
+    if (raw.type === "midi" || Array.isArray(raw.notes)) {
       const clip = new MidiClip(raw.startBar, raw.bars);
 
       clip.id = raw.id || crypto.randomUUID();
@@ -719,9 +784,17 @@ async function loadProjectZip(json, zip) {
       continue;
     }
 
-    // 2. LOCAL AUDIO FILE
-    if (raw.audioFile) {
-      const wavData = await zip.file(`audio/${raw.audioFile}`).async("arraybuffer");
+    // 2. LOCAL AUDIO FILE (compat: older saves used fileName only)
+    const fileToLoad = raw.audioFile || raw.fileName;
+    if (fileToLoad) {
+      // Try audio/ first (current format), then root (older zips)
+      const wavEntry = zip.file(`audio/${fileToLoad}`) || zip.file(fileToLoad);
+      if (!wavEntry) {
+        console.warn("Audio file missing in project:", fileToLoad);
+        continue;
+      }
+
+      const wavData = await wavEntry.async("arraybuffer");
       const audioBuffer = await audioContext.decodeAudioData(wavData);
 
       // Fit bars to the original source BPM captured at save (fallback to raw.bpm)
@@ -809,6 +882,9 @@ document.getElementById("projectFileInput").addEventListener("change", async fun
   const json = JSON.parse(jsonText);
 
   await loadProjectZip(json, zip);
+
+  // Allow selecting the same file again without needing a page refresh
+  this.value = "";
 });
 
 
