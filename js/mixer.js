@@ -25,6 +25,14 @@ function getDefaultEffectParams(effectType) {
       roomSize: 0.7
     };
   }
+  if (effectType === 'distortion') {
+    return {
+      mix: 0.5,
+      drive: 0.5,
+      threshold: 0.5,
+      type: 'softclip'
+    };
+  }
   return {};
 }
 
@@ -346,6 +354,89 @@ function renderFxSettingsPanel(trackId, slotIndex) {
       display.appendChild(row);
     });
   }
+
+  if (slot.type === 'distortion') {
+    const params = slot.params || getDefaultEffectParams('distortion');
+    header.textContent = `Distortion — ${trackName} (Slot ${slotIndex + 1})`;
+    display.innerHTML = '';
+
+    // Type selector
+    const typeRow = document.createElement('div');
+    typeRow.className = 'fx-setting-row';
+    const typeLabel = document.createElement('label');
+    typeLabel.textContent = 'Type';
+    const typeSelect = document.createElement('select');
+    typeSelect.style.flex = '1';
+    typeSelect.style.padding = '4px 8px';
+    typeSelect.style.borderRadius = '3px';
+    typeSelect.style.border = '1px solid #2b2b33';
+    typeSelect.style.backgroundColor = '#1c1c22';
+    typeSelect.style.color = '#fff';
+    typeSelect.style.cursor = 'pointer';
+    typeSelect.style.fontFamily = 'inherit';
+    typeSelect.style.fontSize = '12px';
+    typeSelect.style.outline = 'none';
+    typeSelect.style.transition = 'border 0.15s';
+    
+    const types = ['softclip', 'hardclip', 'foldback'];
+    types.forEach(t => {
+      const option = document.createElement('option');
+      option.value = t;
+      option.textContent = t.charAt(0).toUpperCase() + t.slice(1).replace('clip', ' Clip');
+      if (t === params.type) option.selected = true;
+      typeSelect.appendChild(option);
+    });
+    
+    typeSelect.addEventListener('change', () => {
+      updateEffectParams(trackId, slotIndex, slot.type, { type: typeSelect.value });
+    });
+    
+    const headerRow = document.createElement('div');
+    headerRow.className = 'fx-setting-label';
+    headerRow.appendChild(typeLabel);
+    typeRow.appendChild(headerRow);
+    typeRow.appendChild(typeSelect);
+    display.appendChild(typeRow);
+
+    const controls = [
+      { key: 'mix', label: 'Mix', min: 0, max: 1, step: 0.01, format: v => `${Math.round(v * 100)}%` },
+      { key: 'drive', label: 'Drive', min: 0, max: 1, step: 0.01, format: v => `${Math.round(v * 100)}%` },
+      { key: 'threshold', label: 'Threshold', min: 0, max: 1, step: 0.01, format: v => `${Math.round(v * 100)}%` }
+    ];
+
+    controls.forEach(ctrl => {
+      const row = document.createElement('div');
+      row.className = 'fx-setting-row';
+
+      const label = document.createElement('label');
+      label.textContent = `${ctrl.label}`;
+
+      const valueSpan = document.createElement('span');
+      valueSpan.className = 'fx-setting-value';
+      valueSpan.textContent = ctrl.format(params[ctrl.key]);
+
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = ctrl.min;
+      input.max = ctrl.max;
+      input.step = ctrl.step;
+      input.value = params[ctrl.key];
+      input.addEventListener('input', () => {
+        const newVal = parseFloat(input.value);
+        valueSpan.textContent = ctrl.format(newVal);
+        updateEffectParams(trackId, slotIndex, slot.type, { [ctrl.key]: newVal });
+      });
+
+      const headerRow = document.createElement('div');
+      headerRow.className = 'fx-setting-label';
+      headerRow.appendChild(label);
+      headerRow.appendChild(valueSpan);
+
+      row.appendChild(headerRow);
+      row.appendChild(input);
+      display.appendChild(row);
+    });
+  }
 }
 
 function updateEffectParams(trackId, slotIndex, effectType, paramPatch) {
@@ -416,6 +507,11 @@ function applyEffectToTrack(trackIndex, slotIndex, effectType, effectParams = {}
     effect._type = 'reverb';
     if (effect.setParams) effect.setParams(finalParams);
     console.log(`Created reverb effect for track ${trackIndex}, slot ${slotIndex}`);
+  } else if (effectType === 'distortion' && window.DistortionEffect) {
+    effect = new window.DistortionEffect(window.audioContext);
+    effect._type = 'distortion';
+    if (effect.setParams) effect.setParams(finalParams);
+    console.log(`Created distortion effect for track ${trackIndex}, slot ${slotIndex}`);
   }
 
   // Store the effect instance

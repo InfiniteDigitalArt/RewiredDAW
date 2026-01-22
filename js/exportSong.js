@@ -32,6 +32,15 @@ function buildTrackFxChainForExport(offline, trackIndex) {
       
       currentNode.connect(reverb.input);
       currentNode = reverb.output;
+    } else if (slot.type === 'distortion' && window.DistortionEffect) {
+      // Use the same distortion implementation as realtime to ensure parity
+      const distortion = new window.DistortionEffect(offline);
+      if (slot.params && distortion.setParams) {
+        distortion.setParams(slot.params);
+      }
+      
+      currentNode.connect(distortion.input);
+      currentNode = distortion.output;
     }
   });
   
