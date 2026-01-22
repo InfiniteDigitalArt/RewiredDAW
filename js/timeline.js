@@ -27,6 +27,7 @@ let deletedClipIds = new Set();
 // Paint mode state
 let isPainting = false;
 let paintedBars = new Set();
+let paintingTrackIndex = -1;
 
 // Marquee selection state
 let isSelecting = false;
@@ -215,28 +216,56 @@ window.initTimeline = function () {
 
   // Store references for later updates (e.g., VU meters)
   window.trackControls = [];
-  // ⭐ Store per-track state for volume/pan
+  // ⭐ Store per-track state for volume/pan/name
   window.trackStates = Array.from({ length: 16 }, (_, i) => ({
-    volume: 1.0,
-    pan: 0.5
+    volume: 0.5,
+    pan: 0.5,
+    name: `Track ${i + 1}`
   }));
 
   // If loading a project, use its track states
   if (window.loadedProject && Array.isArray(window.loadedProject.tracks)) {
-    window.trackStates = window.loadedProject.tracks.map(t => ({
+    window.trackStates = window.loadedProject.tracks.map((t, i) => ({
       volume: Math.max(0, Math.min(1, Number(t.volume))),
-      pan: Math.max(0, Math.min(1, Number(t.pan)))
+      pan: Math.max(0, Math.min(1, Number(t.pan))),
+      name: t.name || `Track ${i + 1}`
     }));
     // Pad to 16 tracks if needed
     while (window.trackStates.length < 16) {
-      window.trackStates.push({ volume: 1.0, pan: 0.5 });
+      const idx = window.trackStates.length;
+      window.trackStates.push({ volume: 0.5, pan: 0.5, name: `Track ${idx + 1}` });
     }
   } else {
-    window.trackStates = Array.from({ length: 16 }, () => ({
-      volume: 1.0,
-      pan: 0.5
+    window.trackStates = Array.from({ length: 16 }, (_, i) => ({
+      volume: 0.5,
+      pan: 0.5,
+      name: `Track ${i + 1}`
     }));
   }
+
+  // Global function to rename a track and sync both timeline and mixer
+  window.renameTrack = function(trackIndex, newName) {
+    if (trackIndex < 0 || trackIndex >= 16) return;
+    
+    // Update trackStates
+    if (window.trackStates[trackIndex]) {
+      window.trackStates[trackIndex].name = newName;
+    }
+    
+    // Update timeline label (controls column)
+    const timelineLabel = document.querySelector(`.track-controls[data-index="${trackIndex}"] .track-label`);
+    if (timelineLabel) {
+      timelineLabel.textContent = newName;
+    }
+    
+    // Update mixer label
+    if (window.mixer && window.mixer.tracks && window.mixer.tracks[trackIndex]) {
+      const mixerLabel = window.mixer.tracks[trackIndex].querySelector('.mixer-track-label');
+      if (mixerLabel) {
+        mixerLabel.textContent = newName;
+      }
+    }
+  };
 
   for (let i = 0; i < 16; i++) {
     const track = document.createElement("div");
@@ -259,15 +288,63 @@ window.initTimeline = function () {
 
     const label = document.createElement("div");
     label.className = "track-label";
-    label.textContent = "Track " + (i + 1);
+    label.textContent = window.trackStates[i]?.name || ("Track " + (i + 1));
     label.style.color = color;
+    label.style.cursor = "pointer";
+    label.title = "Click to rename";
+    
+    // Add click handler for renaming
+    label.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentName = label.textContent;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = currentName;
+      input.style.fontSize = 'inherit';
+      input.style.fontWeight = 'inherit';
+      input.style.color = color;
+      input.style.background = 'var(--bg-panel)';
+      input.style.border = '1px solid var(--accent-color)';
+      input.style.padding = '2px 4px';
+      input.style.borderRadius = '3px';
+      input.style.textAlign = 'center';
+      input.style.width = '100%';
+      input.style.boxSizing = 'border-box';
+      
+      label.textContent = '';
+      label.appendChild(input);
+      input.focus();
+      input.select();
+      
+      const finishRename = () => {
+        const newName = input.value.trim() || currentName;
+        input.removeEventListener('blur', finishRename);
+        input.removeEventListener('keydown', handleKeydown);
+        window.renameTrack(i, newName);
+      };
+      
+      const handleKeydown = (e) => {
+         if (e.key === 'Enter') {
+           e.preventDefault();
+           finishRename();
+         }
+        if (e.key === 'Escape') {
+          input.removeEventListener('blur', finishRename);
+          input.removeEventListener('keydown', handleKeydown);
+          label.textContent = currentName;
+        }
+      };
+      
+      input.addEventListener('blur', finishRename);
+      input.addEventListener('keydown', handleKeydown);
+    });
 
     // Horizontal knob row
     const knobRow = document.createElement("div");
     knobRow.className = "knob-row";
 
     // Use trackStates for initial knob values
-    const initialVol = window.trackStates[i]?.volume ?? 1.0;
+    const initialVol = window.trackStates[i]?.volume ?? 0.5;
     const initialPan = window.trackStates[i]?.pan ?? 0.5;
 
     // Volume knob + label
@@ -436,7 +513,78 @@ window.initTimeline = function () {
 
       // Start paint mode
       isPainting = true;
+      paintingTrackIndex = trackIndex;
       paintedBars.clear();
+
+      // Stop painting on mouse up
+      const stopPainting = () => {
+        isPainting = false;
+        paintingTrackIndex = -1;
+        paintedBars.clear();
+        document.removeEventListener('mousemove', globalPaintMove);
+        document.removeEventListener('mouseup', stopPainting);
+      };
+      
+      // Global paint handler that tracks X position across all tracks
+      const globalPaintMove = (ev) => {
+        if (window.timelineCurrentTool !== 'pencil') return;
+        if (!isPainting) return;
+
+        const selected = window.activeClip;
+        if (!selected) return;
+
+        // Get the timeline scroll area to calculate correct X position
+        const timelineScroll = document.getElementById("timeline-scroll");
+        if (!timelineScroll) return;
+
+        const rect = timelineScroll.getBoundingClientRect();
+        const x = ev.clientX - rect.left + timelineScroll.scrollLeft;
+        const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
+
+        // Skip if already painted at this bar or if clip exists on the painting track
+        if (paintedBars.has(startBar)) return;
+        const overlap = window.clips.some(c => c.trackIndex === paintingTrackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
+        if (overlap) return;
+
+        // Paint new clip on the original track
+        const newClip = {
+          ...selected,
+          id: crypto.randomUUID(),
+          trackIndex: paintingTrackIndex,
+          startBar
+        };
+
+        // Share references for MIDI clips (NOT deep copy)
+        if (selected.type === "midi") {
+          newClip.notes = selected.notes;
+          newClip.sampleBuffer = selected.sampleBuffer;
+          newClip.sampleName = selected.sampleName;
+          if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
+        }
+        if (selected.type === "audio") {
+          if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
+        }
+
+        window.clips.push(newClip);
+        resolveClipCollisions(newClip);
+        paintedBars.add(startBar);
+        window.checkAndExpandTimeline();
+
+        // Re-render only the painting track
+        const paintingTrack = document.querySelector(`.track[data-index="${paintingTrackIndex}"]`);
+        if (paintingTrack) {
+          const paintingDrop = paintingTrack.querySelector(".track-drop-area");
+          if (paintingDrop) {
+            paintingDrop.innerHTML = "";
+            window.clips
+              .filter(c => c.trackIndex === paintingTrackIndex)
+              .forEach(c => window.renderClip(c, paintingDrop));
+          }
+        }
+      };
+      
+      document.addEventListener('mousemove', globalPaintMove);
+      document.addEventListener('mouseup', stopPainting);
 
       // Paint first clip
       const newClip = {
@@ -470,54 +618,6 @@ window.initTimeline = function () {
         .filter(c => c.trackIndex === trackIndex)
         .forEach(c => window.renderClip(c, drop));
     }, true); // Use capture phase to intercept before clip handlers
-
-    // Paint on mouse move
-    drop.addEventListener("mousemove", function(e) {
-      if (window.timelineCurrentTool !== 'pencil') return;
-      if (!isPainting) return;
-
-      const selected = window.activeClip;
-      if (!selected) return;
-
-      const rect = drop.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
-      const trackIndex = i;
-
-      // Skip if already painted at this bar or if clip exists
-      if (paintedBars.has(startBar)) return;
-      const overlap = window.clips.some(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
-      if (overlap) return;
-
-      // Paint new clip
-      const newClip = {
-        ...selected,
-        id: crypto.randomUUID(),
-        trackIndex,
-        startBar
-      };
-
-      // Share references for MIDI clips (NOT deep copy)
-      if (selected.type === "midi") {
-        newClip.notes = selected.notes; // Share the same notes array
-        newClip.sampleBuffer = selected.sampleBuffer;
-        newClip.sampleName = selected.sampleName;
-        if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
-      }
-      if (selected.type === "audio") {
-        if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
-      }
-
-      window.clips.push(newClip);
-      resolveClipCollisions(newClip);
-      paintedBars.add(startBar);
-      window.checkAndExpandTimeline();
-
-      drop.innerHTML = "";
-      window.clips
-        .filter(c => c.trackIndex === trackIndex)
-        .forEach(c => window.renderClip(c, drop));
-    });
 
     let playhead = document.getElementById("playhead");
     if (!playhead) {

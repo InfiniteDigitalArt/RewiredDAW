@@ -2172,10 +2172,11 @@ body {
   left: 0;
   right: 0;
   height: 0%;
+  z-index: 2;
   transition: background-color 0.1s ease, height 0.05s ease-out;
 }
 
-/* 0dB Reference Line on VU meters (true full scale at the top) */
+/* +5 dB Reference Line (true top of the meter) */
 .mixer-vu-channel::before {
   content: "";
   position: absolute;
@@ -2183,9 +2184,33 @@ body {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, #ffff00 0%, #ffaa00 50%, #ffff00 100%);
-  z-index: 5;
-  opacity: 0.7;
+  background: linear-gradient(90deg, #ff5b5b 0%, #ffb347 50%, #ff5b5b 100%);
+  z-index: 4;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.mixer-vu-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.mixer-vu-marker {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.mixer-vu-marker.zero {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.mixer-vu-marker.neg-six {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* Peak Indicator */
@@ -2195,8 +2220,29 @@ body {
   left: 0;
   right: 0;
   height: 2px;
+  z-index: 5;
   opacity: 0.9;
   box-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+/* VU Meter Hover Tooltip */
+.mixer-vu-tooltip {
+  position: fixed;
+  background: rgba(20, 20, 25, 0.95);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 10000;
+  white-space: nowrap;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.mixer-vu-tooltip.hidden {
+  display: none;
 }
 
 /* Mute Button */

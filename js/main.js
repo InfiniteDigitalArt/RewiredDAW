@@ -360,7 +360,9 @@ async function saveProjectZip() {
       if (volKnob) vol = Number(volKnob.dataset.value);
       if (panKnob) pan = Number(panKnob.dataset.value);
     }
-    tracks.push({ volume: vol, pan: pan });
+    // Get track name from trackStates
+    const name = window.trackStates && window.trackStates[i] ? window.trackStates[i].name : `Track ${i + 1}`;
+    tracks.push({ volume: vol, pan: pan, name });
   }
 
   const serializedClips = [];
@@ -550,6 +552,7 @@ async function loadProjectZip(json, zip) {
     // Clamp and coerce to number
     let vol = Math.max(0, Math.min(1, Number(t.volume)));
     let pan = Math.max(0, Math.min(1, Number(t.pan)));
+    const name = t.name || `Track ${index + 1}`;
 
     // Audio engine
     if (window.trackGains && window.trackGains[index]) {
@@ -563,6 +566,7 @@ async function loadProjectZip(json, zip) {
     if (window.trackStates && window.trackStates[index]) {
       window.trackStates[index].volume = vol;
       window.trackStates[index].pan = pan;
+      window.trackStates[index].name = name;
     }
 
     // UI knobs in controls column
@@ -578,6 +582,11 @@ async function loadProjectZip(json, zip) {
         panKnob.dataset.value = pan;
         panKnob.style.setProperty("--val", pan);
       }
+    }
+
+    // Sync track label text in timeline (and mixer if open)
+    if (typeof window.renameTrack === 'function') {
+      window.renameTrack(index, name);
     }
   });
 

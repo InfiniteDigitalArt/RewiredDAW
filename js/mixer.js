@@ -9,6 +9,35 @@ window.mixer = {
   vuUpdateRunning: false
 };
 
+// VU meter calibration
+const VU_MIN_DB = -60;
+const VU_MAX_DB = 5; // top of the bar = +5 dBFS
+const VU_ORANGE_DB = -6; // caution band start
+const VU_RED_DB = 0;    // distortion risk above 0 dBFS
+const VU_PEAK_HOLD_MS = 2000;
+const VU_PEAK_DECAY_PER_SEC = 0.5;
+const VU_RMS_SMOOTHING = 0.7;
+
+// Fader gain mapping: 0% = silence, 75% = 0 dB (gain=1), 100% ≈ +5 dB
+const FADER_GAIN_MAX = Math.pow(10, VU_MAX_DB / 20); // linear gain at +5 dB
+
+function percentageToGain(pct) {
+  const clamped = Math.max(0, Math.min(1, pct));
+  if (clamped <= 0) return 0;
+  if (clamped >= 1) return FADER_GAIN_MAX;
+  if (clamped <= 0.75) return clamped / 0.75;
+  const over = (clamped - 0.75) / 0.25;
+  return 1 + over * (FADER_GAIN_MAX - 1);
+}
+
+function gainToPercentage(gain) {
+  const clamped = Math.max(0, Math.min(FADER_GAIN_MAX, gain));
+  if (clamped <= 0) return 0;
+  if (clamped <= 1) return 0.75 * clamped;
+  const over = (clamped - 1) / (FADER_GAIN_MAX - 1);
+  return 0.75 + 0.25 * Math.max(0, Math.min(1, over));
+}
+
 /**
  * Initialize the mixer
  */
@@ -20,6 +49,14 @@ function initMixer() {
   closeBtn.addEventListener('click', () => {
     closeMixer();
   });
+  
+  // Create VU tooltip element
+  if (!document.getElementById('mixer-vu-tooltip')) {
+    const tooltip = document.createElement('div');
+    tooltip.id = 'mixer-vu-tooltip';
+    tooltip.className = 'mixer-vu-tooltip hidden';
+    document.body.appendChild(tooltip);
+  }
   
   // Generate mixer tracks based on timeline tracks
   generateMixerTracks();
@@ -101,7 +138,7 @@ function createMasterTrack() {
   // VU Meter (taller for master, stereo)
   const vuMeter = document.createElement('div');
   vuMeter.className = 'mixer-vu';
-  vuMeter.style.height = '210px';
+  vuMeter.style.height = '180px';
   
   const vuChannelLeft = document.createElement('div');
   vuChannelLeft.className = 'mixer-vu-channel';
@@ -113,6 +150,7 @@ function createMasterTrack() {
   vuPeakLeft.style.background = color;
   vuChannelLeft.appendChild(vuFillLeft);
   vuChannelLeft.appendChild(vuPeakLeft);
+  attachVuMarkers(vuChannelLeft);
   
   const vuChannelRight = document.createElement('div');
   vuChannelRight.className = 'mixer-vu-channel';
@@ -124,6 +162,7 @@ function createMasterTrack() {
   vuPeakRight.style.background = color;
   vuChannelRight.appendChild(vuFillRight);
   vuChannelRight.appendChild(vuPeakRight);
+  attachVuMarkers(vuChannelRight);
   
   vuMeter.appendChild(vuChannelLeft);
   vuMeter.appendChild(vuChannelRight);
@@ -183,6 +222,7 @@ function createMasterTrack() {
   track._faderValue = faderValue;
   track._volume = 1.0;
   track._isMaster = true;
+  track._color = color;
   
   // Set initial volume from masterGain if available
   if (window.masterGain) {
@@ -212,8 +252,66 @@ function createMixerTrack(index, color) {
   // Track label
   const label = document.createElement('div');
   label.className = 'mixer-track-label';
-  label.textContent = `Track ${index + 1}`;
+  label.textContent = window.trackStates && window.trackStates[index] ? window.trackStates[index].name : `Track ${index + 1}`;
   label.style.color = color;
+  label.style.cursor = 'pointer';
+  label.title = 'Click to rename';
+  
+  // Add click handler for renaming
+  label.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const currentName = label.textContent;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentName;
+    input.style.fontSize = 'inherit';
+    input.style.fontWeight = 'inherit';
+    input.style.color = color;
+    input.style.background = 'var(--bg-panel)';
+    input.style.border = '1px solid var(--accent-color)';
+    input.style.padding = '2px 4px';
+    input.style.borderRadius = '3px';
+    input.style.textAlign = 'center';
+    input.style.width = '100%';
+    input.style.boxSizing = 'border-box';
+    
+    label.textContent = '';
+    label.appendChild(input);
+    input.focus();
+    input.select();
+    
+    const finishRename = () => {
+      const newName = input.value.trim() || currentName;
+      input.removeEventListener('blur', finishRename);
+      input.removeEventListener('keydown', handleKeydown);
+      if (typeof window.renameTrack === 'function') {
+        window.renameTrack(index, newName);
+      } else {
+        // Fallback if timeline.js did not register renameTrack yet
+        if (window.trackStates && window.trackStates[index]) {
+          window.trackStates[index].name = newName;
+        }
+        const timelineLabel = document.querySelector(`.track[data-index="${index}"] .track-label`);
+        if (timelineLabel) timelineLabel.textContent = newName;
+        label.textContent = newName;
+      }
+    };
+    
+    const handleKeydown = (e) => {
+       if (e.key === 'Enter') {
+         e.preventDefault();
+         finishRename();
+       }
+      if (e.key === 'Escape') {
+        input.removeEventListener('blur', finishRename);
+        input.removeEventListener('keydown', handleKeydown);
+        label.textContent = currentName;
+      }
+    };
+    
+    input.addEventListener('blur', finishRename);
+    input.addEventListener('keydown', handleKeydown);
+  });
   
   // VU Meter (stereo)
   const vuMeter = document.createElement('div');
@@ -229,6 +327,7 @@ function createMixerTrack(index, color) {
   vuPeakLeft.style.background = color;
   vuChannelLeft.appendChild(vuFillLeft);
   vuChannelLeft.appendChild(vuPeakLeft);
+  attachVuMarkers(vuChannelLeft);
   
   const vuChannelRight = document.createElement('div');
   vuChannelRight.className = 'mixer-vu-channel';
@@ -240,6 +339,7 @@ function createMixerTrack(index, color) {
   vuPeakRight.style.background = color;
   vuChannelRight.appendChild(vuFillRight);
   vuChannelRight.appendChild(vuPeakRight);
+  attachVuMarkers(vuChannelRight);
   
   vuMeter.appendChild(vuChannelLeft);
   vuMeter.appendChild(vuChannelRight);
@@ -328,6 +428,7 @@ function createMixerTrack(index, color) {
   track._faderValue = faderValue;
   track._volume = 1.0; // Default to 0dB
   track._trackIndex = index;
+  track._color = color;
   
   // Set initial volume from trackGains if available
   if (window.trackGains && window.trackGains[index]) {
@@ -358,7 +459,7 @@ function setupFaderDrag(track, trackIndex) {
   const handleCtrlClick = (e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const volume = 1.0; // 0dB
+      const volume = 0.5; // -6dB
       
       track._volume = volume;
       updateFaderPosition(track, volume);
@@ -393,13 +494,13 @@ function setupFaderDrag(track, trackIndex) {
       if (!isDragging) return;
       
       // Calculate relative position (inverted because fader goes from bottom to top)
-      // Range: 0 (bottom) to 2.0 (top) = -Infinity to +6dB
+      // Range: 0 (bottom) to 1 (top) travel; gain mapping is shaped below
       const y = moveEvent.clientY - faderRect.top - 8;
       let percentage = 1 - (y / faderHeight);
       percentage = Math.max(0, Math.min(1, percentage));
       
-      // Map 0-1 range to 0-2.0 volume range
-      const volume = percentage * 2.0;
+      // Map 0-1 travel to gain: 75% = 0dB, 100% = +5dB
+      const volume = percentageToGain(percentage);
       
       // Update volume
       track._volume = volume;
@@ -475,7 +576,7 @@ function setupMasterFaderDrag(track) {
       // Update master volume slider in top bar if it exists
       const masterSlider = document.getElementById('masterVolumeSlider');
       if (masterSlider) {
-        masterSlider.value = volume;
+        masterSlider.value = gainToPercentage(volume);
       }
     }
   };
@@ -494,8 +595,8 @@ function setupMasterFaderDrag(track) {
       let percentage = 1 - (y / faderHeight);
       percentage = Math.max(0, Math.min(1, percentage));
       
-      // Map 0-1 range to 0-2.0 volume range
-      const volume = percentage * 2.0;
+      // Map travel to gain: 75% = 0dB, 100% = +5dB
+      const volume = percentageToGain(percentage);
       
       // Update volume
       track._volume = volume;
@@ -556,7 +657,7 @@ function updateFaderPosition(track, volume) {
   const maxTravel = faderHeight - thumbHeight;
   
   // volume is 0-2.0, convert to 0-1 percentage, then to pixels
-  const percentage = volume / 2.0;
+  const percentage = gainToPercentage(volume);
   const thumbBottom = percentage * maxTravel;
   
   // Fill height matches where the thumb is
@@ -592,6 +693,60 @@ function hexToRgb(hex) {
     : '255, 255, 255';
 }
 
+function vuDbToHeight(db) {
+  const clamped = Math.max(VU_MIN_DB, Math.min(VU_MAX_DB, db));
+  return (clamped - VU_MIN_DB) / (VU_MAX_DB - VU_MIN_DB);
+}
+
+function vuHeightToDb(heightPct) {
+  const clamped = Math.max(0, Math.min(1, heightPct));
+  return VU_MIN_DB + clamped * (VU_MAX_DB - VU_MIN_DB);
+}
+
+function attachVuMarkers(channelEl) {
+  const markerLayer = document.createElement('div');
+  markerLayer.className = 'mixer-vu-markers';
+
+  const markers = [
+    { db: VU_MAX_DB, cls: 'top' },
+    { db: 0, cls: 'zero' },
+    { db: -6, cls: 'neg-six' }
+  ];
+
+  markers.forEach(marker => {
+    const line = document.createElement('div');
+    line.className = `mixer-vu-marker ${marker.cls}`;
+    line.style.bottom = `${(vuDbToHeight(marker.db) * 100).toFixed(2)}%`;
+    markerLayer.appendChild(line);
+  });
+
+  channelEl.appendChild(markerLayer);
+  
+  // Add hover tooltip functionality
+  const tooltip = document.getElementById('mixer-vu-tooltip');
+  
+  channelEl.addEventListener('mouseenter', () => {
+    if (tooltip) tooltip.classList.remove('hidden');
+  });
+  
+  channelEl.addEventListener('mouseleave', () => {
+    if (tooltip) tooltip.classList.add('hidden');
+  });
+  
+  channelEl.addEventListener('mousemove', (e) => {
+    if (!tooltip) return;
+    
+    const rect = channelEl.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const heightPct = 1 - (y / rect.height);
+    const db = vuHeightToDb(heightPct);
+    
+    tooltip.textContent = `${db.toFixed(1)} dB`;
+    tooltip.style.left = `${e.clientX + 15}px`;
+    tooltip.style.top = `${e.clientY - 10}px`;
+  });
+}
+
 /**
  * Update VU meters for all mixer tracks
  */
@@ -600,21 +755,8 @@ function updateMixerVUMeters() {
     window.mixer.vuUpdateRunning = false;
     return;
   }
-  
-  const MIN_DB = -60; // Floor for meter scaling
-  const ORANGE_DB = 0; // Turn bar orange at 0dBFS (start of digital clipping)
-  const RED_DB = 3;    // Hard clip warning if overs hit +3dBFS
-  const PEAK_HOLD_MS = 2000;
-  const PEAK_DECAY_PER_SEC = 0.5; // Smooth fall after hold
-  const RMS_SMOOTHING = 0.7; // EMA smoothing
 
-  const toDb = (value) => (value > 0 ? 20 * Math.log10(value) : MIN_DB);
-  const dbToHeight = (db) => {
-    // Clamp dB to range, then scale to 0-1
-    const clamped = Math.max(MIN_DB, Math.min(0, db));
-    const height = (clamped - MIN_DB) / (0 - MIN_DB);
-    return Math.max(0, Math.min(1, height)); // Extra safety clamp
-  };
+  const toDb = (value) => (value > 0 ? 20 * Math.log10(value) : VU_MIN_DB);
 
   const now = performance.now();
 
@@ -633,25 +775,25 @@ function updateMixerVUMeters() {
       if (abs > peak) peak = abs;
     }
 
-    const rms = Math.sqrt(sumSquares / buffer.length);
+    // Use smoothed peak for fill (more responsive to transients)
     const smoothedKey = side === 'L' ? '_smoothedRmsLeft' : '_smoothedRmsRight';
-    track[smoothedKey] = RMS_SMOOTHING * track[smoothedKey] + (1 - RMS_SMOOTHING) * rms;
+    track[smoothedKey] = VU_RMS_SMOOTHING * track[smoothedKey] + (1 - VU_RMS_SMOOTHING) * peak;
 
-    const rmsDb = toDb(track[smoothedKey]);
+    const smoothedPeakDb = toDb(track[smoothedKey]);
     const peakDb = toDb(peak);
 
     // Convert to 0-1 range for display (already clamped in dbToHeight)
-    const rmsHeight = dbToHeight(rmsDb);
-    const peakHeight = dbToHeight(peakDb);
+    const fillHeight = vuDbToHeight(smoothedPeakDb);
+    const peakHeight = vuDbToHeight(peakDb);
 
     const fillEl = side === 'L' ? track._vuFillLeft : track._vuFillRight;
     const peakEl = side === 'L' ? track._vuPeakLeft : track._vuPeakRight;
 
-    fillEl.style.height = `${(rmsHeight * 100).toFixed(2)}%`;
+    fillEl.style.height = `${(fillHeight * 100).toFixed(2)}%`;
 
-    let fillColor = '#2aff2a'; // Green safe zone
-    if (rmsDb >= RED_DB) fillColor = '#ff2b2b';
-    else if (rmsDb >= ORANGE_DB) fillColor = '#ff9900';
+    let fillColor = track._color || '#2aff2a'; // Use track color as default (safe zone)
+    if (smoothedPeakDb >= VU_RED_DB) fillColor = '#ff2b2b';
+    else if (smoothedPeakDb >= VU_ORANGE_DB) fillColor = '#ff9900';
     fillEl.style.backgroundColor = fillColor;
 
     const holdHeightKey = side === 'L' ? '_peakHoldHeightLeft' : '_peakHoldHeightRight';
@@ -662,9 +804,9 @@ function updateMixerVUMeters() {
 
     if (peakHeight > holdHeight) {
       holdHeight = peakHeight;
-      holdUntil = now + PEAK_HOLD_MS;
+      holdUntil = now + VU_PEAK_HOLD_MS;
     } else if (now > holdUntil && deltaSeconds > 0) {
-      holdHeight = Math.max(peakHeight, holdHeight - PEAK_DECAY_PER_SEC * deltaSeconds);
+      holdHeight = Math.max(peakHeight, holdHeight - VU_PEAK_DECAY_PER_SEC * deltaSeconds);
     }
 
     // Ensure holdHeight never exceeds 1.0 (100%)
