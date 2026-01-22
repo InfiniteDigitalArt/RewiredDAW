@@ -2100,7 +2100,7 @@ body {
   overflow-x: auto;
   overflow-y: hidden;
   display: flex;
-  padding: 20px 10px;
+  padding: 20px 10px 20px 30px;
   gap: 8px;
 }
 
@@ -2134,6 +2134,12 @@ body {
   align-items: center;
   padding: 12px 8px;
   gap: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.mixer-track.selected {
+  border: 1px solid #4a4a50;
 }
 
 /* Track label */
@@ -2270,6 +2276,13 @@ body {
   
 }
 
+/* Spacer to align master fader (no mute button) */
+.mixer-mute-spacer {
+  width: 19px; /* matches mute button outer size including border */
+  height: 19px;
+  flex-shrink: 0;
+}
+
 /* Volume Fader */
 .mixer-fader-container {
   width: 100%;
@@ -2366,6 +2379,7 @@ body {
 
 /* FX Slot */
 .fx-slot {
+  position: relative;
   height: 36px;
   background: var(--bg-track-even);
   border: 1px solid var(--border-mid);
@@ -2373,7 +2387,7 @@ body {
   display: flex;
   align-items: center;
   padding: 0 12px;
-  gap: 12px;
+  gap: 2px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -2381,6 +2395,10 @@ body {
 .fx-slot:hover {
   background: var(--bg-track-odd);
   border-color: var(--border-light);
+}
+
+.fx-slot.selected {
+  border: 1px solid #4a4a50;
 }
 
 .fx-slot-number {
@@ -2398,10 +2416,55 @@ body {
   flex-shrink: 0;
 }
 
+.fx-slot-dropdown {
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  margin: -4px 0;
+}
+
+.fx-slot-dropdown:hover {
+  color: var(--text-accent);
+}
+
 .fx-slot-name {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-secondary);
   flex: 1;
+}
+
+.fx-slot-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.fx-slot-menu.hidden {
+  display: none;
+}
+
+.fx-menu-item {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.fx-menu-item:hover {
+  background: var(--bg-track-odd);
+  color: var(--text-accent);
 }
 
 /* Equalizer */
@@ -2426,5 +2489,88 @@ body {
   background: var(--bg-main);
   margin: 8px;
   border: 1px solid var(--border-mid);
+  border-radius: 4px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+.fx-settings-empty {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.fx-setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.fx-setting-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fx-setting-value {
+  color: var(--text-accent);
+  font-size: 11px;
+}
+
+.fx-setting-row input[type="range"] {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 4px;
+  background: #1c1c22;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  border: 1px solid #2b2b33;
+}
+
+.fx-setting-row input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #007aff;
+  border-radius: 50%;
+  border: 2px solid #1c1c22;
+  box-shadow: 0 0 6px #007aff;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.fx-setting-row input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.2);
+}
+
+.fx-setting-row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #007aff;
+  border-radius: 50%;
+  border: 2px solid #1c1c22;
+  box-shadow: 0 0 6px #007aff;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.fx-setting-row input[type="range"]::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+.fx-setting-row input[type="range"]::-moz-range-progress {
+  background: #007aff;
   border-radius: 4px;
 }

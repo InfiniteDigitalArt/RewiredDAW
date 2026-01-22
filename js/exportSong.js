@@ -5,6 +5,38 @@
 // Prevent OfflineAudioContext fade-in at time 0
 const EXPORT_START_OFFSET = 0.1;
 
+/**
+ * Build a FX chain for a track during export
+ * Applies all active effects from trackFxSlots
+ * @param {OfflineAudioContext} offline - The offline context
+ * @param {number} trackIndex - Track index (0-15)
+ * @returns {Object} - { input, output } nodes
+ */
+function buildTrackFxChainForExport(offline, trackIndex) {
+  // Get FX slots for this track in order (preserve slot order)
+  const trackFxSlots = window.trackFxSlots?.[trackIndex] || [];
+  
+  // If no effects, return a pass-through gain
+  const input = offline.createGain();
+  let currentNode = input;
+  
+  trackFxSlots.forEach(slot => {
+    if (!slot || slot.type === 'empty' || !slot.type) return;
+    
+    if (slot.type === 'reverb' && window.ReverbEffect) {
+      // Use the same reverb implementation as realtime to ensure parity
+      const reverb = new window.ReverbEffect(offline);
+      if (slot.params && reverb.setParams) {
+        reverb.setParams(slot.params);
+      }
+      
+      currentNode.connect(reverb.input);
+      currentNode = reverb.output;
+    }
+  });
+  
+  return { input, output: currentNode };
+}
 
 // ======================================================
 //  MASTERING CHAIN PRESETS
@@ -266,10 +298,11 @@ window.clips.forEach(clip => {
   }
 
 // ------------------------------------------------------
-// 4B. Create offline track gains + panners (for MIDI + audio)
+// 4B. Create offline track gains + panners + FX chains
 // ------------------------------------------------------
 const offlineTrackGains = [];
 const offlineTrackPans = [];
+const offlineTrackFxChains = [];
 
 for (let i = 0; i < window.trackGains.length; i++) {
   const g = offline.createGain();
@@ -278,12 +311,17 @@ for (let i = 0; i < window.trackGains.length; i++) {
   const p = offline.createStereoPanner();
   p.pan.value = window.trackPanners[i].pan.value;
 
-
-  g.connect(p);
+  // Build FX chain for this track
+  const fxChain = buildTrackFxChainForExport(offline, i);
+  
+  // Routing: gain → FX chain input → FX chain output → panner → master
+  g.connect(fxChain.input);
+  fxChain.output.connect(p);
   p.connect(masterInput);
 
   offlineTrackGains.push(g);
   offlineTrackPans.push(p);
+  offlineTrackFxChains.push(fxChain);
 }
 
 

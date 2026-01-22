@@ -71,6 +71,7 @@ window.trackAnalysers = [];
 window.trackAnalysersLeft = [];
 window.trackAnalysersRight = [];
 window.trackSplitters = [];
+window.trackFxChains = []; // Array of arrays - each track has an FX chain
 
 for (let i = 0; i < 16; i++) {
   const gain = audioContext.createGain();
@@ -89,7 +90,12 @@ for (let i = 0; i < 16; i++) {
   // Create a merger to combine back to stereo for master
   const merger = audioContext.createChannelMerger(2);
 
+  // Initialize empty FX chain for this track
+  const fxChain = [];
+  window.trackFxChains.push(fxChain);
+  
   // Track → gain → panner → splitter → [analysers] → merger → master
+  // (FX will be inserted between gain and panner)
   gain.connect(panner);
   panner.connect(splitter);
   splitter.connect(analyserLeft, 0);

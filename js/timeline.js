@@ -1832,61 +1832,6 @@ if (clip.type === "audio" && bufferToDraw) {
   el.style.overflow = "hidden";
 
   el.appendChild(waveform);
-  
-  // --- FADE OVERLAYS ---
-  if ((clip.fadeIn > 0 || clip.fadeOut > 0)) {
-    const fadeCanvas = document.createElement("canvas");
-    fadeCanvas.className = "fade-overlay";
-    fadeCanvas.width = clipWidth;
-    fadeCanvas.height = 40;
-    fadeCanvas.style.position = "absolute";
-    fadeCanvas.style.bottom = "0";
-    fadeCanvas.style.left = "0";
-    fadeCanvas.style.pointerEvents = "none";
-    
-    const ctx = fadeCanvas.getContext("2d");
-    const gradient = ctx.createLinearGradient(0, 0, clipWidth, 0);
-    
-    const fadeInPx = (clip.fadeIn / clip.bars) * clipWidth;
-    const fadeOutPx = (clip.fadeOut / clip.bars) * clipWidth;
-    
-    // Fade in gradient
-    if (clip.fadeIn > 0) {
-      gradient.addColorStop(0, "rgba(0,0,0,0.5)");
-      gradient.addColorStop(fadeInPx / clipWidth, "rgba(0,0,0,0)");
-    }
-    
-    // Fade out gradient
-    if (clip.fadeOut > 0) {
-      const fadeOutStart = 1 - (fadeOutPx / clipWidth);
-      gradient.addColorStop(fadeOutStart, "rgba(0,0,0,0)");
-      gradient.addColorStop(1, "rgba(0,0,0,0.5)");
-    }
-    
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, clipWidth, 40);
-    
-    // Draw fade curves
-    ctx.strokeStyle = "rgba(255,255,255,0.6)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    
-    // Fade in curve
-    if (clip.fadeIn > 0) {
-      ctx.moveTo(0, 40);
-      ctx.lineTo(fadeInPx, 0);
-    }
-    
-    // Fade out curve
-    if (clip.fadeOut > 0) {
-      ctx.moveTo(clipWidth - fadeOutPx, 0);
-      ctx.lineTo(clipWidth, 40);
-    }
-    
-    ctx.stroke();
-    
-    el.appendChild(fadeCanvas);
-  }
 }
 
 
@@ -1953,7 +1898,61 @@ if (clip.type === "midi") {
   });
 }
 
-
+// --- FADE OVERLAYS (for both audio and MIDI clips) ---
+if ((clip.fadeIn > 0 || clip.fadeOut > 0)) {
+  const clipWidth = clip.bars * window.PIXELS_PER_BAR;
+  const fadeCanvas = document.createElement("canvas");
+  fadeCanvas.className = "fade-overlay";
+  fadeCanvas.width = clipWidth;
+  fadeCanvas.height = 40;
+  fadeCanvas.style.position = "absolute";
+  fadeCanvas.style.bottom = "0";
+  fadeCanvas.style.left = "0";
+  fadeCanvas.style.pointerEvents = "none";
+  
+  const ctx = fadeCanvas.getContext("2d");
+  const gradient = ctx.createLinearGradient(0, 0, clipWidth, 0);
+  
+  const fadeInPx = (clip.fadeIn / clip.bars) * clipWidth;
+  const fadeOutPx = (clip.fadeOut / clip.bars) * clipWidth;
+  
+  // Fade in gradient
+  if (clip.fadeIn > 0) {
+    gradient.addColorStop(0, "rgba(0,0,0,0.5)");
+    gradient.addColorStop(fadeInPx / clipWidth, "rgba(0,0,0,0)");
+  }
+  
+  // Fade out gradient
+  if (clip.fadeOut > 0) {
+    const fadeOutStart = 1 - (fadeOutPx / clipWidth);
+    gradient.addColorStop(fadeOutStart, "rgba(0,0,0,0)");
+    gradient.addColorStop(1, "rgba(0,0,0,0.5)");
+  }
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, clipWidth, 40);
+  
+  // Draw fade curves
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  
+  // Fade in curve
+  if (clip.fadeIn > 0) {
+    ctx.moveTo(0, 40);
+    ctx.lineTo(fadeInPx, 0);
+  }
+  
+  // Fade out curve
+  if (clip.fadeOut > 0) {
+    ctx.moveTo(clipWidth - fadeOutPx, 0);
+    ctx.lineTo(clipWidth, 40);
+  }
+  
+  ctx.stroke();
+  
+  el.appendChild(fadeCanvas);
+}
 
 
 
@@ -2359,14 +2358,13 @@ el.addEventListener("touchend", () => {
     clip.fadeOut = Math.min(clip.fadeOut || 0, maxFadeOut);
   }
 
-  if (clip.type === "audio") {
-    if (clip.fadeIn === undefined) clip.fadeIn = 0;
-    if (clip.fadeOut === undefined) clip.fadeOut = 0;
-    clampFadeLengths(clip);
-  }
+  // Initialize fade properties for both audio and MIDI clips
+  if (clip.fadeIn === undefined) clip.fadeIn = 0;
+  if (clip.fadeOut === undefined) clip.fadeOut = 0;
+  clampFadeLengths(clip);
 
-  // --- FADE HANDLES (only for audio clips in fade mode) ---
-  if (clip.type === "audio" && window.timelineCurrentTool === 'fade') {
+  // --- FADE HANDLES (for both audio and MIDI clips in fade mode) ---
+  if (window.timelineCurrentTool === 'fade') {
     // Left fade handle
     const fadeInHandle = document.createElement("div");
     fadeInHandle.className = "fade-handle fade-in-handle";

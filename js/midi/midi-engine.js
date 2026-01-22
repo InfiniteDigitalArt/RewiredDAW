@@ -56,12 +56,40 @@ window.MidiEngine = class MidiEngine {
         if (durationSec <= 0) return;
       }
 
+      // Calculate fade multiplier based on note position in clip
+      let fadedVelocity = note.velocity || 0.8;
+      const fadeIn = clip.fadeIn || 0;
+      const fadeOut = clip.fadeOut || 0;
+      
+      if (fadeIn > 0 || fadeOut > 0) {
+        const notePositionBars = startBars; // position of note start within clip
+        const clipLengthBars = clip.bars || 1;
+        
+        let fadeMultiplier = 1.0;
+        
+        // Apply fade-in
+        if (fadeIn > 0 && notePositionBars < fadeIn) {
+          fadeMultiplier = Math.min(fadeMultiplier, notePositionBars / fadeIn);
+        }
+        
+        // Apply fade-out
+        if (fadeOut > 0) {
+          const fadeOutStartBars = clipLengthBars - fadeOut;
+          if (notePositionBars > fadeOutStartBars) {
+            const fadeOutProgress = (notePositionBars - fadeOutStartBars) / fadeOut;
+            fadeMultiplier = Math.min(fadeMultiplier, 1.0 - fadeOutProgress);
+          }
+        }
+        
+        fadedVelocity *= Math.max(0, fadeMultiplier);
+      }
+
       synth.playNoteFromClip(
         clip,
         note.pitch,
         noteStartSec,
         durationSec,
-        note.velocity || 0.8,
+        fadedVelocity,
         clip.trackIndex ?? 0
       );
     });

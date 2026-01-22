@@ -362,13 +362,6 @@ window.initPianoRoll = function () {
     updatePianoRollSampleHeader();
   });
 
-
-  // Reverb slider
-  reverbSlider.addEventListener("input", () => {
-    if (!activeClip) return;
-    activeClip.reverbGain.gain.value = Number(reverbSlider.value);
-  });
-
   // Piano roll preview play button
   const previewPlayBtn = document.getElementById("piano-roll-preview-play");
   const previewStopBtn = document.getElementById("piano-roll-preview-stop");
@@ -1803,8 +1796,6 @@ function updatePianoRollSampleHeader() {
 
   el.textContent = window.activeClip.sampleName || "None";
 }
-
-const reverbSlider = document.getElementById("piano-roll-reverb");
 
 async function loadSampleIntoClip(clip, file) {
   if (!window.audioCtx) {

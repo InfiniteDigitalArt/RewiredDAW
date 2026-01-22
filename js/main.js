@@ -310,25 +310,69 @@ document.addEventListener("mousedown", (e) => {
 });
 
 
+// Shared VU calibration used by mixer/timeline/top bar (falls back if mixer not loaded yet)
+const VU_CAL = window.VU_CAL || {
+  MIN_DB: -60,
+  MAX_DB: 5,
+  ORANGE_DB: -6,
+  RED_DB: 0,
+  SMOOTHING: 0.7
+};
+
+function vuAmpToDb(amplitude) {
+  return amplitude > 0 ? 20 * Math.log10(amplitude) : VU_CAL.MIN_DB;
+}
+
+function vuDbToNorm(db) {
+  const clamped = Math.max(VU_CAL.MIN_DB, Math.min(VU_CAL.MAX_DB, db));
+  return (clamped - VU_CAL.MIN_DB) / (VU_CAL.MAX_DB - VU_CAL.MIN_DB);
+}
+
+const trackVuState = Array.from({ length: 16 }, () => ({ smoothed: 0 }));
+const trackVuBuffersLeft = [];
+const trackVuBuffersRight = [];
+
+function computePeakFromAnalyser(analyser, bufferCache, idx) {
+  if (!analyser) return 0;
+  const buffer = bufferCache[idx] || (bufferCache[idx] = new Float32Array(analyser.fftSize));
+  analyser.getFloatTimeDomainData(buffer);
+
+  let peak = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    const v = Math.abs(buffer[i]);
+    if (v > peak) peak = v;
+  }
+  return peak;
+}
+
 function updateMeters() {
   const fills = document.querySelectorAll(".track-meter-fill");
+  const analysersLeft = window.trackAnalysersLeft || window.trackAnalysers;
+  const analysersRight = window.trackAnalysersRight || window.trackAnalysers;
 
-  for (let i = 0; i < window.trackAnalysers.length; i++) {
-    const analyser = window.trackAnalysers[i];
+  for (let i = 0; i < fills.length; i++) {
     const fill = fills[i];
-    if (!fill) continue;
+    const analyserL = analysersLeft?.[i];
+    const analyserR = analysersRight?.[i];
+    if (!fill || !analyserL) continue;
 
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteTimeDomainData(data);
+    // Use the louder of L/R to mirror mixer VU behavior
+    const peakL = computePeakFromAnalyser(analyserL, trackVuBuffersLeft, i);
+    const peakR = analyserR ? computePeakFromAnalyser(analyserR, trackVuBuffersRight, i) : 0;
+    const peak = Math.max(peakL, peakR);
 
-    // Compute peak amplitude
-    let peak = 0;
-    for (let j = 0; j < data.length; j++) {
-      const v = Math.abs(data[j] - 128) / 128;
-      if (v > peak) peak = v;
-    }
+    const state = trackVuState[i] || (trackVuState[i] = { smoothed: 0 });
+    state.smoothed = VU_CAL.SMOOTHING * state.smoothed + (1 - VU_CAL.SMOOTHING) * peak;
 
-    fill.style.height = (peak * 100) + "%";
+    const smoothedDb = vuAmpToDb(state.smoothed);
+    const height = vuDbToNorm(smoothedDb);
+
+    fill.style.height = `${(height * 100).toFixed(2)}%`;
+
+    let color = window.trackControls?.[i]?.color || "#2aff2a";
+    if (smoothedDb >= VU_CAL.RED_DB) color = "#ff2b2b";
+    else if (smoothedDb >= VU_CAL.ORANGE_DB) color = "#ff9900";
+    fill.style.backgroundColor = color;
   }
 
   requestAnimationFrame(updateMeters);
@@ -949,78 +993,56 @@ const vuRight = document.getElementById("vuRight");
 const ctxL = vuLeft.getContext("2d");
 const ctxR = vuRight.getContext("2d");
 
-const leftData = new Uint8Array(window.masterAnalyserLeft.frequencyBinCount);
-const rightData = new Uint8Array(window.masterAnalyserRight.frequencyBinCount);
+const masterLeftData = new Float32Array(window.masterAnalyserLeft.fftSize);
+const masterRightData = new Float32Array(window.masterAnalyserRight.fftSize);
 
-// RMS smoothing state for top bar VU meters (matching mixer calculation)
-let vuLeftRMS = 0;
-let vuRightRMS = 0;
-const vuSmoothing = 0.7; // Exponential moving average smoothing
+// Peak smoothing state for top bar VU meters (mirrors mixer calculation)
+let vuLeftPeakSmooth = 0;
+let vuRightPeakSmooth = 0;
 
 function drawVUMeters() {
   requestAnimationFrame(drawVUMeters);
 
-  // Read true stereo data
-  window.masterAnalyserLeft.getByteTimeDomainData(leftData);
-  window.masterAnalyserRight.getByteTimeDomainData(rightData);
+  window.masterAnalyserLeft.getFloatTimeDomainData(masterLeftData);
+  window.masterAnalyserRight.getFloatTimeDomainData(masterRightData);
 
-  const leftRms = getRMS(leftData);
-  const rightRms = getRMS(rightData);
-  const leftPeak = getPeak(leftData);
-  const rightPeak = getPeak(rightData);
+  const leftPeak = getPeak(masterLeftData);
+  const rightPeak = getPeak(masterRightData);
 
-  // Apply smoothing to match mixer behavior
-  vuLeftRMS = vuSmoothing * vuLeftRMS + (1 - vuSmoothing) * leftRms;
-  vuRightRMS = vuSmoothing * vuRightRMS + (1 - vuSmoothing) * rightRms;
+  vuLeftPeakSmooth = VU_CAL.SMOOTHING * vuLeftPeakSmooth + (1 - VU_CAL.SMOOTHING) * leftPeak;
+  vuRightPeakSmooth = VU_CAL.SMOOTHING * vuRightPeakSmooth + (1 - VU_CAL.SMOOTHING) * rightPeak;
 
-  drawMeter(ctxL, vuLeftRMS, leftPeak);
-  drawMeter(ctxR, vuRightRMS, rightPeak);
-}
-
-function getRMS(data) {
-  let sumSquares = 0;
-  for (let i = 0; i < data.length; i++) {
-    const normalized = (data[i] - 128) / 128;
-    sumSquares += normalized * normalized;
-  }
-  return Math.sqrt(sumSquares / data.length);
+  drawMeter(ctxL, vuLeftPeakSmooth, leftPeak);
+  drawMeter(ctxR, vuRightPeakSmooth, rightPeak);
 }
 
 function getPeak(data) {
   let peak = 0;
   for (let i = 0; i < data.length; i++) {
-    const v = Math.abs((data[i] - 128) / 128);
+    const v = Math.abs(data[i]);
     if (v > peak) peak = v;
   }
   return peak;
 }
 
-function drawMeter(ctx, rmsLevel, peakLevel) {
+function drawMeter(ctx, smoothedPeak, instantPeak) {
   const w = ctx.canvas.width;
   const h = ctx.canvas.height;
 
   ctx.clearRect(0, 0, w, h);
 
-  // 0dB reference is true full-scale (1.0). We color by RMS dBFS thresholds.
-  const redDb = -0.5;
-  const yellowDb = -3;
+  const smoothedDb = vuAmpToDb(smoothedPeak);
+  const instantDb = vuAmpToDb(instantPeak);
 
-  const rmsDb = rmsLevel > 0 ? 20 * Math.log10(rmsLevel) : -Infinity;
-  let fillColor;
-  if (rmsDb >= redDb) {
-    fillColor = "#ff2b2b"; // Red: clipping
-  } else if (rmsDb >= yellowDb) {
-    fillColor = "#ffaa00"; // Yellow: approaching 0dB
-  } else {
-    fillColor = "#2aff2a"; // Green: safe
-  }
+  let fillColor = "#2aff2a";
+  if (smoothedDb >= VU_CAL.RED_DB) fillColor = "#ff2b2b";
+  else if (smoothedDb >= VU_CAL.ORANGE_DB) fillColor = "#ff9900";
 
-  const barWidth = w * Math.min(1, rmsLevel);
+  const barWidth = w * vuDbToNorm(smoothedDb);
   ctx.fillStyle = fillColor;
   ctx.fillRect(0, 0, barWidth, h);
 
-  // Draw true-peak line (at the actual peak level up to 1.0)
-  const peakX = w * Math.min(1, peakLevel);
+  const peakX = w * vuDbToNorm(instantDb);
   ctx.strokeStyle = "#ffd900";
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -1050,9 +1072,6 @@ function openPianoRoll(clip) {
   activeClip = clip;
   window.activeClip = activeClip;
   updatePianoRollSampleHeader();
-
-
-  reverbSlider.value = clip.reverbGain.gain.value;
 
   const container = document.getElementById("piano-roll-container");
   container.classList.remove("hidden");
@@ -1232,9 +1251,6 @@ function openPianoRoll(clip) {
   activeClip = clip;
   window.activeClip = activeClip;
   updatePianoRollSampleHeader();
-
-
-  reverbSlider.value = clip.reverbGain.gain.value;
 
   const container = document.getElementById("piano-roll-container");
   container.classList.remove("hidden");
