@@ -33,6 +33,12 @@ function getDefaultEffectParams(effectType) {
       type: 'softclip'
     };
   }
+  if (effectType === 'lowhighcut') {
+    return {
+      lowCut: 30,
+      highCut: 18000
+    };
+  }
   return {};
 }
 
@@ -296,6 +302,20 @@ function renderFxSettingsPanel(trackId, slotIndex) {
   const display = panel.querySelector('.mixer-eq-display');
   if (!header || !display) return;
 
+  // Reset layout defaults for each render
+  display.style.justifyContent = 'center';
+  display.style.alignItems = 'center';
+
+  // Run any cleanup from prior effect render
+  if (typeof display._cleanup === 'function') {
+    try {
+      display._cleanup();
+    } catch (err) {
+      console.warn('FX panel cleanup failed', err);
+    }
+    display._cleanup = null;
+  }
+
   initTrackFxSlots(trackId);
   const slot = window.trackFxSlots[trackId][slotIndex];
   const trackName = trackId === 'master'
@@ -437,6 +457,278 @@ function renderFxSettingsPanel(trackId, slotIndex) {
       display.appendChild(row);
     });
   }
+
+  if (slot.type === 'lowhighcut') {
+    const params = slot.params || getDefaultEffectParams('lowhighcut');
+    header.textContent = `Low/High Cut — ${trackName} (Slot ${slotIndex + 1})`;
+    display.innerHTML = '';
+    display.style.justifyContent = 'flex-start';
+    display.style.alignItems = 'stretch';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'lhc-wrapper';
+
+    const readout = document.createElement('div');
+    readout.className = 'lhc-readout';
+
+    const lowLabel = document.createElement('span');
+    lowLabel.textContent = 'Low Cut (-3dB)';
+    const lowValue = document.createElement('span');
+    lowValue.className = 'lhc-value lhc-value-low';
+    lowLabel.appendChild(document.createTextNode(' '));
+    lowLabel.appendChild(lowValue);
+
+    const highLabel = document.createElement('span');
+    highLabel.textContent = 'High Cut (-3dB)';
+    const highValue = document.createElement('span');
+    highValue.className = 'lhc-value lhc-value-high';
+    highLabel.appendChild(document.createTextNode(' '));
+    highLabel.appendChild(highValue);
+
+    readout.appendChild(lowLabel);
+    readout.appendChild(highLabel);
+
+    const graph = document.createElement('div');
+    graph.className = 'lhc-graph';
+    const canvas = document.createElement('canvas');
+    graph.appendChild(canvas);
+
+    const handleLow = document.createElement('div');
+    handleLow.className = 'lhc-handle low';
+    const handleHigh = document.createElement('div');
+    handleHigh.className = 'lhc-handle high';
+    graph.appendChild(handleLow);
+    graph.appendChild(handleHigh);
+
+    wrapper.appendChild(readout);
+    wrapper.appendChild(graph);
+    display.appendChild(wrapper);
+
+    const minFreq = 20;
+    const maxFreq = 20000;
+    const minGap = 30;
+    const logMin = Math.log10(minFreq);
+    const logRange = Math.log10(maxFreq) - logMin;
+
+    const state = {
+      lowCut: Math.max(minFreq, Math.min(maxFreq - minGap, params.lowCut || minFreq)),
+      highCut: Math.max(minFreq + minGap, Math.min(maxFreq, params.highCut || maxFreq))
+    };
+
+    const formatFreq = (value) => {
+      if (value >= 1000) {
+        const k = value / 1000;
+        return `${k.toFixed(k >= 10 ? 1 : 2)} kHz`;
+      }
+      return `${Math.round(value)} Hz`;
+    };
+
+    const freqToX = (freq, width) => {
+      const clamped = Math.max(minFreq, Math.min(maxFreq, freq));
+      const norm = (Math.log10(clamped) - logMin) / logRange;
+      return norm * width;
+    };
+
+    const xToFreq = (x, width) => {
+      const norm = Math.max(0, Math.min(1, x / width));
+      const logFreq = logMin + norm * logRange;
+      return Math.pow(10, logFreq);
+    };
+
+    const syncReadout = () => {
+      lowValue.textContent = formatFreq(state.lowCut);
+      highValue.textContent = formatFreq(state.highCut);
+    };
+
+    const draw = () => {
+      const width = graph.clientWidth || 1;
+      const height = graph.clientHeight || 1;
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw frequency spectrum heatmap if effect instance exists
+      const effectInstance = window.trackFxChains?.[trackId]?.[slotIndex];
+      if (effectInstance && effectInstance.getFrequencyData) {
+        const freqData = effectInstance.getFrequencyData();
+        const binCount = freqData.length;
+        const nyquist = audioContext.sampleRate / 2;
+        
+        // Draw frequency bars
+        const barWidth = Math.max(1, width / 100);
+        for (let i = 0; i < 100; i++) {
+          const norm = i / 100;
+          const logFreq = Math.pow(10, logMin + norm * logRange);
+          const binIndex = Math.floor((logFreq / nyquist) * binCount);
+          
+          if (binIndex < binCount) {
+            const magnitude = freqData[binIndex] / 255;
+            const barHeight = magnitude * (height - 20);
+            const x = i * (width / 100);
+            
+            // Blend between green (low freq) and blue (high freq) to match handle colors
+            // Green: #7be0a3 (123, 224, 163), Blue: #6ab7ff (106, 183, 255)
+            const t = norm; // 0 = low freq (green), 1 = high freq (blue)
+            const r = Math.round(123 + (106 - 123) * t);
+            const g = Math.round(224 + (183 - 224) * t);
+            const b = Math.round(163 + (255 - 163) * t);
+            
+            const alpha = Math.min(0.8, magnitude * 1.2);
+            const color = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(x, height - 18 - barHeight, barWidth, barHeight);
+          }
+        }
+      }
+
+      // Grid with labels
+      const freqs = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 1;
+      ctx.font = '9px sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.textAlign = 'center';
+      
+      freqs.forEach(f => {
+        const x = freqToX(f, width);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+        
+        // Add frequency labels at bottom
+        let label = f >= 1000 ? `${f/1000}k` : f.toString();
+        ctx.fillText(label, x, height - 3);
+      });
+
+      // Horizontal reference line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(0, height * 0.35);
+      ctx.lineTo(width, height * 0.35);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Curve
+      const xLow = freqToX(state.lowCut, width);
+      const xHigh = freqToX(state.highCut, width);
+      const floorY = height - 18;
+      const passBandY = height * 0.35;
+      const knee = Math.max(28, width * 0.055);
+
+      // Fill under the curve with gradient
+      const gradient = ctx.createLinearGradient(0, passBandY, 0, height);
+      gradient.addColorStop(0, 'rgba(106, 183, 255, 0.15)');
+      gradient.addColorStop(1, 'rgba(106, 183, 255, 0.02)');
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(0, height);
+      ctx.lineTo(0, floorY);
+      ctx.lineTo(Math.max(0, xLow - knee), floorY);
+      ctx.quadraticCurveTo(xLow, floorY * 0.55, xLow + knee * 0.25, passBandY);
+      ctx.lineTo(Math.max(xHigh - knee * 0.25, xLow + knee * 0.25 + 6), passBandY);
+      ctx.quadraticCurveTo(xHigh, floorY * 0.55, xHigh + knee, floorY);
+      ctx.lineTo(width, floorY);
+      ctx.lineTo(width, height);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw the curve line with glow
+      ctx.shadowColor = 'rgba(106, 183, 255, 0.4)';
+      ctx.shadowBlur = 6;
+      ctx.strokeStyle = '#6ab7ff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, floorY);
+      ctx.lineTo(Math.max(0, xLow - knee), floorY);
+      ctx.quadraticCurveTo(xLow, floorY * 0.55, xLow + knee * 0.25, passBandY);
+      ctx.lineTo(Math.max(xHigh - knee * 0.25, xLow + knee * 0.25 + 6), passBandY);
+      ctx.quadraticCurveTo(xHigh, floorY * 0.55, xHigh + knee, floorY);
+      ctx.lineTo(width, floorY);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Position handles with edge padding to prevent cutoff
+      const handlePadding = 12;
+      const clampedXLow = Math.max(handlePadding, Math.min(width - handlePadding, xLow));
+      const clampedXHigh = Math.max(handlePadding, Math.min(width - handlePadding, xHigh));
+      
+      handleLow.style.left = `${clampedXLow}px`;
+      handleLow.style.top = `${passBandY}px`;
+      handleHigh.style.left = `${clampedXHigh}px`;
+      handleHigh.style.top = `${passBandY}px`;
+
+      syncReadout();
+    };
+
+    const commit = () => {
+      updateEffectParams(trackId, slotIndex, slot.type, { ...state });
+    };
+
+    // Continuously update spectrum visualization
+    let animationId = null;
+    const animate = () => {
+      draw();
+      animationId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    // Store cleanup function
+    const originalCleanup = window.lhcCleanup || (() => {});
+    window.lhcCleanup = () => {
+      originalCleanup();
+      if (animationId) cancelAnimationFrame(animationId);
+    };
+
+    const startDrag = (target) => (event) => {
+      event.preventDefault();
+
+      const handleMove = (moveEvent) => {
+        // Get fresh rect on each move for accuracy
+        const rect = graph.getBoundingClientRect();
+        const x = moveEvent.clientX - rect.left;
+        let freq = xToFreq(x, rect.width);
+
+        if (target === 'lowCut') {
+          freq = Math.min(freq, state.highCut - minGap);
+          freq = Math.max(minFreq, freq);
+          state.lowCut = freq;
+        } else {
+          freq = Math.max(freq, state.lowCut + minGap);
+          freq = Math.min(maxFreq, freq);
+          state.highCut = freq;
+        }
+
+        // Use requestAnimationFrame for smooth, synchronized visual updates
+        requestAnimationFrame(() => {
+          draw();
+          commit();
+        });
+      };
+
+      const handleUp = () => {
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleUp);
+      };
+
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleUp);
+    };
+
+    handleLow.addEventListener('mousedown', startDrag('lowCut'));
+    handleHigh.addEventListener('mousedown', startDrag('highCut'));
+
+    const resizeHandler = () => draw();
+    window.addEventListener('resize', resizeHandler);
+    display._cleanup = () => window.removeEventListener('resize', resizeHandler);
+
+    draw();
+  }
 }
 
 function updateEffectParams(trackId, slotIndex, effectType, paramPatch) {
@@ -512,6 +804,11 @@ function applyEffectToTrack(trackIndex, slotIndex, effectType, effectParams = {}
     effect._type = 'distortion';
     if (effect.setParams) effect.setParams(finalParams);
     console.log(`Created distortion effect for track ${trackIndex}, slot ${slotIndex}`);
+  } else if (effectType === 'lowhighcut' && window.LowHighCutEffect) {
+    effect = new window.LowHighCutEffect(window.audioContext);
+    effect._type = 'lowhighcut';
+    if (effect.setParams) effect.setParams(finalParams);
+    console.log(`Created low/high cut effect for track ${trackIndex}, slot ${slotIndex}`);
   }
 
   // Store the effect instance
