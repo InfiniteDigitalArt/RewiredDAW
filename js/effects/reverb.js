@@ -98,8 +98,8 @@ class ReverbEffect {
    */
   updateMix() {
     const mix = Math.max(0, Math.min(1, this.params.mix));
-    this.dryGain.gain.value = 1 - mix;
-    this.wetGain.gain.value = mix;
+    this.dryGain.gain.value = 1; // Always full dry
+    this.wetGain.gain.value = mix; // Only wet is controlled
   }
   
   /**

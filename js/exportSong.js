@@ -22,14 +22,13 @@ function buildTrackFxChainForExport(offline, trackIndex) {
   
   trackFxSlots.forEach(slot => {
     if (!slot || slot.type === 'empty' || !slot.type) return;
-    
+
     if (slot.type === 'reverb' && window.ReverbEffect) {
       // Use the same reverb implementation as realtime to ensure parity
       const reverb = new window.ReverbEffect(offline);
       if (slot.params && reverb.setParams) {
         reverb.setParams(slot.params);
       }
-      
       currentNode.connect(reverb.input);
       currentNode = reverb.output;
     } else if (slot.type === 'distortion' && window.DistortionEffect) {
@@ -38,9 +37,16 @@ function buildTrackFxChainForExport(offline, trackIndex) {
       if (slot.params && distortion.setParams) {
         distortion.setParams(slot.params);
       }
-      
       currentNode.connect(distortion.input);
       currentNode = distortion.output;
+    } else if (slot.type === 'lowhighcut' && window.LowHighCutEffect) {
+      // Add Low/High Cut effect for export
+      const lowhighcut = new window.LowHighCutEffect(offline);
+      if (slot.params && lowhighcut.setParams) {
+        lowhighcut.setParams(slot.params);
+      }
+      currentNode.connect(lowhighcut.input);
+      currentNode = lowhighcut.output;
     }
   });
   
