@@ -187,19 +187,8 @@ function updateFxSlotsDisplay(trackId) {
     if (nameEl && trackFx[index]) {
       nameEl.textContent = trackFx[index].name;
     }
-    
-    // Update mute button styling
-    const muteBtn = slot.querySelector('.fx-slot-mute');
-    if (muteBtn && trackFx[index]) {
-      if (trackFx[index].muted) {
-        muteBtn.classList.add('muted');
-      } else {
-        muteBtn.classList.remove('muted');
-      }
-    }
   });
 }
-
 
 /**
  * Initialize FX slot dropdown menus
@@ -270,7 +259,7 @@ function initFxSlotDropdowns() {
 
     // Click on slot (not dropdown) opens settings
     slot.addEventListener('click', (e) => {
-      if (e.target.closest('.fx-slot-dropdown') || e.target.closest('.fx-slot-menu') || e.target.closest('.fx-slot-mute')) return;
+      if (e.target.closest('.fx-slot-dropdown') || e.target.closest('.fx-slot-menu')) return;
       const slotNumber = parseInt(slot.dataset.slot) - 1;
       const currentTrackId = window.mixer.selectedTrackIndex === null ? 'master' : window.mixer.selectedTrackIndex;
       window.mixer.selectedFxSlotIndex = slotNumber;
@@ -283,42 +272,6 @@ function initFxSlotDropdowns() {
       
       renderFxSettingsPanel(currentTrackId, slotNumber);
     });
-
-    // Mute button handler
-    const muteBtn = slot.querySelector('.fx-slot-mute');
-    if (muteBtn) {
-      muteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const slotNumber = parseInt(slot.dataset.slot) - 1;
-        const currentTrackId = window.mixer.selectedTrackIndex === null ? 'master' : window.mixer.selectedTrackIndex;
-        
-        // Initialize FX slot data if needed
-        initTrackFxSlots(currentTrackId);
-        const fxSlot = window.trackFxSlots[currentTrackId][slotNumber];
-        
-        // Toggle mute state
-        if (!fxSlot) {
-          // No effect loaded, can't mute
-          return;
-        }
-        
-        fxSlot.muted = !fxSlot.muted;
-        
-        // Update button appearance
-        if (fxSlot.muted) {
-          muteBtn.classList.add('muted');
-        } else {
-          muteBtn.classList.remove('muted');
-        }
-        
-        // Rebuild audio routing to apply/remove effect
-        if (currentTrackId !== 'master') {
-          rebuildTrackRouting(currentTrackId);
-        }
-        
-        console.log(`${fxSlot.name} - Slot ${slotNumber + 1}: ${fxSlot.muted ? 'MUTED' : 'UNMUTED'}`);
-      });
-    }
   });
   
   // Close all menus when clicking outside
@@ -596,12 +549,9 @@ function renderFxSettingsPanel(trackId, slotIndex) {
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, width, height);
 
-      // Draw frequency spectrum heatmap if effect instance exists and is not muted
+      // Draw frequency spectrum heatmap if effect instance exists
       const effectInstance = window.trackFxChains?.[trackId]?.[slotIndex];
-      const slotData = window.trackFxSlots?.[trackId]?.[slotIndex];
-      const isMuted = slotData && slotData.muted;
-      
-      if (effectInstance && effectInstance.getFrequencyData && !isMuted) {
+      if (effectInstance && effectInstance.getFrequencyData) {
         const freqData = effectInstance.getFrequencyData();
         const binCount = freqData.length;
         const nyquist = audioContext.sampleRate / 2;
@@ -886,42 +836,33 @@ function rebuildTrackRouting(trackIndex) {
   gain.disconnect();
   panner.disconnect();
   
-  // Get active effects and ensure all effects are disconnected before reconnecting
-  const fxSlots = window.trackFxSlots?.[trackIndex] || [];
-  const activeEffects = [];
+  // Get active effects (non-null entries)
+  const activeEffects = fxChain.filter(fx => fx !== null && fx !== undefined);
 
-  fxChain.forEach((fx, idx) => {
-    if (!fx) return;
-    // Always disconnect input and output to ensure a clean state
-    if (fx.input) {
-      try { fx.input.disconnect(); } catch (e) {}
-    }
-    if (fx.output && fx.output !== fx.input) {
-      try { fx.output.disconnect(); } catch (e) {}
-    }
-  });
 
-  fxChain.forEach((fx, idx) => {
-    const slotData = fxSlots[idx];
-    const isMuted = slotData && slotData.muted;
-    if (fx && !isMuted) {
-      activeEffects.push(fx);
-    }
-    // Muted effects are left disconnected
+  // Disconnect only the previous node in the chain from the next effect's input
+  let prevNode = gain;
+  activeEffects.forEach(effect => {
+    const inputNode = effect.input || effect;
+    try { prevNode.disconnect(); } catch (e) {}
+    prevNode = effect.output || effect;
   });
-  
+  // Disconnect last effect (or gain if no effects) from panner
+  try { prevNode.disconnect(); } catch (e) {}
+  try { panner.disconnect(); } catch (e) {}
+
   if (activeEffects.length === 0) {
     // No effects - direct connection: gain → panner
     gain.connect(panner);
   } else {
     // Chain effects: gain → effect1 → effect2 → ... → panner
     let source = gain;
-    
     activeEffects.forEach(effect => {
-      source.connect(effect.input);
-      source = effect.output;
+      const inputNode = effect.input || effect;
+      const outputNode = effect.output || effect;
+      source.connect(inputNode);
+      source = outputNode;
     });
-    
     // Connect last effect to panner
     source.connect(panner);
   }
@@ -929,7 +870,7 @@ function rebuildTrackRouting(trackIndex) {
   // Always reconnect panner to splitter (splitter → analysers → merger → master)
   panner.connect(splitter);
   
-  console.log(`Track ${trackIndex} routing rebuilt with ${activeEffects.length} active effect(s)`);
+  console.log(`Track ${trackIndex} routing rebuilt with ${activeEffects.length} effect(s)`);
 }
 
 /**
