@@ -172,7 +172,10 @@ function initMixer() {
 }
 
 // Add independent mixer fader state
+
+// Per-track lowpass filter cutoff (Hz), default 20000 (no filter)
 window.mixerFaderValues = window.mixerFaderValues || Array.from({ length: 16 }, () => 1.0);
+window.mixerLowpassValues = window.mixerLowpassValues || Array.from({ length: 16 }, () => 20000);
 
 /**
  * Update FX slots display for the selected track
@@ -1086,7 +1089,7 @@ function createMixerTrack(index, color) {
   const track = document.createElement('div');
   track.className = 'mixer-track';
   track.dataset.index = index;
-  
+
   // Track label
   const label = document.createElement('div');
   label.className = 'mixer-track-label';
@@ -1094,7 +1097,7 @@ function createMixerTrack(index, color) {
   label.style.color = color;
   label.style.cursor = 'pointer';
   label.title = 'Click to rename';
-  
+
   // Add click handler for renaming
   label.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1246,11 +1249,142 @@ function createMixerTrack(index, color) {
   faderContainer.appendChild(fader);
   faderContainer.appendChild(faderValue);
   
+
+  // Lowpass filter knob UI
+  const lpContainer = document.createElement('div');
+  lpContainer.className = 'mixer-lowpass-container';
+  lpContainer.style.display = 'flex';
+  lpContainer.style.flexDirection = 'column';
+  lpContainer.style.alignItems = 'center';
+  lpContainer.style.margin = '6px 0 0 0';
+
+  const lpLabel = document.createElement('div');
+  lpLabel.className = 'mixer-lowpass-label';
+  lpLabel.textContent = 'Lowpass';
+  lpLabel.style.fontSize = '10px';
+  lpLabel.style.color = '#aaa';
+  lpLabel.style.marginBottom = '2px';
+
+
+  // --- Round lowpass knob styled like PAN/STEREO ---
+  const lpKnob = document.createElement('div');
+
+  lpKnob.className = 'mixer-knob lowpass-knob';
+  lpKnob.style.margin = '2px 0 0 0';
+  lpKnob.style.border = `2.5px solid ${color}`;
+  lpKnob.style.width = '38px';
+  lpKnob.style.height = '38px';
+  lpKnob.style.borderRadius = '50%';
+  lpKnob.style.position = 'relative';
+  lpKnob.style.background = '#18181c';
+  lpKnob.style.display = 'flex';
+  lpKnob.style.alignItems = 'center';
+  lpKnob.style.justifyContent = 'center';
+  lpKnob.style.cursor = 'pointer';
+  lpKnob.style.boxShadow = 'none';
+
+  // Filled circle indicator (dot on edge)
+  const lpKnobIndicator = document.createElement('div');
+  lpKnobIndicator.style.position = 'absolute';
+  lpKnobIndicator.style.width = '10px';
+  lpKnobIndicator.style.height = '10px';
+  lpKnobIndicator.style.background = color;
+  lpKnobIndicator.style.borderRadius = '50%';
+  lpKnobIndicator.style.boxShadow = `0 0 4px ${color}88`;
+  lpKnobIndicator.style.left = '50%';
+  lpKnobIndicator.style.top = '50%';
+  lpKnobIndicator.style.transform = 'translate(-50%, -50%)';
+  lpKnob.appendChild(lpKnobIndicator);
+
+  // Value display
+  const lpValue = document.createElement('div');
+  lpValue.className = 'mixer-lowpass-value';
+  lpValue.style.fontSize = '10px';
+  lpValue.style.color = color;
+  lpValue.style.marginTop = '2px';
+  lpValue.style.textAlign = 'center';
+
+  // Range and state
+  const minHz = 0;
+  const maxHz = 20000;
+  let lpValueHz = window.mixerLowpassValues[index] || maxHz;
+
+
+  function setKnobVisual(valHz) {
+    // Angle: -135deg (min) to +135deg (max)
+    const angle = ((valHz - minHz) / (maxHz - minHz)) * 270 - 135;
+    // Place dot on edge of knob
+    const radius = 15; // px, from center
+    const rad = (angle - 90) * Math.PI / 180;
+    const cx = 19 + radius * Math.cos(rad);
+    const cy = 19 + radius * Math.sin(rad);
+    lpKnobIndicator.style.left = `${cx}px`;
+    lpKnobIndicator.style.top = `${cy}px`;
+    lpValue.textContent = valHz <= minHz ? '0 Hz' : (valHz >= maxHz ? 'Off' : `${Math.round(valHz)} Hz`);
+    // Always use track color for border and indicator
+    lpKnob.style.borderColor = color;
+    lpKnobIndicator.style.background = color;
+    lpValue.style.color = color;
+  }
+  setKnobVisual(lpValueHz);
+
+
+  // Mouse drag to change value (vertical+horizontal, supports continued dragging)
+  let dragging = false;
+  let lastY = 0;
+  let lastX = 0;
+  lpKnob.addEventListener('mousedown', (e) => {
+    dragging = true;
+    lastY = e.clientY;
+    lastX = e.clientX;
+    document.body.style.userSelect = 'none';
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    // Use both vertical and horizontal movement for sensitivity
+    const deltaY = lastY - e.clientY;
+    const deltaX = e.clientX - lastX;
+    lastY = e.clientY;
+    lastX = e.clientX;
+    // Sensitivity: 1 octave per ~60px, log scale (less sensitive)
+    let logVal = Math.log10(lpValueHz + 1);
+    logVal += (deltaY * 0.04) + (deltaX * 0.04);
+    let newHz = Math.pow(10, logVal) - 1;
+    newHz = Math.max(minHz, Math.min(maxHz, newHz));
+    lpValueHz = newHz;
+    window.mixerLowpassValues[index] = lpValueHz;
+    setKnobVisual(lpValueHz);
+    if (typeof window.setTrackLowpass === 'function') {
+      window.setTrackLowpass(index, lpValueHz);
+    }
+  });
+  window.addEventListener('mouseup', () => {
+    dragging = false;
+    document.body.style.userSelect = '';
+  });
+
+  lpContainer.appendChild(lpLabel);
+  lpContainer.appendChild(lpKnob);
+  lpContainer.appendChild(lpValue);
+
   // Assemble track
   track.appendChild(label);
   track.appendChild(vuMeter);
   track.appendChild(muteBtn);
   track.appendChild(faderContainer);
+  track.appendChild(lpContainer); // Move knob just under fader
+  // ...existing code for PAN/STEREO controls...
+
+  // Mixer number label at bottom
+  const mixerNumLabel = document.createElement('div');
+  mixerNumLabel.className = 'mixer-number-label';
+  mixerNumLabel.textContent = (index + 1).toString();
+  mixerNumLabel.style.textAlign = 'center';
+  mixerNumLabel.style.fontSize = '13px';
+  mixerNumLabel.style.fontWeight = 'bold';
+  mixerNumLabel.style.color = color;
+  mixerNumLabel.style.margin = '12px 0 4px 0';
+  track.appendChild(mixerNumLabel);
   
   // Store references for later updates
   track._vuFillLeft = vuFillLeft;

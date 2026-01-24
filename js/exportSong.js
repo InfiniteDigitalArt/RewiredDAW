@@ -15,11 +15,23 @@ const EXPORT_START_OFFSET = 0.1;
 function buildTrackFxChainForExport(offline, trackIndex) {
   // Get FX slots for this track in order (preserve slot order)
   const trackFxSlots = window.trackFxSlots?.[trackIndex] || [];
-  
+
   // If no effects, return a pass-through gain
   const input = offline.createGain();
   let currentNode = input;
-  
+
+  // --- Insert per-track lowpass filter before FX chain ---
+  const lowpass = offline.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  let freq = 20000;
+  if (window.mixerLowpassValues && window.mixerLowpassValues[trackIndex] !== undefined) {
+    freq = window.mixerLowpassValues[trackIndex];
+  }
+  lowpass.frequency.value = freq;
+  lowpass.Q.value = 0.7;
+  currentNode.connect(lowpass);
+  currentNode = lowpass;
+
   trackFxSlots.forEach(slot => {
     if (!slot || slot.type === 'empty' || !slot.type) return;
 
@@ -49,7 +61,7 @@ function buildTrackFxChainForExport(offline, trackIndex) {
       currentNode = lowhighcut.output;
     }
   });
-  
+
   return { input, output: currentNode };
 }
 

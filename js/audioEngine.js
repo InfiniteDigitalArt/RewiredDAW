@@ -65,7 +65,9 @@ window.masterAnalyser = window.masterAnalyserLeft;
 /* -------------------------------------------------------
    TRACK GAIN + ANALYSER NODES
 ------------------------------------------------------- */
+
 window.trackGains = [];
+window.trackLowpassFilters = [];
 window.trackPanners = [];
 window.trackAnalysers = [];
 window.trackAnalysersLeft = [];
@@ -77,6 +79,13 @@ for (let i = 0; i < 16; i++) {
   const gain = audioContext.createGain();
   gain.gain.value = 1.0;
 
+  // Per-track lowpass filter
+  const lowpass = audioContext.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = (window.mixerLowpassValues && window.mixerLowpassValues[i]) || 20000;
+  lowpass.Q.value = 0.7;
+  window.trackLowpassFilters.push(lowpass);
+
   const panner = audioContext.createStereoPanner();
   panner.pan.value = 0; // center
 
@@ -86,17 +95,17 @@ for (let i = 0; i < 16; i++) {
   const analyserRight = audioContext.createAnalyser();
   analyserLeft.fftSize = 256;
   analyserRight.fftSize = 256;
-  
+
   // Create a merger to combine back to stereo for master
   const merger = audioContext.createChannelMerger(2);
 
   // Initialize empty FX chain for this track
   const fxChain = [];
   window.trackFxChains.push(fxChain);
-  
-  // Track → gain → panner → splitter → [analysers] → merger → master
-  // (FX will be inserted between gain and panner)
-  gain.connect(panner);
+
+  // Track → gain → lowpass → panner → splitter → [analysers] → merger → master
+  gain.connect(lowpass);
+  lowpass.connect(panner);
   panner.connect(splitter);
   splitter.connect(analyserLeft, 0);
   splitter.connect(analyserRight, 1);
@@ -111,6 +120,16 @@ for (let i = 0; i < 16; i++) {
   window.trackAnalysersRight.push(analyserRight);
   window.trackSplitters.push(splitter);
 }
+
+// Allow mixer to update lowpass filter in realtime
+window.setTrackLowpass = function(trackIndex, freq) {
+  if (window.trackLowpassFilters && window.trackLowpassFilters[trackIndex]) {
+    window.trackLowpassFilters[trackIndex].frequency.value = freq;
+  }
+  if (window.mixerLowpassValues) {
+    window.mixerLowpassValues[trackIndex] = freq;
+  }
+};
 
 
 /* -------------------------------------------------------
