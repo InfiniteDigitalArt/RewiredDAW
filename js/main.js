@@ -1,3 +1,76 @@
+// --- TIME DISPLAY LOGIC ---
+function formatTimeDisplayMs(seconds) {
+  seconds = Math.max(0, seconds);
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds - Math.floor(seconds)) * 1000);
+  return (
+    (m < 10 ? '0' : '') + m + ':' +
+    (s < 10 ? '0' : '') + s + ':' +
+    (ms < 100 ? (ms < 10 ? '00' : '0') : '') + ms
+  );
+}
+
+function updateTimeDisplayFromBars(bars) {
+  // bars: float, can be fractional
+  const tempo = window.getTempo ? window.getTempo() : 175;
+  const beats = bars * 4;
+  const seconds = (60 / tempo) * beats;
+  const el = document.getElementById('timeDisplay');
+  if (el) el.textContent = formatTimeDisplayMs(seconds);
+}
+
+function updateTimeDisplayFromSeconds(seconds) {
+  const el = document.getElementById('timeDisplay');
+  if (el) el.textContent = formatTimeDisplayMs(seconds);
+}
+
+// --- HOOK INTO PLAYBACK ---
+let timeDisplayRAF = null;
+let playStartTime = 0;
+let playStartBar = 0;
+let lastSeekBar = 0;
+
+function startUpdatingTimeDisplay(startBar) {
+  playStartTime = audioCtx.currentTime;
+  playStartBar = startBar || 0;
+  function raf() {
+    if (!window.isPlaying) return;
+    const tempo = window.getTempo ? window.getTempo() : 175;
+    const elapsed = audioCtx.currentTime - playStartTime;
+    const barsElapsed = (elapsed * tempo) / 240;
+    const bars = playStartBar + barsElapsed;
+    updateTimeDisplayFromBars(bars);
+    timeDisplayRAF = requestAnimationFrame(raf);
+  }
+  raf();
+}
+
+function stopUpdatingTimeDisplay() {
+  if (timeDisplayRAF) cancelAnimationFrame(timeDisplayRAF);
+  timeDisplayRAF = null;
+}
+
+// --- IMMEDIATE TIME DISPLAY UPDATE ON TIMELINE JUMP (EVEN DURING PLAYBACK) ---
+function jumpTimeDisplayToBar(bar) {
+  // Always update the display immediately
+  updateTimeDisplayFromBars(bar);
+  // If playing, reset playStartTime and playStartBar so timer resumes from new position
+  if (window.isPlaying) {
+    playStartTime = audioCtx.currentTime;
+    playStartBar = bar || 0;
+  } else {
+    // If not playing, also ensure the display is correct (already done above)
+    stopUpdatingTimeDisplay();
+  }
+}
+
+// --- INITIALIZE TIME DISPLAY ON LOAD ---
+document.addEventListener('DOMContentLoaded', () => {
+  updateTimeDisplayFromBars(window.seekBars || 0);
+});
+
+// --- PATCH PLAY/STOP BUTTON TO UPDATE TIME DISPLAY ---
 window.playheadInterval = null;
 window.playheadStartTime = 0;
 window.playheadRAF = null;
@@ -102,32 +175,62 @@ window.addEventListener("DOMContentLoaded", () => {
         await audioContext.resume();
       }
 
+
       const realStart = playAll(window.seekBars || 0);
       startPlayhead(realStart);
       document.getElementById("playhead").classList.remove("hidden");
 
-      playToggleBtn.textContent = "Stop";
+
+      // Switch to stop icon
       playToggleBtn.classList.add("active");
+      const playIcon = playToggleBtn.querySelector('.play-icon');
+      const stopIcon = playToggleBtn.querySelector('.stop-icon');
+      if (playIcon && stopIcon) {
+        playIcon.style.display = 'none';
+        stopIcon.style.display = 'inline';
+      }
 
       if (transportLabel) {
         transportLabel.textContent = "Playing";
         transportLabel.classList.add("playing");
       }
 
+      // Start updating time display
+      startUpdatingTimeDisplay(window.seekBars || 0);
+
     } else {
       stopAll();
       stopPlayhead();
 
-      playToggleBtn.textContent = "Play";
+      // Switch to play icon
       playToggleBtn.classList.remove("active");
+      const playIcon2 = playToggleBtn.querySelector('.play-icon');
+      const stopIcon2 = playToggleBtn.querySelector('.stop-icon');
+      if (playIcon2 && stopIcon2) {
+        playIcon2.style.display = 'inline';
+        stopIcon2.style.display = 'none';
+      }
       document.getElementById("playhead").classList.add("hidden");
 
       if (transportLabel) {
         transportLabel.textContent = "Stopped";
         transportLabel.classList.remove("playing");
       }
+
+      // Stop updating time display
+      stopUpdatingTimeDisplay();
+      // Snap to current seek bar
+      updateTimeDisplayFromBars(window.seekBars || 0);
     }
   });
+// --- UPDATE TIME DISPLAY ON TIMELINE BAR CLICK/JUMP ---
+// (Assume timeline.js sets window.seekBars and calls window.timeline.onPlayheadMove)
+if (!window.timeline) window.timeline = {};
+const origOnPlayheadMove = window.timeline.onPlayheadMove;
+window.timeline.onPlayheadMove = function(bar) {
+  jumpTimeDisplayToBar(bar);
+  if (typeof origOnPlayheadMove === 'function') origOnPlayheadMove(bar);
+};
 
   // Set activeClip when dropdown changes
   const clipDropdown = document.getElementById("clipListDropdown");
@@ -948,17 +1051,22 @@ el.addEventListener("click", (e) => {
   window.transportStartTime =
     audioContext.currentTime - window.barsToSeconds(barIndex);
 
-const x = barIndex * window.PIXELS_PER_BAR;
+  const x = barIndex * window.PIXELS_PER_BAR;
 
-// Move the triangle marker
-const marker = document.getElementById("seekMarker");
-marker.style.left = (x + 150 + 6) + "px";
+  // Move the triangle marker
+  const marker = document.getElementById("seekMarker");
+  marker.style.left = (x + 150 + 6) + "px";
 
-// --- Account for horizontal scroll offset when moving playhead ---
-const timelineScroll = document.getElementById("timeline-scroll");
-const scrollX = timelineScroll ? timelineScroll.scrollLeft : 0;
+  // --- Account for horizontal scroll offset when moving playhead ---
+  const timelineScroll = document.getElementById("timeline-scroll");
+  const scrollX = timelineScroll ? timelineScroll.scrollLeft : 0;
 
-if (window.isPlaying) {
+  // Always update the time display immediately
+  if (window.timeline && typeof window.timeline.onPlayheadMove === 'function') {
+    window.timeline.onPlayheadMove(barIndex);
+  }
+
+  if (window.isPlaying) {
     window.stopAll();
     stopPlayhead();
 
@@ -979,8 +1087,14 @@ if (window.isPlaying) {
 
   // Update UI
   const playToggleBtn = document.getElementById("playToggleBtn");
-  playToggleBtn.textContent = "Play";
+  // Switch to play icon
   playToggleBtn.classList.remove("active");
+  const playIcon2 = playToggleBtn.querySelector('.play-icon');
+  const stopIcon2 = playToggleBtn.querySelector('.stop-icon');
+  if (playIcon2 && stopIcon2) {
+    playIcon2.style.display = 'inline';
+    stopIcon2.style.display = 'none';
+  }
 
   const transportLabel = document.getElementById("transportLabel");
   if (transportLabel) {

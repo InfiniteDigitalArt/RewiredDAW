@@ -1664,7 +1664,8 @@ handle.addEventListener("mousedown", (e) => {
     const deltaPx = ev.clientX - startX;
     const deltaBarsRaw = deltaPx / window.PIXELS_PER_BAR;
     const snappedDeltaBars = window.snapDeltaToGrid(deltaBarsRaw);
-    let newBars = Math.max(0.25, startBars + snappedDeltaBars);
+      let minSnap = window.getSnapValue();
+      let newBars = Math.max(minSnap, startBars + snappedDeltaBars);
     clip.bars = newBars;
     const newWidth = newBars * window.PIXELS_PER_BAR;
     el.style.width = newWidth + "px";
@@ -2719,8 +2720,13 @@ document.addEventListener("DOMContentLoaded", () => {
   playBtn.addEventListener("click", () => {
     isPlaying = !isPlaying;
     setPlayheadVisible(isPlaying);
-    // Optionally update button text/icon
-    playBtn.textContent = isPlaying ? "Stop" : "Play";
+    // Toggle icon visibility (no text)
+    const playIcon = playBtn.querySelector('.play-icon');
+    const stopIcon = playBtn.querySelector('.stop-icon');
+    if (playIcon && stopIcon) {
+      playIcon.style.display = isPlaying ? 'none' : '';
+      stopIcon.style.display = isPlaying ? '' : 'none';
+    }
     // you may want to call your actual play/stop logic here as well
     // e.g. window.playAll() / window.stopAll()
   });

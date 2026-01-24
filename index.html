@@ -87,15 +87,8 @@
   </div>
   <input type="file" id="projectFileInput" accept=".zip" style="display:none;">
   
-  <!-- MIXER BUTTON -->
-  <button id="openMixerBtn" class="transport-btn" title="Open Mixer" style="margin-left: 12px;">
-    <svg width="18" height="18" viewBox="0 0 115.618 122.88" xmlns="http://www.w3.org/2000/svg" style="fill: currentColor;">
-      <path fill-rule="evenodd" clip-rule="evenodd" d="M16.151,0L16.151,0c5.292,0,9.621,4.33,9.621,9.622v21.595 c-2.864-1.43-6.095-2.236-9.514-2.236c-3.504,0-6.811,0.845-9.728,2.342V9.622C6.53,4.33,10.859,0,16.151,0L16.151,0z M99.36,34.06 c8.979,0,16.258,7.278,16.258,16.257c0,8.979-7.279,16.258-16.258,16.258s-16.257-7.278-16.257-16.258 C83.104,41.338,90.382,34.06,99.36,34.06L99.36,34.06z M99.254,0L99.254,0c5.292,0,9.621,4.33,9.621,9.622v21.595 c-2.864-1.43-6.095-2.236-9.515-2.236c-3.504,0-6.811,0.845-9.728,2.342V9.622C89.633,4.33,93.962,0,99.254,0L99.254,0z M108.875,69.417v43.842c0,5.291-4.329,9.621-9.621,9.621l0,0c-5.292,0-9.621-4.33-9.621-9.621V69.312 c2.917,1.496,6.224,2.341,9.728,2.341C102.78,71.652,106.011,70.847,108.875,69.417L108.875,69.417z M57.617,93.896 c8.979,0,16.257-7.278,16.257-16.257c0-8.979-7.278-16.258-16.257-16.258c-8.979,0-16.257,7.278-16.257,16.258 C41.36,86.617,48.638,93.896,57.617,93.896L57.617,93.896z M57.51,122.88L57.51,122.88c5.292,0,9.622-4.331,9.622-9.621V96.689 c-2.864,1.43-6.053,2.236-9.515,2.236s-6.811-0.846-9.728-2.343v16.676C47.89,118.55,52.219,122.88,57.51,122.88L57.51,122.88z M67.132,58.489V9.622C67.132,4.331,62.802,0,57.51,0l0,0c-5.292,0-9.621,4.33-9.621,9.622v48.974 c2.917-1.497,6.266-2.343,9.728-2.343S64.268,57.06,67.132,58.489L67.132,58.489z M16.257,34.06 c8.979,0,16.257,7.278,16.257,16.257c0,8.979-7.278,16.258-16.257,16.258C7.279,66.574,0,59.296,0,50.316 C0,41.338,7.279,34.06,16.257,34.06L16.257,34.06z M25.771,69.417v43.842c0,5.291-4.329,9.621-9.621,9.621l0,0 c-5.292,0-9.621-4.33-9.621-9.621V69.312c2.917,1.496,6.224,2.341,9.728,2.341C19.677,71.652,22.907,70.847,25.771,69.417 L25.771,69.417z"/>
-    </svg>
-  </button>
-  
-  <!-- TRANSPORT -->
-  <button id="playToggleBtn" class="transport-btn play">Play</button>
+ 
+
 
   <!-- TEMPO -->
   <label class="tempo-text" style="margin-left:20px;">Tempo:</label>
@@ -108,10 +101,37 @@
   <label class="master-volume-text" style="margin-left:20px;">Master:</label>
   <input id="masterVolumeSlider" class="tempo-slider" type="range" min="0" max="1" value="0.8" step="0.01">
 
+  <!-- TRANSPORT -->
+  <div style="flex:1"></div>
+  <div style="display: flex; align-items: center; gap: 4px;">
+    <button id="playToggleBtn" class="transport-btn play" style="height: 36px; min-width: 36px; padding: 0 8px; margin: 0; display: flex; align-items: center; justify-content: center;">
+      <span class="play-icon" style="display:inline;vertical-align:middle;">
+        <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false" width="20" height="20">
+          <polygon points="4,2 12,7 4,12" />
+        </svg>
+      </span><span class="stop-icon" style="display:none;vertical-align:middle;">
+        <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false" width="20" height="20">
+          <rect x="4" y="4" width="6" height="6" />
+        </svg>
+      </span>
+    </button>
+    <div id="timeDisplay" class="time-display" style="margin-left: 0;">
+      00:00:000
+    </div>
   <!-- VU METERS -->
   <div class="master-vu-horizontal">
+
     <canvas id="vuLeft" width="80" height="6"></canvas>
     <canvas id="vuRight" width="80" height="6"></canvas>
+  </div>
+
+      <!-- MIXER BUTTON -->
+  <button id="openMixerBtn" class="transport-btn" title="Open Mixer" style="margin-left: 12px;">
+    <svg width="18" height="18" viewBox="0 0 115.618 122.88" xmlns="http://www.w3.org/2000/svg" style="fill: currentColor;">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M16.151,0L16.151,0c5.292,0,9.621,4.33,9.621,9.622v21.595 c-2.864-1.43-6.095-2.236-9.514-2.236c-3.504,0-6.811,0.845-9.728,2.342V9.622C6.53,4.33,10.859,0,16.151,0L16.151,0z M99.36,34.06 c8.979,0,16.258,7.278,16.258,16.257c0,8.979-7.279,16.258-16.258,16.258s-16.257-7.278-16.257-16.258 C83.104,41.338,90.382,34.06,99.36,34.06L99.36,34.06z M99.254,0L99.254,0c5.292,0,9.621,4.33,9.621,9.622v21.595 c-2.864-1.43-6.095-2.236-9.515-2.236c-3.504,0-6.811,0.845-9.728,2.342V9.622C89.633,4.33,93.962,0,99.254,0L99.254,0z M108.875,69.417v43.842c0,5.291-4.329,9.621-9.621,9.621l0,0c-5.292,0-9.621-4.33-9.621-9.621V69.312 c2.917,1.496,6.224,2.341,9.728,2.341C102.78,71.652,106.011,70.847,108.875,69.417L108.875,69.417z M57.617,93.896 c8.979,0,16.257-7.278,16.257-16.257c0-8.979-7.278-16.258-16.257-16.258c-8.979,0-16.257,7.278-16.257,16.258 C41.36,86.617,48.638,93.896,57.617,93.896L57.617,93.896z M57.51,122.88L57.51,122.88c5.292,0,9.622-4.331,9.622-9.621V96.689 c-2.864,1.43-6.053,2.236-9.515,2.236s-6.811-0.846-9.728-2.343v16.676C47.89,118.55,52.219,122.88,57.51,122.88L57.51,122.88z M67.132,58.489V9.622C67.132,4.331,62.802,0,57.51,0l0,0c-5.292,0-9.621,4.33-9.621,9.622v48.974 c2.917-1.497,6.266-2.343,9.728-2.343S64.268,57.06,67.132,58.489L67.132,58.489z M16.257,34.06 c8.979,0,16.257,7.278,16.257,16.257c0,8.979-7.278,16.258-16.257,16.258C7.279,66.574,0,59.296,0,50.316 C0,41.338,7.279,34.06,16.257,34.06L16.257,34.06z M25.771,69.417v43.842c0,5.291-4.329,9.621-9.621,9.621l0,0 c-5.292,0-9.621-4.33-9.621-9.621V69.312c2.917,1.496,6.224,2.341,9.728,2.341C19.677,71.652,22.907,70.847,25.771,69.417 L25.771,69.417z"/>
+    </svg>
+  </button>
+
   </div>
 
 
@@ -188,6 +208,8 @@
       </svg>
       <select id="snapValue" style="padding: 4px 8px; background: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 3px; cursor: pointer;">
         <option value="0">None</option>
+        <option value="0.0625">1/4 Beat</option>
+        <option value="0.125">1/2 Beat</option>
         <option value="0.25">1 Beat</option>
         <option value="0.5">2 Beats</option>
         <option value="1" selected>1 Bar</option>
@@ -207,6 +229,7 @@
       </select>
     </div>
   </div>
+
 </div>
 
 

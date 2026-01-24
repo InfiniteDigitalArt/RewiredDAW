@@ -23,7 +23,7 @@ class LowHighCutEffect {
 
     // Gentle resonance to avoid phasey ringing while keeping the slope tight
     [this.highpassA, this.highpassB, this.lowpassA, this.lowpassB].forEach(f => {
-      f.Q.value = 0.707; // Butterworth-ish
+      f.Q.value = 0.5; // 0.707 = Butterworth-ish
     });
 
     // Default parameters

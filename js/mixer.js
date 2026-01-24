@@ -501,14 +501,14 @@ function renderFxSettingsPanel(trackId, slotIndex) {
     readout.className = 'lhc-readout';
 
     const lowLabel = document.createElement('span');
-    lowLabel.textContent = 'Low Cut (-3dB)';
+    lowLabel.textContent = 'Low Cut';
     const lowValue = document.createElement('span');
     lowValue.className = 'lhc-value lhc-value-low';
     lowLabel.appendChild(document.createTextNode(' '));
     lowLabel.appendChild(lowValue);
 
     const highLabel = document.createElement('span');
-    highLabel.textContent = 'High Cut (-3dB)';
+    highLabel.textContent = 'High Cut';
     const highValue = document.createElement('span');
     highValue.className = 'lhc-value lhc-value-high';
     highLabel.appendChild(document.createTextNode(' '));

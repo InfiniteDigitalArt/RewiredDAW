@@ -1,3 +1,36 @@
+/* Prevent button highlight on mouse click, but keep for keyboard navigation */
+button:focus {
+  outline: none;
+}
+button:focus-visible {
+  outline: 2px solid #00bfff; /* Adjust color/style as needed */
+}
+/* -------------------------------------------------------
+   TIME DISPLAY (TOP BAR)
+------------------------------------------------------- */
+.time-display {
+  margin-left: 18px;
+  min-width: 110px;
+  font-family: 'Seven Segment', monospace;
+  font-size: 24px;
+  color: #00aaff;
+  background: #181818;
+  border-radius: 6px;
+  padding: 2px 6px;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 2px #ffb34733;
+  border: 1px solid #333;
+  user-select: none;
+}
+
+@font-face {
+  font-family: 'Seven Segment';
+  src: local('DSEG7 Classic'), url('https://fonts.cdnfonts.com/s/19806/DSEG7Classic-Regular.woff') format('woff');
+  font-display: swap;
+}
 .fx-btn {
   margin-left: 8px;
   margin-top: 4px;
@@ -894,16 +927,27 @@ body {
 /* -------------------------------------------------------
    TRANSPORT BUTTONS
 ------------------------------------------------------- */
+
 .transport-btn {
-  width: 60px;
-  background: #1a1a20;
+  height: 36px;
+  min-width: 36px;
+  padding: 0 8px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* ...existing code... */
+  width: 40px;
+  background: #007aff;
   border: 1px solid #2b2b33;
-  color: #d0d0d0;
-  padding: 6px 14px;
+  border-color: #007aff;
+  color: #0a0a0c; /* deep near-black */
+  padding: 4px 4px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 0 4px #007aff;
   transition: 
     background 0.15s ease,
     border-color 0.15s ease,
@@ -912,7 +956,7 @@ body {
 }
 
 .transport-btn:hover {
-  background: #22222a;
+  background: #48a1ff;
   border-color: #3a3a44;
 }
 
@@ -921,7 +965,7 @@ body {
   background: #007aff;
   border-color: #007aff;
   color: #0a0a0c; /* deep near-black */
-  box-shadow: 0 0 4px #007aff;
+  
 }
 
 
