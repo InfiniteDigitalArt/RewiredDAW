@@ -1,3 +1,16 @@
+// Allow mixer to update stereo width in realtime
+window.setTrackStereoWidth = function(trackIndex, width) {
+  if (window.trackStereoWidthNodes && window.trackStereoWidthNodes[trackIndex]) {
+    if (typeof window.trackStereoWidthNodes[trackIndex].setStereoWidth === 'function') {
+      window.trackStereoWidthNodes[trackIndex].setStereoWidth(width);
+    } else if ('width' in window.trackStereoWidthNodes[trackIndex]) {
+      window.trackStereoWidthNodes[trackIndex].width = width;
+    }
+  }
+  if (window.mixerStereoValues) {
+    window.mixerStereoValues[trackIndex] = width;
+  }
+};
 /**
  * mixer.js
  * FL Studio-style mixer interface
@@ -176,6 +189,8 @@ function initMixer() {
 // Per-track lowpass filter cutoff (Hz), default 20000 (no filter)
 window.mixerFaderValues = window.mixerFaderValues || Array.from({ length: 16 }, () => 1.0);
 window.mixerLowpassValues = window.mixerLowpassValues || Array.from({ length: 16 }, () => 20000);
+// Per-track stereo width (0 = mono, 0.5 = normal, 1 = extra wide)
+window.mixerStereoValues = window.mixerStereoValues || Array.from({ length: 16 }, () => 0.5);
 
 /**
  * Update FX slots display for the selected track
@@ -769,7 +784,6 @@ function applyEffectToTrack(trackIndex, slotIndex, effectType, effectParams = {}
     console.error('Track FX chain not initialized');
     return;
   }
-  
   const fxChain = window.trackFxChains[trackIndex];
   const slotData = window.trackFxSlots?.[trackIndex]?.[slotIndex];
   const finalParams = slotData && slotData.params ? { ...slotData.params, ...effectParams } : { ...effectParams };
@@ -779,18 +793,21 @@ function applyEffectToTrack(trackIndex, slotIndex, effectType, effectParams = {}
     const defaults = getDefaultEffectParams(effectType);
     slotData.params = { ...defaults, ...finalParams };
   }
-  
+
   // If setting to empty, remove any existing effect
   if (effectType === 'empty') {
     if (fxChain[slotIndex]?.destroy) fxChain[slotIndex].destroy();
     fxChain[slotIndex] = null;
-    rebuildTrackRouting(trackIndex);
+    // Remove nulls from chain for correct wiring
+    window.trackFxChains[trackIndex] = fxChain.filter(fx => fx);
+    window.updateTrackFxChain(trackIndex);
     return;
   }
 
   const existing = fxChain[slotIndex];
   if (existing && existing._type === effectType) {
     if (existing.setParams) existing.setParams(finalParams);
+    window.updateTrackFxChain(trackIndex);
     return;
   }
 
@@ -819,65 +836,16 @@ function applyEffectToTrack(trackIndex, slotIndex, effectType, effectParams = {}
 
   // Store the effect instance
   fxChain[slotIndex] = effect;
-
-  // Rebuild the audio routing for this track
-  rebuildTrackRouting(trackIndex);
+  // Remove nulls from chain for correct wiring
+  window.trackFxChains[trackIndex] = fxChain.filter(fx => fx);
+  window.updateTrackFxChain(trackIndex);
 }
 
 /**
  * Rebuild audio routing for a track to include all active effects
  * @param {number} trackIndex - Track index (0-15)
  */
-function rebuildTrackRouting(trackIndex) {
-  if (!window.trackGains || !window.trackPanners || !window.trackFxChains) {
-    return;
-  }
-  
-  const gain = window.trackGains[trackIndex];
-  const panner = window.trackPanners[trackIndex];
-  const splitter = window.trackSplitters[trackIndex];
-  const fxChain = window.trackFxChains[trackIndex];
-  
-  // Disconnect everything to rebuild the chain
-  gain.disconnect();
-  panner.disconnect();
-  
-  // Get active effects (non-null entries)
-  const activeEffects = fxChain.filter(fx => fx !== null && fx !== undefined);
-
-
-  // Disconnect only the previous node in the chain from the next effect's input
-  let prevNode = gain;
-  activeEffects.forEach(effect => {
-    const inputNode = effect.input || effect;
-    try { prevNode.disconnect(); } catch (e) {}
-    prevNode = effect.output || effect;
-  });
-  // Disconnect last effect (or gain if no effects) from panner
-  try { prevNode.disconnect(); } catch (e) {}
-  try { panner.disconnect(); } catch (e) {}
-
-  if (activeEffects.length === 0) {
-    // No effects - direct connection: gain → panner
-    gain.connect(panner);
-  } else {
-    // Chain effects: gain → effect1 → effect2 → ... → panner
-    let source = gain;
-    activeEffects.forEach(effect => {
-      const inputNode = effect.input || effect;
-      const outputNode = effect.output || effect;
-      source.connect(inputNode);
-      source = outputNode;
-    });
-    // Connect last effect to panner
-    source.connect(panner);
-  }
-  
-  // Always reconnect panner to splitter (splitter → analysers → merger → master)
-  panner.connect(splitter);
-  
-  console.log(`Track ${trackIndex} routing rebuilt with ${activeEffects.length} effect(s)`);
-}
+// No longer needed: replaced by window.updateTrackFxChain in audioEngine.js
 
 /**
  * Open the mixer
@@ -1250,7 +1218,118 @@ function createMixerTrack(index, color) {
   faderContainer.appendChild(faderValue);
   
 
-  // Lowpass filter knob UI
+
+  // --- Stereo Width knob UI ---
+  const stereoContainer = document.createElement('div');
+  stereoContainer.className = 'mixer-stereo-container';
+  stereoContainer.style.display = 'flex';
+  stereoContainer.style.flexDirection = 'column';
+  stereoContainer.style.alignItems = 'center';
+  stereoContainer.style.margin = '6px 0 0 0';
+
+  const stereoLabel = document.createElement('div');
+  stereoLabel.className = 'mixer-stereo-label';
+  stereoLabel.textContent = 'Stereo';
+  stereoLabel.style.fontSize = '10px';
+  stereoLabel.style.color = '#aaa';
+  stereoLabel.style.marginBottom = '2px';
+
+  // --- Round stereo knob styled like lowpass ---
+  const stereoKnob = document.createElement('div');
+  stereoKnob.className = 'mixer-knob stereo-knob';
+  stereoKnob.style.margin = '2px 0 0 0';
+  stereoKnob.style.border = `2.5px solid ${color}`;
+  stereoKnob.style.width = '38px';
+  stereoKnob.style.height = '38px';
+  stereoKnob.style.borderRadius = '50%';
+  stereoKnob.style.position = 'relative';
+  stereoKnob.style.background = '#18181c';
+  stereoKnob.style.display = 'flex';
+  stereoKnob.style.alignItems = 'center';
+  stereoKnob.style.justifyContent = 'center';
+  stereoKnob.style.cursor = 'pointer';
+  stereoKnob.style.boxShadow = 'none';
+
+  // Filled circle indicator (dot on edge)
+  const stereoKnobIndicator = document.createElement('div');
+  stereoKnobIndicator.style.position = 'absolute';
+  stereoKnobIndicator.style.width = '10px';
+  stereoKnobIndicator.style.height = '10px';
+  stereoKnobIndicator.style.background = color;
+  stereoKnobIndicator.style.borderRadius = '50%';
+  stereoKnobIndicator.style.boxShadow = `0 0 4px ${color}88`;
+  stereoKnobIndicator.style.left = '50%';
+  stereoKnobIndicator.style.top = '50%';
+  stereoKnobIndicator.style.transform = 'translate(-50%, -50%)';
+  stereoKnob.appendChild(stereoKnobIndicator);
+
+  // Value display
+  const stereoValue = document.createElement('div');
+  stereoValue.className = 'mixer-stereo-value';
+  stereoValue.style.fontSize = '10px';
+  stereoValue.style.color = color;
+  stereoValue.style.marginTop = '2px';
+  stereoValue.style.textAlign = 'center';
+
+  // Range and state
+  const minStereo = 0;
+  const maxStereo = 1;
+  let stereoVal = window.mixerStereoValues[index] ?? 0.5;
+
+  function setStereoKnobVisual(val) {
+    // Angle: -135deg (min) to +135deg (max)
+    const angle = ((val - minStereo) / (maxStereo - minStereo)) * 270 - 135;
+    const radius = 15;
+    const rad = (angle - 90) * Math.PI / 180;
+    const cx = 19 + radius * Math.cos(rad);
+    const cy = 19 + radius * Math.sin(rad);
+    stereoKnobIndicator.style.left = `${cx}px`;
+    stereoKnobIndicator.style.top = `${cy}px`;
+    if (val <= minStereo) stereoValue.textContent = 'Mono';
+    else if (val >= maxStereo) stereoValue.textContent = 'Extra';
+    else if (Math.abs(val - 0.5) < 0.01) stereoValue.textContent = 'Normal';
+    else stereoValue.textContent = `${Math.round(val * 100)}%`;
+    stereoKnob.style.borderColor = color;
+    stereoKnobIndicator.style.background = color;
+    stereoValue.style.color = color;
+  }
+  setStereoKnobVisual(stereoVal);
+
+  // Mouse drag to change value
+  let stereoDragging = false;
+  let stereoLastY = 0;
+  let stereoLastX = 0;
+  stereoKnob.addEventListener('mousedown', (e) => {
+    stereoDragging = true;
+    stereoLastY = e.clientY;
+    stereoLastX = e.clientX;
+    document.body.style.userSelect = 'none';
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!stereoDragging) return;
+    const deltaY = stereoLastY - e.clientY;
+    const deltaX = e.clientX - stereoLastX;
+    stereoLastY = e.clientY;
+    stereoLastX = e.clientX;
+    let newVal = stereoVal + (deltaY * 0.005) + (deltaX * 0.005);
+    newVal = Math.max(minStereo, Math.min(maxStereo, newVal));
+    stereoVal = newVal;
+    window.mixerStereoValues[index] = stereoVal;
+    setStereoKnobVisual(stereoVal);
+    if (typeof window.setTrackStereoWidth === 'function') {
+      window.setTrackStereoWidth(index, stereoVal);
+    }
+  });
+  window.addEventListener('mouseup', () => {
+    stereoDragging = false;
+    document.body.style.userSelect = '';
+  });
+
+  stereoContainer.appendChild(stereoLabel);
+  stereoContainer.appendChild(stereoKnob);
+  stereoContainer.appendChild(stereoValue);
+
+  // Lowpass filter knob UI (existing code)
   const lpContainer = document.createElement('div');
   lpContainer.className = 'mixer-lowpass-container';
   lpContainer.style.display = 'flex';
@@ -1264,7 +1343,6 @@ function createMixerTrack(index, color) {
   lpLabel.style.fontSize = '10px';
   lpLabel.style.color = '#aaa';
   lpLabel.style.marginBottom = '2px';
-
 
   // --- Round lowpass knob styled like PAN/STEREO ---
   const lpKnob = document.createElement('div');
@@ -1309,7 +1387,6 @@ function createMixerTrack(index, color) {
   const maxHz = 20000;
   let lpValueHz = window.mixerLowpassValues[index] || maxHz;
 
-
   function setKnobVisual(valHz) {
     // Angle: -135deg (min) to +135deg (max)
     const angle = ((valHz - minHz) / (maxHz - minHz)) * 270 - 135;
@@ -1327,7 +1404,6 @@ function createMixerTrack(index, color) {
     lpValue.style.color = color;
   }
   setKnobVisual(lpValueHz);
-
 
   // Mouse drag to change value (vertical+horizontal, supports continued dragging)
   let dragging = false;
@@ -1372,7 +1448,8 @@ function createMixerTrack(index, color) {
   track.appendChild(vuMeter);
   track.appendChild(muteBtn);
   track.appendChild(faderContainer);
-  track.appendChild(lpContainer); // Move knob just under fader
+  track.appendChild(stereoContainer); // Stereo knob above lowpass
+  track.appendChild(lpContainer); // Lowpass knob
   // ...existing code for PAN/STEREO controls...
 
   // Mixer number label at bottom

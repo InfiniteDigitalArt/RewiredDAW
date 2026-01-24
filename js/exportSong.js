@@ -12,6 +12,56 @@ const EXPORT_START_OFFSET = 0.1;
  * @param {number} trackIndex - Track index (0-15)
  * @returns {Object} - { input, output } nodes
  */
+
+function createStereoWidthNodeExport(ctx, width = 0.5) {
+  // Mid/Side matrix for width control (same as audioEngine.js)
+  const input = ctx.createGain();
+  const splitter = ctx.createChannelSplitter(2);
+  const merger = ctx.createChannelMerger(2);
+  input.connect(splitter);
+
+  // Mid = (L+R)/2, Side = (L-R)/2
+  const midGainL = ctx.createGain();
+  const midGainR = ctx.createGain();
+  const sideGainL = ctx.createGain();
+  const sideGainR = ctx.createGain();
+
+  splitter.connect(midGainL, 0); // L
+  splitter.connect(midGainR, 1); // R
+  splitter.connect(sideGainL, 0); // L
+  splitter.connect(sideGainR, 1); // R
+
+  const midSum = ctx.createGain();
+  midGainL.connect(midSum);
+  midGainR.connect(midSum);
+  const sideSum = ctx.createGain();
+  sideGainL.connect(sideSum);
+  sideGainR.connect(sideSum);
+
+  const outL = ctx.createGain();
+  const outR = ctx.createGain();
+  midSum.connect(outL);
+  sideSum.connect(outL);
+  midSum.connect(outR);
+  sideSum.connect(outR);
+
+  outL.connect(merger, 0, 0);
+  outR.connect(merger, 0, 1);
+
+  // Set width
+  function setStereoWidth(w) {
+    const mid = 0.5;
+    const side = w;
+    midGainL.gain.value = mid;
+    midGainR.gain.value = mid;
+    sideGainL.gain.value = side * 0.5;
+    sideGainR.gain.value = -side * 0.5;
+  }
+  setStereoWidth(width);
+
+  return { input, output: merger, setStereoWidth };
+}
+
 function buildTrackFxChainForExport(offline, trackIndex) {
   // Get FX slots for this track in order (preserve slot order)
   const trackFxSlots = window.trackFxSlots?.[trackIndex] || [];
@@ -32,11 +82,11 @@ function buildTrackFxChainForExport(offline, trackIndex) {
   currentNode.connect(lowpass);
   currentNode = lowpass;
 
+  // --- FX chain (insert all effects here) ---
   trackFxSlots.forEach(slot => {
     if (!slot || slot.type === 'empty' || !slot.type) return;
 
     if (slot.type === 'reverb' && window.ReverbEffect) {
-      // Use the same reverb implementation as realtime to ensure parity
       const reverb = new window.ReverbEffect(offline);
       if (slot.params && reverb.setParams) {
         reverb.setParams(slot.params);
@@ -44,7 +94,6 @@ function buildTrackFxChainForExport(offline, trackIndex) {
       currentNode.connect(reverb.input);
       currentNode = reverb.output;
     } else if (slot.type === 'distortion' && window.DistortionEffect) {
-      // Use the same distortion implementation as realtime to ensure parity
       const distortion = new window.DistortionEffect(offline);
       if (slot.params && distortion.setParams) {
         distortion.setParams(slot.params);
@@ -52,7 +101,6 @@ function buildTrackFxChainForExport(offline, trackIndex) {
       currentNode.connect(distortion.input);
       currentNode = distortion.output;
     } else if (slot.type === 'lowhighcut' && window.LowHighCutEffect) {
-      // Add Low/High Cut effect for export
       const lowhighcut = new window.LowHighCutEffect(offline);
       if (slot.params && lowhighcut.setParams) {
         lowhighcut.setParams(slot.params);
@@ -61,6 +109,21 @@ function buildTrackFxChainForExport(offline, trackIndex) {
       currentNode = lowhighcut.output;
     }
   });
+
+  // --- Panner node (after FX) ---
+  const panner = offline.createStereoPanner();
+  panner.pan.value = (window.mixerPanValues && window.mixerPanValues[trackIndex]) || 0;
+  currentNode.connect(panner);
+  currentNode = panner;
+
+  // --- Stereo width node (after panner) ---
+  let stereoWidthVal = 0.5;
+  if (window.mixerStereoValues && window.mixerStereoValues[trackIndex] !== undefined) {
+    stereoWidthVal = window.mixerStereoValues[trackIndex];
+  }
+  const stereoWidth = createStereoWidthNodeExport(offline, stereoWidthVal);
+  currentNode.connect(stereoWidth.input);
+  currentNode = stereoWidth.output;
 
   return { input, output: currentNode };
 }

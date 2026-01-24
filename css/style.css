@@ -2165,7 +2165,7 @@ body {
 /* Individual VU Meter (Left/Right) */
 .mixer-vu-channel {
   flex: 1;
-  background: var(--bg-track-even);
+  background: #0f0f0f;
   border: 1px solid var(--border-mid);
   border-radius: 2px;
   position: relative;
@@ -2318,7 +2318,7 @@ body {
   position: absolute;
   bottom: 8px;
   left: 50%;
-  width: 3px;
+  width: 6px;
   height: 50%;
   background: linear-gradient(to top, var(--accent), var(--accent-soft));
   transform: translateX(-50%);

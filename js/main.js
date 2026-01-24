@@ -521,7 +521,9 @@ async function saveProjectZip() {
     tracks,
     clips: serializedClips,
     // Persist FX slots (master + tracks) for all current and future effect types
-    fxSlots: window.trackFxSlots || {}
+    fxSlots: window.trackFxSlots || {},
+    // Persist stereo width knob values
+    mixerStereoValues: window.mixerStereoValues || []
   };
 
   zip.file("project.json", JSON.stringify(project, null, 2));
@@ -555,6 +557,16 @@ async function saveProjectZip() {
 
 
 async function loadProjectZip(json, zip) {
+    // Restore mixer stereo width values
+    if (Array.isArray(json.mixerStereoValues)) {
+      window.mixerStereoValues = json.mixerStereoValues.slice();
+      // Update all track stereo width nodes if available
+      if (window.setTrackStereoWidth) {
+        for (let i = 0; i < window.mixerStereoValues.length; i++) {
+          window.setTrackStereoWidth(i, window.mixerStereoValues[i]);
+        }
+      }
+    }
   window.showLoadingBar("Loading project...");
   window.updateLoadingBar(10);
   
