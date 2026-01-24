@@ -81,8 +81,10 @@ window.addEventListener("DOMContentLoaded", () => {
   
   // Open Mixer button
   document.getElementById("openMixerBtn").addEventListener("click", () => {
-    if (window.openMixer) {
-      window.openMixer();
+    if (window.mixer && window.mixer.isOpen) {
+      if (window.closeMixer) window.closeMixer();
+    } else {
+      if (window.openMixer) window.openMixer();
     }
   });
 

@@ -111,6 +111,14 @@ function gainToPercentage(gain) {
  * @param {number|null} trackIndex - Track index (null for master, 0-15 for tracks)
  */
 function selectMixerTrack(trackIndex) {
+  // Only proceed if the track selection is changing, unless force is true
+  let force = false;
+  if (arguments.length > 1) force = arguments[1];
+  if (!force && window.mixer.selectedTrackIndex === trackIndex) {
+    // If clicking the already-selected track, do nothing (keep effect controls open)
+    return;
+  }
+
   // Remove selection from all tracks
   if (window.mixer.masterTrack) {
     window.mixer.masterTrack.classList.remove('selected');
@@ -118,14 +126,14 @@ function selectMixerTrack(trackIndex) {
   window.mixer.tracks.forEach(track => {
     if (track) track.classList.remove('selected');
   });
-  
+
   // Update selected track index
   window.mixer.selectedTrackIndex = trackIndex;
-  
+
   // Add selection to the new track
   let selectedTrack;
   let trackName;
-  
+
   if (trackIndex === null) {
     // Master track selected
     selectedTrack = window.mixer.masterTrack;
@@ -133,21 +141,21 @@ function selectMixerTrack(trackIndex) {
   } else {
     // Regular track selected
     selectedTrack = window.mixer.tracks[trackIndex];
-    trackName = window.trackStates && window.trackStates[trackIndex] 
-      ? window.trackStates[trackIndex].name 
+    trackName = window.trackStates && window.trackStates[trackIndex]
+      ? window.trackStates[trackIndex].name
       : `Track ${trackIndex + 1}`;
   }
-  
+
   if (selectedTrack) {
     selectedTrack.classList.add('selected');
   }
-  
+
   // Update FX panel title
   const fxHeader = document.querySelector('.mixer-fx-header');
   if (fxHeader) {
     fxHeader.textContent = `FX Slots (${trackName})`;
   }
-  
+
   // Update FX slots display for the selected track
   updateFxSlotsDisplay(trackIndex === null ? 'master' : trackIndex);
 
@@ -857,6 +865,10 @@ function openMixer() {
   
   // Refresh tracks in case they've changed
   generateMixerTracks();
+  // Restore selected track highlight if any
+  if (window.mixer.selectedTrackIndex !== null) {
+    selectMixerTrack(window.mixer.selectedTrackIndex, true);
+  }
   
   // Start VU meter updates if not already running
   if (!window.mixer.vuUpdateRunning) {
