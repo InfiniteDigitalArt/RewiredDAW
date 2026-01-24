@@ -387,36 +387,19 @@ window.initTimeline = function () {
     function knobHandler(knob, type, idx) {
       knob.addEventListener("mousedown", function (e) {
         e.preventDefault();
-        // --- FIX: Always read the latest value from dataset on mousedown ---
-        let lastVal = parseFloat(knob.dataset.value);
         const rect = knob.getBoundingClientRect();
         const centerY = rect.top + rect.height / 2;
-
         function move(ev) {
-          const dy = centerY - ev.clientY;
-          let v = lastVal + dy * 0.0007;
+          let delta = (centerY - ev.clientY) / 60;
+          let v = Number(knob.dataset.value) + delta;
           v = Math.max(0, Math.min(1, v));
           knob.dataset.value = v;
           knob.style.setProperty("--val", v);
           window.trackStates[idx][type] = v;
-          // --- Update audio engine in real time ---
           if (type === "volume" && window.trackGains && window.trackGains[idx]) {
             window.trackGains[idx].gain.value = v;
           }
-          if (type === "pan" && window.trackPanners && window.trackPanners[idx]) {
-            window.trackPanners[idx].pan.value = (v - 0.5) * 2;
-          }
-          
-          // --- Update mixer fader if mixer is open ---
-          if (type === "volume" && window.mixer && window.mixer.tracks && window.mixer.tracks[idx]) {
-            const mixerTrack = window.mixer.tracks[idx];
-            if (mixerTrack && mixerTrack._volume !== undefined) {
-              mixerTrack._volume = v;
-              if (window.updateFaderPosition) {
-                window.updateFaderPosition(mixerTrack, v);
-              }
-            }
-          }
+          // Do NOT update mixer fader or mixerFaderValues
         }
         function up() {
           document.removeEventListener("mousemove", move);

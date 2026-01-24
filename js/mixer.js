@@ -171,6 +171,9 @@ function initMixer() {
   initFxSlotDropdowns();
 }
 
+// Add independent mixer fader state
+window.mixerFaderValues = window.mixerFaderValues || Array.from({ length: 16 }, () => 1.0);
+
 /**
  * Update FX slots display for the selected track
  * @param {string|number} trackId - 'master' or track index 0-15
@@ -1274,10 +1277,12 @@ function createMixerTrack(index, color) {
   track._color = color;
   
   // Set initial volume from trackGains if available
-  if (window.trackGains && window.trackGains[index]) {
-    track._volume = window.trackGains[index].gain.value;
+  // Set initial volume from mixerFaderValues only
+  if (window.mixerFaderValues && window.mixerFaderValues[index] !== undefined) {
+    track._volume = window.mixerFaderValues[index];
+  } else {
+    track._volume = 1.0;
   }
-  
   // Update fader position
   updateFaderPosition(track, track._volume);
   
@@ -1310,25 +1315,11 @@ function setupFaderDrag(track, trackIndex) {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const volume = 0.5; // -6dB
-      
+      window.mixerFaderValues[trackIndex] = volume;
       track._volume = volume;
       updateFaderPosition(track, volume);
-      
-      // Update audio engine
       if (window.trackGains && window.trackGains[trackIndex]) {
         window.trackGains[trackIndex].gain.value = volume;
-      }
-      
-      // Update trackStates for project saving
-      if (window.trackStates && window.trackStates[trackIndex]) {
-        window.trackStates[trackIndex].volume = volume;
-      }
-      
-      // Update timeline knob if it exists
-      const timelineControls = window.trackControls?.[trackIndex];
-      if (timelineControls && timelineControls.vol) {
-        timelineControls.vol.dataset.value = volume;
-        timelineControls.vol.style.setProperty("--val", volume);
       }
     }
   };
@@ -1338,7 +1329,7 @@ function setupFaderDrag(track, trackIndex) {
     isDragging = true;
     
     const faderRect = fader.getBoundingClientRect();
-    const faderHeight = faderRect.height - 16; // Account for padding
+    const faderHeight = faderRect.height - 16;
     
     const onMove = (moveEvent) => {
       if (!isDragging) return;
@@ -1352,26 +1343,16 @@ function setupFaderDrag(track, trackIndex) {
       // Map 0-1 travel to gain: 75% = 0dB, 100% = +5dB
       const volume = percentageToGain(percentage);
       
-      // Update volume
+      // Update mixer fader value only
+      window.mixerFaderValues[trackIndex] = volume;
       track._volume = volume;
       updateFaderPosition(track, volume);
-      
-      // Update audio engine
+      // Update gain node: track volume * mixer fader
+      const trackVolume = window.trackStates && window.trackStates[trackIndex] ? window.trackStates[trackIndex].volume : 1.0;
       if (window.trackGains && window.trackGains[trackIndex]) {
-        window.trackGains[trackIndex].gain.value = volume;
+        window.trackGains[trackIndex].gain.value = trackVolume * volume;
       }
-      
-      // Update trackStates for project saving
-      if (window.trackStates && window.trackStates[trackIndex]) {
-        window.trackStates[trackIndex].volume = volume;
-      }
-      
-      // Update timeline knob if it exists
-      const timelineControls = window.trackControls?.[trackIndex];
-      if (timelineControls && timelineControls.vol) {
-        timelineControls.vol.dataset.value = volume;
-        timelineControls.vol.style.setProperty("--val", volume);
-      }
+      // Do NOT update timeline trackStates or timeline volume knob
     };
     
     const onUp = () => {

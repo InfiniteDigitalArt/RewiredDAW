@@ -257,7 +257,7 @@ document.addEventListener("mousedown", (e) => {
 
   e.preventDefault();
 
-  // --- FIX: Find track index from controls column, not .track ---
+  // Find track index from controls column
   let trackIndex = null;
   let el = e.target;
   while (el && !el.classList.contains("track-controls")) {
@@ -271,35 +271,42 @@ document.addEventListener("mousedown", (e) => {
   const knob = e.target;
   let value = parseFloat(knob.dataset.value);
 
-  // Request pointer lock (locks mouse + hides cursor)
   document.body.requestPointerLock?.();
 
   function move(ev) {
-    // Smooth relative movement (movementY works perfectly in pointer lock)
-    const delta = -ev.movementY * 0.003;
-
-    value += delta;
-    value = Math.max(0, Math.min(1, value));
-
-    knob.dataset.value = value;
-    knob.style.setProperty("--val", value);
-
-    // APPLY TO AUDIO
-    if (knob.classList.contains("volume-knob")) {
-      window.trackGains[trackIndex].gain.value = value;
-    }
-
-    if (knob.classList.contains("pan-knob")) {
-      const panValue = (value * 2) - 1;
-      window.trackPanners[trackIndex].pan.value = panValue;
-    }
+      const delta = -ev.movementY * 0.003;
+      value += delta;
+      value = Math.max(0, Math.min(1, value));
+      knob.dataset.value = value;
+      knob.style.setProperty("--val", value);
+      // Only update timeline state
+      if (knob.classList.contains("volume-knob")) {
+        // Update timeline state
+        if (window.trackStates && window.trackStates[trackIndex]) {
+          window.trackStates[trackIndex].volume = value;
+        }
+        // Update gain node: track volume * mixer fader
+        const mixerFader = window.mixerFaderValues ? window.mixerFaderValues[trackIndex] : 1.0;
+        if (window.trackGains && window.trackGains[trackIndex]) {
+          window.trackGains[trackIndex].gain.value = value * mixerFader;
+        }
+      }
+      if (knob.classList.contains("pan-knob")) {
+        // Update panner node for this track
+        if (window.trackPanners && window.trackPanners[trackIndex]) {
+          window.trackPanners[trackIndex].pan.value = value * 2 - 1;
+        }
+        // Update timeline state
+        if (window.trackStates && window.trackStates[trackIndex]) {
+          window.trackStates[trackIndex].pan = value;
+        }
+      }
+      // Do NOT update mixer fader or mixerFaderValues here
   }
 
   function up() {
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
-
-    // Release pointer lock
     if (document.pointerLockElement) {
       document.exitPointerLock();
     }
@@ -397,16 +404,20 @@ async function saveProjectZip() {
   for (let i = 0; i < 16; i++) {
     // Find the controls column knob for this track
     const controlsCol = document.querySelector(`#track-controls-column .track-controls[data-index="${i}"]`);
-    let vol = 0.8, pan = 0.5;
+    let vol = 0.8, pan = 0.5, mixerFader = 1.0;
     if (controlsCol) {
       const volKnob = controlsCol.querySelector(".volume-knob");
       const panKnob = controlsCol.querySelector(".pan-knob");
       if (volKnob) vol = Number(volKnob.dataset.value);
       if (panKnob) pan = Number(panKnob.dataset.value);
     }
+    // Get mixer fader value
+    if (window.mixerFaderValues && window.mixerFaderValues[i] !== undefined) {
+      mixerFader = window.mixerFaderValues[i];
+    }
     // Get track name from trackStates
     const name = window.trackStates && window.trackStates[i] ? window.trackStates[i].name : `Track ${i + 1}`;
-    tracks.push({ volume: vol, pan: pan, name });
+    tracks.push({ volume: vol, pan: pan, mixerFader, name });
   }
 
   const serializedClips = [];
@@ -620,11 +631,12 @@ async function loadProjectZip(json, zip) {
     // Clamp and coerce to number
     let vol = Math.max(0, Math.min(1, Number(t.volume)));
     let pan = Math.max(0, Math.min(1, Number(t.pan)));
+    let mixerFader = t.mixerFader !== undefined ? t.mixerFader : 1.0;
     const name = t.name || `Track ${index + 1}`;
 
     // Audio engine
     if (window.trackGains && window.trackGains[index]) {
-      window.trackGains[index].gain.value = vol;
+      window.trackGains[index].gain.value = vol * mixerFader;
     }
     if (window.trackPanners && window.trackPanners[index]) {
       window.trackPanners[index].pan.value = (pan - 0.5) * 2;
@@ -636,6 +648,10 @@ async function loadProjectZip(json, zip) {
       window.trackStates[index].pan = pan;
       window.trackStates[index].name = name;
     }
+
+    // Update mixer fader value
+    if (!window.mixerFaderValues) window.mixerFaderValues = Array(16).fill(1.0);
+    window.mixerFaderValues[index] = mixerFader;
 
     // UI knobs in controls column
     const controlsCol = document.querySelector(`#track-controls-column .track-controls[data-index="${index}"]`);
@@ -1046,13 +1062,7 @@ document.getElementById("masterVolumeSlider").addEventListener("input", e => {
   const volume = Number(e.target.value);
   masterGain.gain.value = volume;
   
-  // Update mixer master fader if mixer is open
-  if (window.mixer && window.mixer.masterTrack) {
-    window.mixer.masterTrack._volume = volume;
-    if (window.updateFaderPosition) {
-      window.updateFaderPosition(window.mixer.masterTrack, volume);
-    }
-  }
+    // Do NOT update mixer master fader here
 });
 
 // ------------------------------------------------------

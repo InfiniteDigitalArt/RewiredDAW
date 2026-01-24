@@ -330,14 +330,16 @@ const offlineTrackFxChains = [];
 
 for (let i = 0; i < window.trackGains.length; i++) {
   const g = offline.createGain();
-  g.gain.value = window.trackGains[i].gain.value;
+  // Combine mixer fader and track control volume
+  const mixerFader = window.mixerFaderValues ? window.mixerFaderValues[i] : 1.0;
+  const trackControlVol = (window.trackStates && window.trackStates[i]) ? window.trackStates[i].volume : 1.0;
+  g.gain.value = mixerFader * trackControlVol;
 
   const p = offline.createStereoPanner();
   p.pan.value = window.trackPanners[i].pan.value;
 
   // Build FX chain for this track
   const fxChain = buildTrackFxChainForExport(offline, i);
-  
   // Routing: gain → FX chain input → FX chain output → panner → master
   g.connect(fxChain.input);
   fxChain.output.connect(p);
