@@ -1584,18 +1584,23 @@ function restartPreviewFromCurrentPosition() {
 
       // Envelope: if resuming mid-note, jump straight to sustain to avoid clicks
       if (isMidNote) {
-        gain.gain.setValueAtTime(velocity * 0.6, t);
-        gain.gain.setValueAtTime(velocity * 0.6, t + effectiveDuration);
+        gain.gain.setValueAtTime(velocity * 1.0, t);
+        gain.gain.setValueAtTime(velocity * 1.0, t + effectiveDuration);
         gain.gain.linearRampToValueAtTime(0.0001, t + effectiveDuration + RELEASE_SEC);
       } else {
         gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(velocity * 0.6, t + ATTACK_SEC);
-        gain.gain.setValueAtTime(velocity * 0.6, t + effectiveDuration);
+        gain.gain.linearRampToValueAtTime(velocity * 1.0, t + ATTACK_SEC);
+        gain.gain.setValueAtTime(velocity * 1.0, t + effectiveDuration);
         gain.gain.linearRampToValueAtTime(0.0001, t + effectiveDuration + RELEASE_SEC);
       }
 
       source.connect(gain);
-      gain.connect(window.masterGain || window.audioContext.destination);
+      // Route preview through the correct mixer track for full FX chain
+      if (activeClip && typeof activeClip.trackIndex === 'number' && window.trackGains && window.trackGains[activeClip.trackIndex]) {
+        gain.connect(window.trackGains[activeClip.trackIndex]);
+      } else {
+        gain.connect(window.masterGain || window.audioContext.destination);
+      }
 
       try {
         source.start(t);
@@ -1649,12 +1654,17 @@ function scheduleNoteIfPlaying(note) {
 
     // Fresh note envelope
     gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(velocity * 0.6, t + ATTACK_SEC);
-    gain.gain.setValueAtTime(velocity * 0.6, t + effectiveDuration);
+    gain.gain.linearRampToValueAtTime(velocity * 1.0, t + ATTACK_SEC);
+    gain.gain.setValueAtTime(velocity * 1.0, t + effectiveDuration);
     gain.gain.linearRampToValueAtTime(0.0001, t + effectiveDuration + RELEASE_SEC);
 
     source.connect(gain);
-    gain.connect(window.masterGain || window.audioContext.destination);
+    // Route preview through the correct mixer track for full FX chain
+    if (activeClip && typeof activeClip.trackIndex === 'number' && window.trackGains && window.trackGains[activeClip.trackIndex]) {
+      gain.connect(window.trackGains[activeClip.trackIndex]);
+    } else {
+      gain.connect(window.masterGain || window.audioContext.destination);
+    }
 
     try {
       source.start(t);
@@ -2015,12 +2025,17 @@ async function playPianoRollPreview() {
       const velocity = note.velocity || 0.8;
 
       gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(velocity * 0.6, t + ATTACK_SEC);
-      gain.gain.setValueAtTime(velocity * 0.6, t + effectiveDuration);
+      gain.gain.linearRampToValueAtTime(velocity * 1.0, t + ATTACK_SEC);
+      gain.gain.setValueAtTime(velocity * 1.0, t + effectiveDuration);
       gain.gain.linearRampToValueAtTime(0.0001, t + effectiveDuration + RELEASE_SEC);
 
       source.connect(gain);
-      gain.connect(window.masterGain || window.audioContext.destination);
+      // Route preview through the correct mixer track for full FX chain
+      if (activeClip && typeof activeClip.trackIndex === 'number' && window.trackGains && window.trackGains[activeClip.trackIndex]) {
+        gain.connect(window.trackGains[activeClip.trackIndex]);
+      } else {
+        gain.connect(window.masterGain || window.audioContext.destination);
+      }
 
       source.start(t);
       source.stop(t + effectiveDuration + RELEASE_SEC);
