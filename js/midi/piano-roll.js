@@ -358,8 +358,11 @@ window.initPianoRoll = function () {
     if (!file) return;
 
     await loadSampleIntoClip(activeClip, file);
-
     updatePianoRollSampleHeader();
+    // Only restart after sample is fully loaded
+    if (pianoRollPreviewState.isPlaying) {
+      setTimeout(() => restartPreviewFromCurrentPosition(), 0);
+    }
   });
 
   // Piano roll preview play button
@@ -488,6 +491,10 @@ window.initPianoRoll = function () {
         await loadSampleIntoClip(activeClip, file);
         updatePianoRollSampleHeader();
         if (window.showToast) window.showToast(`Loaded sample: ${fileName}`);
+        // Restart preview if playing
+        if (pianoRollPreviewState.isPlaying) {
+          setTimeout(() => restartPreviewFromCurrentPosition(), 0);
+        }
       } catch (err) {
         console.error("Audio sample load failed from sidebar:", err);
         if (window.showToast) window.showToast("Failed to load audio sample from sidebar.");
@@ -504,6 +511,10 @@ window.initPianoRoll = function () {
         await loadSampleIntoClip(activeClip, file);
         updatePianoRollSampleHeader();
         if (window.showToast) window.showToast(`Loaded sample: ${file.name}`);
+        // Only restart after sample is fully loaded
+        if (pianoRollPreviewState.isPlaying) {
+          setTimeout(() => restartPreviewFromCurrentPosition(), 0);
+        }
       } catch (err) {
         console.error("Audio sample load failed:", err);
         if (window.showToast) window.showToast("Failed to load audio sample.");
