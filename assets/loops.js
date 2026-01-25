@@ -428,6 +428,47 @@ window.DROPBOX_LOOPS = [
 "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Bass/RRML1%20-%20Spanish%20Makina%20Bass%20(3).wav",
 "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Bass/RRML1%20-%20Spanish%20Makina%20Bass%20(4).wav",
 "https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Bass/RRML1%20-%20Spanish%20Makina%20Bass%20(5).wav",
+//Kick One-Shots //
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Euro%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Full%20Effect%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Hardtrance%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Kick%20-%20Viper.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Kick%20-%20Zeus.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Kolmenero%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Lucky%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Overdriven%20Kick.wav",
+
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_1.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_2.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_3.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_4.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_5.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_6.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_7.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_8.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_9.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_10.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_11.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_12.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_13.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_14.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_15.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_16.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_17.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_18.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_19.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RRFT_Kick_20.wav",
+
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/RSV1_Legend_Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Summerlove%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Watchmaker%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Xavi%20Kick.wav",
+
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/909%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Chemical%20-%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Dr.%20P.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/DStressed%20Kick.wav",
+"https://cdn.jsdelivr.net/gh/InfiniteDigitalArt/RewiredDAW@main/assets/packs/Rewired%20Records%20-%20Makina%20Legends%20Vol%201/Samples/Kicks/Espiral%20Kick.wav",
 
 
   
@@ -932,7 +973,50 @@ window.LOOP_FOLDERS = {
   "MD_Bass_7",
   "MD_Bass_8",
   "MD_Bass_9"
+],
+"Kicks": [
+  "Euro Kick",
+  "Full Effect Kick",
+  "Hardtrance Kick",
+  "Kick - Viper",
+  "Kick - Zeus",
+  "Kolmenero Kick",
+  "Lucky Kick",
+  "Overdriven Kick",
+
+  "RRFT_Kick_1",
+  "RRFT_Kick_2",
+  "RRFT_Kick_3",
+  "RRFT_Kick_4",
+  "RRFT_Kick_5",
+  "RRFT_Kick_6",
+  "RRFT_Kick_7",
+  "RRFT_Kick_8",
+  "RRFT_Kick_9",
+  "RRFT_Kick_10",
+  "RRFT_Kick_11",
+  "RRFT_Kick_12",
+  "RRFT_Kick_13",
+  "RRFT_Kick_14",
+  "RRFT_Kick_15",
+  "RRFT_Kick_16",
+  "RRFT_Kick_17",
+  "RRFT_Kick_18",
+  "RRFT_Kick_19",
+  "RRFT_Kick_20",
+
+  "RSV1_Legend_Kick",
+  "Summerlove Kick",
+  "Watchmaker Kick",
+  "Xavi Kick",
+
+  "909 Kick",
+  "Chemical - Kick",
+  "Dr. P",
+  "DStressed Kick",
+  "Espiral Kick"
 ]
+
 
 
 }
