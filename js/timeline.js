@@ -468,37 +468,38 @@ window.initTimeline = function () {
     // Left-click to paint/duplicate selected clip
     drop.addEventListener("mousedown", function(e) {
       if (window.timelineCurrentTool !== 'pencil') return;
-      // Only respond to left-click
+      // --- Right mouse button: Start right-click drag delete mode ---
+      if (e.button === 2) {
+        e.preventDefault();
+        e.stopPropagation();
+        isDeletingClipsWithRightClick = true;
+        deletedClipIds.clear();
+        return;
+      }
+      // Only respond to left-click for painting
       if (e.button !== 0) return;
       // Prevent if dragging or selecting
       if (window.draggedClipId || window.draggedLoop) return;
-      
       const selected = window.activeClip;
       if (!selected) return;
-
       // Find bar and track index
       const rect = drop.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
       const trackIndex = i;
-
       // Check if clicking on an existing clip - if so, let the clip handle it
       const clickedOnClip = e.target.closest('.clip');
       if (clickedOnClip) return;
-
       // Check if a clip already exists at this bar/track
       const overlap = window.clips.some(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
       if (overlap) return;
-
       // Prevent event from bubbling to prevent any drag handlers
       e.preventDefault();
       e.stopPropagation();
-
       // Start paint mode
       isPainting = true;
       paintingTrackIndex = trackIndex;
       paintedBars.clear();
-
       // Stop painting on mouse up
       const stopPainting = () => {
         isPainting = false;
@@ -507,28 +508,22 @@ window.initTimeline = function () {
         document.removeEventListener('mousemove', globalPaintMove);
         document.removeEventListener('mouseup', stopPainting);
       };
-      
       // Global paint handler that tracks X position across all tracks
       const globalPaintMove = (ev) => {
         if (window.timelineCurrentTool !== 'pencil') return;
         if (!isPainting) return;
-
         const selected = window.activeClip;
         if (!selected) return;
-
         // Get the timeline scroll area to calculate correct X position
         const timelineScroll = document.getElementById("timeline-scroll");
         if (!timelineScroll) return;
-
         const rect = timelineScroll.getBoundingClientRect();
         const x = ev.clientX - rect.left + timelineScroll.scrollLeft;
         const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
-
         // Skip if already painted at this bar or if clip exists on the painting track
         if (paintedBars.has(startBar)) return;
         const overlap = window.clips.some(c => c.trackIndex === paintingTrackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
         if (overlap) return;
-
         // Paint new clip on the original track
         const newClip = {
           ...selected,
@@ -536,7 +531,6 @@ window.initTimeline = function () {
           trackIndex: paintingTrackIndex,
           startBar
         };
-
         // Share references for MIDI clips (NOT deep copy)
         if (selected.type === "midi") {
           newClip.notes = selected.notes;
@@ -547,12 +541,10 @@ window.initTimeline = function () {
         if (selected.type === "audio") {
           if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
         }
-
         window.clips.push(newClip);
         resolveClipCollisions(newClip);
         paintedBars.add(startBar);
         window.checkAndExpandTimeline();
-
         // Re-render only the painting track
         const paintingTrack = document.querySelector(`.track[data-index="${paintingTrackIndex}"]`);
         if (paintingTrack) {
@@ -565,10 +557,8 @@ window.initTimeline = function () {
           }
         }
       };
-      
       document.addEventListener('mousemove', globalPaintMove);
       document.addEventListener('mouseup', stopPainting);
-
       // Paint first clip
       const newClip = {
         ...selected,
@@ -576,7 +566,6 @@ window.initTimeline = function () {
         trackIndex,
         startBar
       };
-
       // Share references for MIDI clips (NOT deep copy)
       if (selected.type === "midi") {
         newClip.notes = selected.notes; // Share the same notes array
@@ -587,20 +576,58 @@ window.initTimeline = function () {
       if (selected.type === "audio") {
         if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
       }
-
       window.clips.push(newClip);
       resolveClipCollisions(newClip);
       paintedBars.add(startBar);
-
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
       window.checkAndExpandTimeline();
-
       drop.innerHTML = "";
       window.clips
         .filter(c => c.trackIndex === trackIndex)
         .forEach(c => window.renderClip(c, drop));
     }, true); // Use capture phase to intercept before clip handlers
+// --- GLOBAL RIGHT-CLICK DRAG DELETE LOGIC ---
+// Listen for mousemove on the timeline-scroll area to delete clips as you drag over them
+document.addEventListener("mousemove", function(e) {
+  if (!isDeletingClipsWithRightClick) return;
+  // Only act if right mouse is held
+  if (e.buttons !== undefined && (e.buttons & 2) === 0) return;
+  // Find the element under the mouse
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  if (!el) return;
+  // If it's a clip, delete it if not already deleted
+  const clipEl = el.closest && el.closest('.clip');
+  if (clipEl) {
+    const clipId = clipEl.dataset.clipId;
+    if (!deletedClipIds.has(clipId)) {
+      // Find the clip object
+      const clip = window.clips.find(c => c.id === clipId);
+      if (clip) {
+        const trackIndex = clip.trackIndex;
+        window.clips = window.clips.filter(c => c.id !== clipId);
+        deletedClipIds.add(clipId);
+        // Re-render the track
+        const track = document.querySelector(`.track[data-index="${trackIndex}"]`);
+        if (track) {
+          const dropArea = track.querySelector('.track-drop-area');
+          if (dropArea) {
+            dropArea.innerHTML = "";
+            window.clips
+              .filter(c => c.trackIndex === trackIndex)
+              .forEach(c => window.renderClip(c, dropArea));
+          }
+        }
+        if (window.activeClip && window.activeClip.id === clipId) {
+          document.getElementById("piano-roll-container").classList.add("hidden");
+          window.activeClip = null;
+        }
+        const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+        window.refreshClipDropdown(uniqueClips);
+      }
+    }
+  }
+});
 
     let playhead = document.getElementById("playhead");
     if (!playhead) {

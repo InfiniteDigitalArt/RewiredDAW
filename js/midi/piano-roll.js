@@ -446,18 +446,72 @@ window.initPianoRoll = function () {
   gridCanvas.addEventListener("contextmenu", e => e.preventDefault());
 
   // Drag-and-drop MIDI import
+  const dropOverlay = document.getElementById("piano-roll-drop-overlay");
+
   gridCanvas.addEventListener("dragover", e => {
     e.preventDefault();
     gridCanvas.style.backgroundColor = "rgba(255,255,255,0.05)";
+    if (dropOverlay) dropOverlay.style.display = "flex";
   });
 
   gridCanvas.addEventListener("dragleave", () => {
     gridCanvas.style.backgroundColor = "";
+    if (dropOverlay) dropOverlay.style.display = "none";
   });
 
-  gridCanvas.addEventListener("drop", e => {
+  gridCanvas.addEventListener("drop", async e => {
     e.preventDefault();
     e.stopPropagation();
+    gridCanvas.style.backgroundColor = "";
+    if (dropOverlay) dropOverlay.style.display = "none";
+
+    // 1. Dragged from sidebar: audio loop
+    const draggedLoop = window.draggedLoop;
+    if (draggedLoop && typeof draggedLoop === "object" && draggedLoop.type === "audio" && draggedLoop.url) {
+      if (!activeClip) return;
+      try {
+        const response = await fetch(draggedLoop.url);
+        const arrayBuffer = await response.arrayBuffer();
+        // Use displayName or id, and extract extension from URL if possible
+        let baseName = (draggedLoop.displayName || draggedLoop.id || "SidebarAudio").toString();
+        let ext = ".wav";
+        if (draggedLoop.url) {
+          const urlParts = draggedLoop.url.split("?")[0].split("/");
+          const last = urlParts[urlParts.length - 1];
+          const match = last && last.match(/\.(wav|mp3|ogg|flac|aiff?|m4a)$/i);
+          if (match) ext = match[0];
+        }
+        // Remove extension from baseName if present
+        baseName = baseName.replace(/\.(wav|mp3|ogg|flac|aiff?|m4a)$/i, "");
+        const fileName = baseName + ext;
+        const file = new File([arrayBuffer], fileName, { type: "audio/wav" });
+        await loadSampleIntoClip(activeClip, file);
+        updatePianoRollSampleHeader();
+        if (window.showToast) window.showToast(`Loaded sample: ${fileName}`);
+      } catch (err) {
+        console.error("Audio sample load failed from sidebar:", err);
+        if (window.showToast) window.showToast("Failed to load audio sample from sidebar.");
+      }
+      window.draggedLoop = null;
+      return;
+    }
+
+    // 2. Local file drop (audio)
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file && /\.(wav|mp3|ogg|flac|aiff?|m4a)$/i.test(file.name)) {
+      if (!activeClip) return;
+      try {
+        await loadSampleIntoClip(activeClip, file);
+        updatePianoRollSampleHeader();
+        if (window.showToast) window.showToast(`Loaded sample: ${file.name}`);
+      } catch (err) {
+        console.error("Audio sample load failed:", err);
+        if (window.showToast) window.showToast("Failed to load audio sample.");
+      }
+      return;
+    }
+
+    // 3. Otherwise, try MIDI drop logic
     onMidiDrop(e);
   });
 

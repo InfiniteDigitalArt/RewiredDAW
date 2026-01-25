@@ -1,3 +1,32 @@
+/* -------------------------------------------------------
+   PIANO ROLL DROP OVERLAY
+------------------------------------------------------- */
+.piano-roll-drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(20, 20, 32, 0.82);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: opacity 0.18s;
+}
+.piano-roll-drop-message {
+  color: #fff;
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 16px;
+  padding: 32px 48px;
+  box-shadow: 0 4px 32px 0 #000a;
+  border: 2px solid #7aa0ff;
+  text-shadow: 0 2px 12px #007aff99;
+}
 /* Prevent button highlight on mouse click, but keep for keyboard navigation */
 button:focus {
   outline: none;
@@ -1120,7 +1149,7 @@ body {
   align-items: center;
   user-select: none;
   position: relative;
-  padding-left: 156px;
+  padding-left: 158px;
   z-index: 154;
   width: 100%; 
   pointer-events: auto;
