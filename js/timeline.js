@@ -456,6 +456,8 @@ window.initTimeline = function () {
     const vol = document.createElement("div");
     vol.className = "knob volume-knob";
     vol.dataset.value = initialVol;
+    vol.dataset.idx = i;
+    vol.dataset.type = "volume";
     vol.style.setProperty("--track-color", color);
     vol.style.setProperty("--val", initialVol);
     const volLabel = document.createElement("div");
@@ -470,6 +472,8 @@ window.initTimeline = function () {
     const pan = document.createElement("div");
     pan.className = "knob pan-knob";
     pan.dataset.value = initialPan;
+    pan.dataset.idx = i;
+    pan.dataset.type = "pan";
     pan.style.setProperty("--track-color", color);
     pan.style.setProperty("--val", initialPan);
     const panLabel = document.createElement("div");
@@ -2743,6 +2747,8 @@ document.addEventListener("mousedown", (e) => {
   const knob = e.target;
   const rect = knob.getBoundingClientRect();
   const centerY = rect.top + rect.height / 2;
+  const idx = Number(knob.dataset.idx);
+  const type = knob.dataset.type;
 
   function move(ev) {
     const dy = centerY - ev.clientY;
@@ -2750,13 +2756,15 @@ document.addEventListener("mousedown", (e) => {
     v = Math.max(0, Math.min(1, v));
     knob.dataset.value = v;
     knob.style.setProperty("--val", v);
-    window.trackStates[idx][type] = v;
-    if (type === "volume" && window.trackGains && window.trackGains[idx]) {
-      // Only update gain if not muted or solo-muted
-      const anySolo = window.trackStates.some(t => t.solo);
-      const effectiveMute = (anySolo && !window.trackStates[idx].solo) || window.trackStates[idx].muted;
-      if (!effectiveMute) {
-        window.trackGains[idx].gain.value = v;
+    if (!isNaN(idx) && type && window.trackStates && window.trackStates[idx]) {
+      window.trackStates[idx][type] = v;
+      if (type === "volume" && window.trackGains && window.trackGains[idx]) {
+        // Only update gain if not muted or solo-muted
+        const anySolo = window.trackStates.some(t => t.solo);
+        const effectiveMute = (anySolo && !window.trackStates[idx].solo) || window.trackStates[idx].muted;
+        if (!effectiveMute) {
+          window.trackGains[idx].gain.value = v;
+        }
       }
     }
     // Do NOT update mixer fader or mixerFaderValues
