@@ -944,39 +944,39 @@ if (window.activeClip) {
       const clip = {
         id: crypto.randomUUID(),
         type: "audio",
-        loopId: null,
-        fileName: meta.displayName || file.name,
-        audioBuffer: normalizedBuffer,
+        loopId: loop.id,
+        audioBuffer: newBuffer,
         trackIndex,
         startBar,
         bars,
-        bpm: sourceBpm,
-        sourceBpm,                 // persist source BPM
-        originalBars: bars,
+        bpm: loop.bpm,
+        sourceBpm: loop.bpm,          // persist source BPM
+        fileName: loop.displayName || loop.id,
         startOffset: 0,
         durationSeconds,
+        originalBars: bars
       };
 
       window.clips.push(clip);
       resolveClipCollisions(clip);
       window.activeClip = clip;  // Set as active immediately after creation
+    }  
     }
-  }
+    
+    // After processing all files, refresh once
+    window.updateLoadingBar(100);
+    
+    const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+    window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
 
-  // After processing all files, refresh once
-  window.updateLoadingBar(100);
-  
-  const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
-  window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
+    drop.innerHTML = "";
+    window.clips
+      .filter(c => c.trackIndex === trackIndex)
+      .forEach(c => window.renderClip(c, drop));
 
-  drop.innerHTML = "";
-  window.clips
-    .filter(c => c.trackIndex === trackIndex)
-    .forEach(c => window.renderClip(c, drop));
-
-  window.hideLoadingBar();
-  window.checkAndExpandTimeline();
-  return;
+    window.hideLoadingBar();
+    window.checkAndExpandTimeline();
+    return;
 }
 
   /* CASE 1: Dropping a loop from sidebar */
@@ -1846,7 +1846,7 @@ handle.addEventListener("mousedown", (e) => {
         const w = (note.end - note.start) * pxPerBeat - gap * 2;
         const y = (maxPitch - note.pitch) * rowHeight;
         const h = Math.max(3, rowHeight - 2);
-        ctx.fillStyle = window.TRACK_COLORS[clip.trackIndex % 10];
+               ctx.fillStyle = window.TRACK_COLORS[clip.trackIndex % 10];
         ctx.fillRect(x, y, w, h);
         ctx.strokeStyle = "rgba(255,255,255,0.4)";
         ctx.strokeRect(x, y, w, h);
@@ -2071,8 +2071,6 @@ if ((clip.fadeIn > 0 || clip.fadeOut > 0)) {
   
   el.appendChild(fadeCanvas);
 }
-
-
 
 
 /* -------------------------------------------------------
@@ -2381,7 +2379,6 @@ window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips 
 /* -------------------------------------------------------
    DRAGGABLE CLIP (child-safe)
 ------------------------------------------------------- */
-
 
 
 el.addEventListener("dragstart", (e) => {
@@ -3081,7 +3078,7 @@ function attachMarqueeSelection() {
 const style = document.createElement("style");
 style.textContent = `
 .clip-selected {
-  outline: 2px solid #4D88FF !important;
+  outline: 2px solid #d3e2ff !important;
   outline-offset: -2px;
  
   box-shadow: 0 0 0 2px #4D88FF33;
@@ -3094,5 +3091,51 @@ document.addEventListener("DOMContentLoaded", () => {
   // ...existing code...
   attachMarqueeSelection();
   // ...existing code...
+});
+
+// --- GLOBAL DELETE KEY HANDLER FOR SELECTED CLIPS ---
+document.addEventListener("keydown", function(e) {
+  // Only act if DELETE key is pressed and there are selected clips
+  if (
+    (e.key === "Delete" || e.key === "Del") &&
+    window.selectedClipIds &&
+    window.selectedClipIds.size > 0
+  ) {
+    e.preventDefault();
+    // Remove selected clips from window.clips
+    const toDelete = new Set(window.selectedClipIds);
+    const affectedTracks = new Set();
+    window.clips = window.clips.filter(c => {
+      if (toDelete.has(c.id)) {
+        affectedTracks.add(c.trackIndex);
+        return false;
+      }
+      return true;
+    });
+    // Clear selection
+    window.selectedClipIds.clear();
+    document.querySelectorAll('.clip-selected').forEach(el => el.classList.remove('clip-selected'));
+    // Hide piano roll if active clip was deleted
+    if (window.activeClip && toDelete.has(window.activeClip.id)) {
+      document.getElementById("piano-roll-container").classList.add("hidden");
+      window.activeClip = null;
+    }
+    // Refresh affected tracks
+    affectedTracks.forEach(trackIndex => {
+      const track = document.querySelector(`.track[data-index="${trackIndex}"]`);
+      if (track) {
+        const dropArea = track.querySelector('.track-drop-area');
+        if (dropArea) {
+          dropArea.innerHTML = "";
+          window.clips
+            .filter(c => c.trackIndex === trackIndex)
+            .forEach(c => window.renderClip(c, dropArea));
+        }
+      }
+    });
+    // Refresh dropdown
+    const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+    window.refreshClipDropdown(uniqueClips);
+  }
 });
 
