@@ -623,6 +623,7 @@ async function saveProjectZip() {
   // ----------------------------------------------------
   window.updateLoadingBar(70, "Creating archive...");
   
+  const masterVolume = typeof masterGain !== "undefined" ? masterGain.gain.value : 1.0;
   const project = {
     tempo: Number(window.BPM || 175),
     timelineBars: window.timelineBars,
@@ -631,7 +632,9 @@ async function saveProjectZip() {
     // Persist FX slots (master + tracks) for all current and future effect types
     fxSlots: window.trackFxSlots || {},
     // Persist stereo width knob values
-    mixerStereoValues: window.mixerStereoValues || []
+    mixerStereoValues: window.mixerStereoValues || [],
+    // Persist master volume
+    masterVolume
   };
 
   zip.file("project.json", JSON.stringify(project, null, 2));
@@ -674,6 +677,12 @@ async function loadProjectZip(json, zip) {
           window.setTrackStereoWidth(i, window.mixerStereoValues[i]);
         }
       }
+    }
+    // Restore master volume (if present)
+    if (typeof json.masterVolume === "number" && typeof masterGain !== "undefined") {
+      masterGain.gain.value = json.masterVolume;
+      const masterSlider = document.getElementById("masterVolumeSlider");
+      if (masterSlider) masterSlider.value = json.masterVolume;
     }
   window.showLoadingBar("Loading project...");
   window.updateLoadingBar(10);
@@ -1225,12 +1234,20 @@ el.addEventListener("click", (e) => {
 // ------------------------------------------------------
 // MASTER VOLUME
 // ------------------------------------------------------
-document.getElementById("masterVolumeSlider").addEventListener("input", e => {
-  const volume = Number(e.target.value);
-  masterGain.gain.value = volume;
-  
-    // Do NOT update mixer master fader here
-});
+const masterVolumeSlider = document.getElementById("masterVolumeSlider");
+if (masterVolumeSlider) {
+  masterVolumeSlider.addEventListener("input", e => {
+    const percentage = Number(e.target.value);
+    // Map slider [0,1] to gain: 0.75 = 0dB, 1 = +5dB
+    const volume = (typeof percentageToGain === 'function') ? percentageToGain(percentage) : percentage;
+    masterGain.gain.value = volume;
+    // Update mixer master fader if present
+    if (window.mixer && window.mixer.masterTrack && window.mixer.masterTrack._fader) {
+      window.mixer.masterTrack._volume = volume;
+      if (typeof updateFaderPosition === 'function') updateFaderPosition(window.mixer.masterTrack, volume);
+    }
+  });
+}
 
 // ------------------------------------------------------
 // TRUE STEREO MASTER VU SETUP

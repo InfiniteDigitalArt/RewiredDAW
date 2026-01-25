@@ -1312,6 +1312,17 @@ function createMixerTrack(index, color) {
   let stereoLastY = 0;
   let stereoLastX = 0;
   stereoKnob.addEventListener('mousedown', (e) => {
+    // Ctrl + Left Click resets to default
+    if (e.button === 0 && e.ctrlKey) {
+      stereoVal = 0.5;
+      window.mixerStereoValues[index] = stereoVal;
+      setStereoKnobVisual(stereoVal);
+      if (typeof window.setTrackStereoWidth === 'function') {
+        window.setTrackStereoWidth(index, stereoVal);
+      }
+      e.preventDefault();
+      return;
+    }
     stereoDragging = true;
     stereoLastY = e.clientY;
     stereoLastX = e.clientX;
@@ -1422,6 +1433,17 @@ function createMixerTrack(index, color) {
   let lastY = 0;
   let lastX = 0;
   lpKnob.addEventListener('mousedown', (e) => {
+    // Ctrl + Left Click resets to default
+    if (e.button === 0 && e.ctrlKey) {
+      lpValueHz = maxHz;
+      window.mixerLowpassValues[index] = lpValueHz;
+      setKnobVisual(lpValueHz);
+      if (typeof window.setTrackLowpass === 'function') {
+        window.setTrackLowpass(index, lpValueHz);
+      }
+      e.preventDefault();
+      return;
+    }
     dragging = true;
     lastY = e.clientY;
     lastX = e.clientX;
@@ -1537,7 +1559,7 @@ function setupFaderDrag(track, trackIndex) {
   const handleCtrlClick = (e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const volume = 0.5; // -6dB
+      const volume = 1.0; // 0dB
       window.mixerFaderValues[trackIndex] = volume;
       track._volume = volume;
       updateFaderPosition(track, volume);
@@ -1631,6 +1653,8 @@ function setupMasterFaderDrag(track) {
       const masterSlider = document.getElementById('masterVolumeSlider');
       if (masterSlider) {
         masterSlider.value = gainToPercentage(volume);
+        // Also trigger input event for two-way sync
+        masterSlider.dispatchEvent(new Event('input', { bubbles: true }));
       }
     }
   };
@@ -1665,6 +1689,8 @@ function setupMasterFaderDrag(track) {
       const masterSlider = document.getElementById('masterVolumeSlider');
       if (masterSlider) {
         masterSlider.value = percentage;
+        // Also trigger input event for two-way sync
+        masterSlider.dispatchEvent(new Event('input', { bubbles: true }));
       }
     };
     
