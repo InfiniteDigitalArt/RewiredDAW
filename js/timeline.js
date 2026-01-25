@@ -216,11 +216,13 @@ window.initTimeline = function () {
 
   // Store references for later updates (e.g., VU meters)
   window.trackControls = [];
-  // ⭐ Store per-track state for volume/pan/name
+  // ⭐ Store per-track state for volume/pan/name/mute/solo
   window.trackStates = Array.from({ length: 16 }, (_, i) => ({
     volume: 0.5,
     pan: 0.5,
-    name: `Track ${i + 1}`
+    name: `Track ${i + 1}`,
+    muted: false,
+    solo: false // <-- add solo state
   }));
 
   // If loading a project, use its track states
@@ -228,18 +230,22 @@ window.initTimeline = function () {
     window.trackStates = window.loadedProject.tracks.map((t, i) => ({
       volume: Math.max(0, Math.min(1, Number(t.volume))),
       pan: Math.max(0, Math.min(1, Number(t.pan))),
-      name: t.name || `Track ${i + 1}`
+      name: t.name || `Track ${i + 1}`,
+      muted: !!t.muted,
+      solo: !!t.solo // ensure boolean
     }));
     // Pad to 16 tracks if needed
     while (window.trackStates.length < 16) {
       const idx = window.trackStates.length;
-      window.trackStates.push({ volume: 0.5, pan: 0.5, name: `Track ${idx + 1}` });
+      window.trackStates.push({ volume: 0.5, pan: 0.5, name: `Track ${idx + 1}`, muted: false, solo: false });
     }
   } else {
     window.trackStates = Array.from({ length: 16 }, (_, i) => ({
       volume: 0.5,
       pan: 0.5,
-      name: `Track ${i + 1}`
+      name: `Track ${i + 1}`,
+      muted: false,
+      solo: false
     }));
   }
 
@@ -346,6 +352,103 @@ window.initTimeline = function () {
     // Use trackStates for initial knob values
     const initialVol = window.trackStates[i]?.volume ?? 0.5;
     const initialPan = window.trackStates[i]?.pan ?? 0.5;
+    const initialMute = !!window.trackStates[i]?.muted;
+    const initialSolo = !!window.trackStates[i]?.solo;
+
+    // --- SOLO BUTTON ---
+    const soloWrap = document.createElement("div");
+    soloWrap.className = "solo-wrap";
+    soloWrap.style.display = "flex";
+    soloWrap.style.alignItems = "center";
+    soloWrap.style.marginRight = "0px";
+    const soloBtn = document.createElement("button");
+    soloBtn.className = "solo-btn";
+    soloBtn.title = "Solo Track";
+    soloBtn.style.width = "22px";
+    soloBtn.style.height = "22px";
+    soloBtn.style.border = "none";
+    soloBtn.style.borderRadius = "50%";
+    soloBtn.style.background = initialSolo ? "#FFD24D" : "#222";
+    soloBtn.style.color = initialSolo ? "#222" : "#aaa";
+    soloBtn.style.fontWeight = "bold";
+    soloBtn.style.fontSize = "13px";
+    soloBtn.style.cursor = "pointer";
+    soloBtn.style.margin = "0 0px 0 0";
+    soloBtn.textContent = "S";
+    if (initialSolo) soloBtn.classList.add("soloed");
+
+    // --- MUTE BUTTON ---
+    const muteWrap = document.createElement("div");
+    muteWrap.className = "mute-wrap";
+    muteWrap.style.display = "flex";
+    muteWrap.style.alignItems = "center";
+    muteWrap.style.marginRight = "6px";
+    const muteBtn = document.createElement("button");
+    muteBtn.className = "mute-btn";
+    muteBtn.title = "Mute Track";
+    muteBtn.style.width = "22px";
+    muteBtn.style.height = "22px";
+    muteBtn.style.border = "none";
+    muteBtn.style.borderRadius = "50%";
+    muteBtn.style.background = initialMute ? "#4D88FF" : "#222";
+    muteBtn.style.color = initialMute ? "#fff" : "#aaa";
+    muteBtn.style.fontWeight = "bold";
+    muteBtn.style.fontSize = "13px";
+    muteBtn.style.cursor = "pointer";
+    muteBtn.style.margin = "0 0px 0 0";
+    muteBtn.textContent = "M";
+    if (initialMute) muteBtn.classList.add("muted");
+
+    // --- SOLO/MUTE LOGIC ---
+    function updateTrackMuteSoloStates() {
+      // Check if any track is soloed
+      const anySolo = window.trackStates.some(t => t.solo);
+      for (let j = 0; j < 16; j++) {
+        const state = window.trackStates[j];
+        const gain = window.trackGains && window.trackGains[j];
+        const muteBtnEl = document.querySelector(`.track-controls[data-index="${j}"] .mute-btn`);
+        const soloBtnEl = document.querySelector(`.track-controls[data-index="${j}"] .solo-btn`);
+        // Determine if this track should be muted
+        let effectiveMute = false;
+        if (anySolo) {
+          effectiveMute = !state.solo;
+        }
+        if (state.muted) effectiveMute = true;
+        // Update gain
+        if (gain) gain.gain.value = effectiveMute ? 0 : (state.volume ?? 0.5);
+        // Update mute button UI
+        if (muteBtnEl) {
+          muteBtnEl.style.background = state.muted ? "#4D88FF" : "#222";
+          muteBtnEl.style.color = state.muted ? "#fff" : "#aaa";
+          if (state.muted) muteBtnEl.classList.add("muted");
+          else muteBtnEl.classList.remove("muted");
+          // Dim if muted by solo
+          muteBtnEl.style.opacity = (!state.muted && anySolo && !state.solo) ? "0.5" : "";
+        }
+        // Update solo button UI
+        if (soloBtnEl) {
+          soloBtnEl.style.background = state.solo ? "#FFD24D" : "#222";
+          soloBtnEl.style.color = state.solo ? "#222" : "#aaa";
+          if (state.solo) soloBtnEl.classList.add("soloed");
+          else soloBtnEl.classList.remove("soloed");
+        }
+      }
+    }
+
+    soloBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      window.trackStates[i].solo = !window.trackStates[i].solo;
+      updateTrackMuteSoloStates();
+    });
+
+    muteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      window.trackStates[i].muted = !window.trackStates[i].muted;
+      updateTrackMuteSoloStates();
+    });
+
+    soloWrap.appendChild(soloBtn);
+    muteWrap.appendChild(muteBtn);
 
     // Volume knob + label
     const volWrap = document.createElement("div");
@@ -375,9 +478,9 @@ window.initTimeline = function () {
     panWrap.appendChild(pan);
     panWrap.appendChild(panLabel);
 
-    // Set audio engine values immediately
+    // Set audio engine values immediately (handled by updateTrackMuteSoloStates)
     if (window.trackGains && window.trackGains[i]) {
-      window.trackGains[i].gain.value = initialVol;
+      window.trackGains[i].gain.value = initialMute ? 0 : initialVol;
     }
     if (window.trackPanners && window.trackPanners[i]) {
       window.trackPanners[i].pan.value = (initialPan - 0.5) * 2;
@@ -397,7 +500,12 @@ window.initTimeline = function () {
           knob.style.setProperty("--val", v);
           window.trackStates[idx][type] = v;
           if (type === "volume" && window.trackGains && window.trackGains[idx]) {
-            window.trackGains[idx].gain.value = v;
+            // Only update gain if not muted or solo-muted
+            const anySolo = window.trackStates.some(t => t.solo);
+            const effectiveMute = (anySolo && !window.trackStates[idx].solo) || window.trackStates[idx].muted;
+            if (!effectiveMute) {
+              window.trackGains[idx].gain.value = v;
+            }
           }
           // Do NOT update mixer fader or mixerFaderValues
         }
@@ -412,16 +520,12 @@ window.initTimeline = function () {
     knobHandler(vol, "volume", i);
     knobHandler(pan, "pan", i);
 
-    // FX button (to the right of pan)
-    const fxBtn = document.createElement("button");
-    fxBtn.className = "fx-btn";
-    fxBtn.textContent = "FX";
-    fxBtn.title = "Track FX (coming soon)";
-
-    // Append all controls to knobRow
+    // --- INSERT SOLO/MUTE BUTTONS BEFORE VOLUME KNOB ---
+    knobRow.appendChild(soloWrap);
+    knobRow.appendChild(muteWrap);
     knobRow.appendChild(volWrap);
     knobRow.appendChild(panWrap);
-    knobRow.appendChild(fxBtn);
+    
 
     controls.appendChild(label);
     controls.appendChild(knobRow);
@@ -1049,9 +1153,9 @@ if (loop.url) {
           });
 
           if (window.activeClip) {
-            const realActive = window.clips.find(c => c.id === window.activeClip.id);
-            if (realActive && realActive.type === "audio" && replacedIds.includes(realActive.id)) {
-              window.activeClip = realActive;
+            const realActiveClip = window.clips.find(c => c.id === window.activeClip.id);
+            if (realActiveClip && realActiveClip.type === "audio" && replacedIds.includes(realActiveClip.id)) {
+              window.activeClip = realActiveClip;
             } else if (window.activeClip.type === "audio" && (window.activeClip.audioBuffer === targetBuffer || window.activeClip.loopId === targetLoopId || window.activeClip.fileName === targetFileName)) {
               window.activeClip.audioBuffer = newBuffer;
               window.activeClip.loopId = loop.id;
@@ -1745,11 +1849,6 @@ handle.addEventListener("mousedown", (e) => {
     preview.remove();
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
-    resolveClipCollisions(clip);
-    dropArea.innerHTML = "";
-    window.clips
-      .filter(c => c.trackIndex === clip.trackIndex)
-      .forEach(c => window.renderClip(c, dropArea));
   }
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
@@ -2647,13 +2746,21 @@ document.addEventListener("mousedown", (e) => {
     v = Math.max(0, Math.min(1, v));
     knob.dataset.value = v;
     knob.style.setProperty("--val", v);
+    window.trackStates[idx][type] = v;
+    if (type === "volume" && window.trackGains && window.trackGains[idx]) {
+      // Only update gain if not muted or solo-muted
+      const anySolo = window.trackStates.some(t => t.solo);
+      const effectiveMute = (anySolo && !window.trackStates[idx].solo) || window.trackStates[idx].muted;
+      if (!effectiveMute) {
+        window.trackGains[idx].gain.value = v;
+      }
+    }
+    // Do NOT update mixer fader or mixerFaderValues
   }
-
   function up() {
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
   }
-
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
 });

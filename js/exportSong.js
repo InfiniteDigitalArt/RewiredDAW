@@ -403,12 +403,25 @@ const offlineTrackGains = [];
 const offlineTrackPans = [];
 const offlineTrackFxChains = [];
 
+// --- NEW: Compute mute/solo states for export ---
+const anySolo = window.trackStates && window.trackStates.some(t => t.solo);
+
 for (let i = 0; i < window.trackGains.length; i++) {
   const g = offline.createGain();
   // Combine mixer fader and track control volume
   const mixerFader = window.mixerFaderValues ? window.mixerFaderValues[i] : 1.0;
   const trackControlVol = (window.trackStates && window.trackStates[i]) ? window.trackStates[i].volume : 1.0;
-  g.gain.value = mixerFader * trackControlVol;
+
+  // --- Mute/Solo logic (match live engine) ---
+  let effectiveMute = false;
+  if (window.trackStates && window.trackStates[i]) {
+    const state = window.trackStates[i];
+    if (anySolo) {
+      effectiveMute = !state.solo;
+    }
+    if (state.muted) effectiveMute = true;
+  }
+  g.gain.value = effectiveMute ? 0 : (mixerFader * trackControlVol);
 
   const p = offline.createStereoPanner();
   p.pan.value = window.trackPanners[i].pan.value;

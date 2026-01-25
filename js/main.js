@@ -522,7 +522,10 @@ async function saveProjectZip() {
     }
     // Get track name from trackStates
     const name = window.trackStates && window.trackStates[i] ? window.trackStates[i].name : `Track ${i + 1}`;
-    tracks.push({ volume: vol, pan: pan, mixerFader, name });
+    // --- ADD: Save mute/solo states ---
+    const muted = window.trackStates && window.trackStates[i] ? !!window.trackStates[i].muted : false;
+    const solo = window.trackStates && window.trackStates[i] ? !!window.trackStates[i].solo : false;
+    tracks.push({ volume: vol, pan: pan, mixerFader, name, muted, solo });
   }
 
   const serializedClips = [];
@@ -764,6 +767,26 @@ async function loadProjectZip(json, zip) {
       window.trackStates[index].volume = vol;
       window.trackStates[index].pan = pan;
       window.trackStates[index].name = name;
+      // --- RESTORE mute/solo states ---
+      window.trackStates[index].muted = !!t.muted;
+      window.trackStates[index].solo = !!t.solo;
+    }
+
+    // --- UPDATE MUTE/SOLO BUTTON UI ---
+    // (If you have a function to update mute/solo UI, call it here)
+    const muteBtn = document.querySelector(`.track-controls[data-index="${index}"] .mute-btn`);
+    const soloBtn = document.querySelector(`.track-controls[data-index="${index}"] .solo-btn`);
+    if (muteBtn) {
+      muteBtn.style.background = t.muted ? "#4D88FF" : "#222";
+      muteBtn.style.color = t.muted ? "#fff" : "#aaa";
+      if (t.muted) muteBtn.classList.add("muted");
+      else muteBtn.classList.remove("muted");
+    }
+    if (soloBtn) {
+      soloBtn.style.background = t.solo ? "#FFD24D" : "#222";
+      soloBtn.style.color = t.solo ? "#222" : "#aaa";
+      if (t.solo) soloBtn.classList.add("soloed");
+      else soloBtn.classList.remove("soloed");
     }
 
     // Update mixer fader value
@@ -790,6 +813,22 @@ async function loadProjectZip(json, zip) {
       window.renameTrack(index, name);
     }
   });
+
+  // --- ADD: After restoring all trackStates, update mute/solo logic globally ---
+  if (typeof window.updateTrackMuteSoloStates === "function") {
+    window.updateTrackMuteSoloStates();
+  } else {
+    // fallback: inline mute/solo logic if function not available
+    const anySolo = window.trackStates && window.trackStates.some(t => t.solo);
+    for (let j = 0; j < 16; j++) {
+      const state = window.trackStates[j];
+      const gain = window.trackGains && window.trackGains[j];
+      let effectiveMute = false;
+      if (anySolo) effectiveMute = !state.solo;
+      if (state.muted) effectiveMute = true;
+      if (gain) gain.gain.value = effectiveMute ? 0 : (state.volume ?? 0.5);
+    }
+  }
 
   // ----------------------------------------------------
   // Restore FX slots (master + tracks) and rebuild routing
