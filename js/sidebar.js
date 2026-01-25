@@ -290,29 +290,45 @@ async function showAudioPreview(loop) {
   // Stop both audio and MIDI previews
   stopAudioPreview({ hidePlayhead: true, clearPending: false });
   stopMidiPreview({ hidePlayhead: true, clearPending: true });
-  
+
   // Hide MIDI preview
   const midiContainer = document.getElementById("midi-preview");
   if (midiContainer) midiContainer.classList.add("hidden");
-  
+
   audioPreviewState.pendingLoopId = loop.id;
   audioPreviewState.currentLoopId = loop.id;
-  
+
   // Show container and update filename
   previewContainer.classList.remove("hidden");
   filenameEl.textContent = loop.displayName;
-  
+
+  // --- Show loading overlay ---
+  const waveformArea = previewContainer.querySelector('.audio-preview-waveform');
+  let loadingOverlay = waveformArea.querySelector('.audio-preview-loading');
+  if (!loadingOverlay) {
+    loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'audio-preview-loading';
+    loadingOverlay.innerHTML = '<div class="spinner"></div> Loading...';
+    waveformArea.appendChild(loadingOverlay);
+  }
+  loadingOverlay.style.display = 'flex';
+
   // Draw waveform
   try {
     const audioBuffer = await loadPreviewBuffer(loop);
-    if (audioPreviewState.pendingLoopId !== loop.id) return;
+    if (audioPreviewState.pendingLoopId !== loop.id) {
+      loadingOverlay.style.display = "none";
+      return;
+    }
 
     audioPreviewState.buffer = audioBuffer;
     drawWaveform(canvas, audioBuffer);
     resetPreviewPlayhead();
 
+    loadingOverlay.style.display = "none";
     await playAudioPreview();
   } catch (error) {
+    loadingOverlay.style.display = "none";
     console.error("Error loading audio for preview:", error);
     filenameEl.textContent = `${loop.displayName} (Error loading)`;
     stopAudioPreview();
@@ -602,6 +618,8 @@ function renderFolder(container, name, content, loops) {
         // Add click handler for audio preview
         item.addEventListener("click", (e) => {
           e.stopPropagation();
+          // Highlight this item, remove highlight from others
+          highlightSidebarItem(item);
           showAudioPreview(loop);
         });
       }
@@ -622,6 +640,8 @@ function renderFolder(container, name, content, loops) {
         // Add click handler for MIDI preview
         item.addEventListener("click", (e) => {
           e.stopPropagation();
+          // Highlight this item, remove highlight from others
+          highlightSidebarItem(item);
           showMidiPreview(loop);
         });
       }
@@ -640,6 +660,16 @@ function renderFolder(container, name, content, loops) {
       renderFolder(body, subName, content[subName], loops);
     });
   }
+}
+
+// Helper to highlight the selected sidebar item
+function highlightSidebarItem(selectedEl) {
+  // Remove 'selected' from all .loop-item elements
+  document.querySelectorAll("#sidebar-loops .loop-item.selected").forEach(el => {
+    el.classList.remove("selected");
+  });
+  // Add 'selected' to the clicked element
+  if (selectedEl) selectedEl.classList.add("selected");
 }
 
 
@@ -689,6 +719,7 @@ window.populateSidebar = function() {
   // Add click handler for empty MIDI preview (shows empty piano roll)
   emptyMidiItem.addEventListener("click", (e) => {
     e.stopPropagation();
+    highlightSidebarItem(emptyMidiItem);
     showEmptyMidiPreview();
   });
 
@@ -858,6 +889,10 @@ window.addEventListener("DOMContentLoaded", () => {
         filterSidebarItems("");
         searchClearBtn.style.display = "none";
         searchInput.focus();
+        // Remove highlight from all sidebar items
+        document.querySelectorAll("#sidebar-loops .loop-item.selected").forEach(el => {
+          el.classList.remove("selected");
+        });
       }
     });
   }
