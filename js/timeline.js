@@ -595,7 +595,11 @@ window.initTimeline = function () {
       const clickedOnClip = e.target.closest('.clip');
       if (clickedOnClip) return;
       // Check if a clip already exists at this bar/track
-      const overlap = window.clips.some(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
+      const overlap = window.clips.some(c =>
+        c.trackIndex === trackIndex &&
+        c.startBar < startBar + selected.bars &&
+        (c.startBar + c.bars) > startBar
+      );
       if (overlap) return;
       // Prevent event from bubbling to prevent any drag handlers
       e.preventDefault();
