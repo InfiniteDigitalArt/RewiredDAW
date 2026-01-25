@@ -574,12 +574,19 @@ function renderFolder(container, name, content, loops) {
       const item = document.createElement("div");
       item.className = "loop-item";
       item.title = loop.displayName || loop.id;
-
       item.draggable = true;
+
+      // Helper: is this a one-shot? (by folder or filename)
+      const parentName = name.toLowerCase();
+      const isOneShot = (
+        ["kicks", "claps", "snare", "snare builds", "percussion", "leads", "bass", "fx", "samples"].some(cat => parentName.includes(cat)) ||
+        /kick|clap|snare|perc|lead|bass|fx|one[-_]?shot/i.test(loop.displayName)
+      );
 
       if (loop.type === "audio") {
         item.classList.add("audio-loop");
-        item.textContent = `${loop.displayName} (${loop.bpm} bpm)`;
+        // Only show the displayName, never append bpm/tempo
+        item.textContent = loop.displayName;
 
         item.addEventListener("dragstart", () => {
           window.draggedLoop = {
@@ -587,7 +594,8 @@ function renderFolder(container, name, content, loops) {
             id: loop.id,
             url: loop.url,
             bpm: loop.bpm,
-            bars: loop.bars
+            bars: loop.bars,
+            displayName: loop.displayName || loop.id || "SidebarAudio.wav"
           };
         });
 

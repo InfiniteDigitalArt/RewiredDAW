@@ -27,6 +27,7 @@ let deletedClipIds = new Set();
 // Paint mode state
 let isPainting = false;
 let paintedBars = new Set();
+let paintingTrackIndex = -1;
 
 // Marquee selection state
 let isSelecting = false;
@@ -183,8 +184,8 @@ window.initTimeline = function () {
 
   // Ctrl key detection for temporary timeline select mode
   window.addEventListener('keydown', function(e) {
-    // Ctrl key temporarily switches to select tool
-    if ((e.key === 'Control' || e.ctrlKey) && !isTimelineCtrlHeld && window.timelineCurrentTool !== 'select') {
+    // Ctrl key temporarily switches to select tool (but not when mixer is open)
+    if ((e.key === 'Control' || e.ctrlKey) && !isTimelineCtrlHeld && window.timelineCurrentTool !== 'select' && !window.mixer?.isOpen) {
       isTimelineCtrlHeld = true;
       timelineToolBeforeCtrl = window.timelineCurrentTool;
       window.timelineCurrentTool = 'select';
@@ -198,7 +199,7 @@ window.initTimeline = function () {
   });
 
   window.addEventListener('keyup', function(e) {
-    // Release Ctrl key switches back to previous tool
+    // Release Ctrl key switches back to previous tool (only if we had switched to select)
     if ((e.key === 'Control' || !e.ctrlKey) && isTimelineCtrlHeld && timelineToolBeforeCtrl) {
       isTimelineCtrlHeld = false;
       window.timelineCurrentTool = timelineToolBeforeCtrl;
@@ -215,28 +216,62 @@ window.initTimeline = function () {
 
   // Store references for later updates (e.g., VU meters)
   window.trackControls = [];
-  // ⭐ Store per-track state for volume/pan
+  // ⭐ Store per-track state for volume/pan/name/mute/solo
   window.trackStates = Array.from({ length: 16 }, (_, i) => ({
-    volume: 0.8,
-    pan: 0.5
+    volume: 0.5,
+    pan: 0.5,
+    name: `Track ${i + 1}`,
+    muted: false,
+    solo: false // <-- add solo state
   }));
 
   // If loading a project, use its track states
   if (window.loadedProject && Array.isArray(window.loadedProject.tracks)) {
-    window.trackStates = window.loadedProject.tracks.map(t => ({
+    window.trackStates = window.loadedProject.tracks.map((t, i) => ({
       volume: Math.max(0, Math.min(1, Number(t.volume))),
-      pan: Math.max(0, Math.min(1, Number(t.pan)))
+      pan: Math.max(0, Math.min(1, Number(t.pan))),
+      name: t.name || `Track ${i + 1}`,
+      muted: !!t.muted,
+      solo: !!t.solo // ensure boolean
     }));
     // Pad to 16 tracks if needed
     while (window.trackStates.length < 16) {
-      window.trackStates.push({ volume: 0.8, pan: 0.5 });
+      const idx = window.trackStates.length;
+      window.trackStates.push({ volume: 0.5, pan: 0.5, name: `Track ${idx + 1}`, muted: false, solo: false });
     }
   } else {
-    window.trackStates = Array.from({ length: 16 }, () => ({
-      volume: 0.8,
-      pan: 0.5
+    window.trackStates = Array.from({ length: 16 }, (_, i) => ({
+      volume: 0.5,
+      pan: 0.5,
+      name: `Track ${i + 1}`,
+      muted: false,
+      solo: false
     }));
   }
+
+  // Global function to rename a track and sync both timeline and mixer
+  window.renameTrack = function(trackIndex, newName) {
+    if (trackIndex < 0 || trackIndex >= 16) return;
+    
+    // Update trackStates
+    if (window.trackStates[trackIndex]) {
+      window.trackStates[trackIndex].name = newName;
+    }
+    
+    // Update timeline label (controls column)
+    const timelineLabel = document.querySelector(`.track-controls[data-index="${trackIndex}"] .track-label`);
+    if (timelineLabel) {
+      timelineLabel.textContent = newName;
+    }
+    
+    // Update mixer label
+    if (window.mixer && window.mixer.tracks && window.mixer.tracks[trackIndex]) {
+      const mixerLabel = window.mixer.tracks[trackIndex].querySelector('.mixer-track-label');
+      if (mixerLabel) {
+        mixerLabel.textContent = newName;
+      }
+    }
+  };
 
   for (let i = 0; i < 16; i++) {
     const track = document.createElement("div");
@@ -259,16 +294,161 @@ window.initTimeline = function () {
 
     const label = document.createElement("div");
     label.className = "track-label";
-    label.textContent = "Track " + (i + 1);
+    label.textContent = window.trackStates[i]?.name || ("Track " + (i + 1));
     label.style.color = color;
+    label.style.cursor = "pointer";
+    label.title = "Click to rename";
+    
+    // Add click handler for renaming
+    label.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentName = label.textContent;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = currentName;
+      input.style.fontSize = 'inherit';
+      input.style.fontWeight = 'inherit';
+      input.style.color = color;
+      input.style.background = 'var(--bg-panel)';
+      input.style.border = '1px solid var(--accent-color)';
+      input.style.padding = '2px 4px';
+      input.style.borderRadius = '3px';
+      input.style.textAlign = 'center';
+      input.style.width = '100%';
+      input.style.boxSizing = 'border-box';
+      
+      label.textContent = '';
+      label.appendChild(input);
+      input.focus();
+      input.select();
+      
+      const finishRename = () => {
+        const newName = input.value.trim() || currentName;
+        input.removeEventListener('blur', finishRename);
+        input.removeEventListener('keydown', handleKeydown);
+        window.renameTrack(i, newName);
+      };
+      
+      const handleKeydown = (e) => {
+         if (e.key === 'Enter') {
+           e.preventDefault();
+           finishRename();
+         }
+        if (e.key === 'Escape') {
+          input.removeEventListener('blur', finishRename);
+          input.removeEventListener('keydown', handleKeydown);
+          label.textContent = currentName;
+        }
+      };
+      
+      input.addEventListener('blur', finishRename);
+      input.addEventListener('keydown', handleKeydown);
+    });
 
     // Horizontal knob row
     const knobRow = document.createElement("div");
     knobRow.className = "knob-row";
 
     // Use trackStates for initial knob values
-    const initialVol = window.trackStates[i]?.volume ?? 0.8;
+    const initialVol = window.trackStates[i]?.volume ?? 0.5;
     const initialPan = window.trackStates[i]?.pan ?? 0.5;
+    const initialMute = !!window.trackStates[i]?.muted;
+    const initialSolo = !!window.trackStates[i]?.solo;
+
+    // --- SOLO BUTTON ---
+    const soloWrap = document.createElement("div");
+    soloWrap.className = "solo-wrap";
+    soloWrap.style.display = "flex";
+    soloWrap.style.alignItems = "center";
+    soloWrap.style.marginRight = "0px";
+    const soloBtn = document.createElement("button");
+    soloBtn.className = "solo-btn";
+    soloBtn.title = "Solo Track";
+    soloBtn.style.width = "22px";
+    soloBtn.style.height = "22px";
+    soloBtn.style.border = "none";
+    soloBtn.style.borderRadius = "50%";
+    soloBtn.style.background = initialSolo ? "#FFD24D" : "#222";
+    soloBtn.style.color = initialSolo ? "#222" : "#aaa";
+    soloBtn.style.fontWeight = "bold";
+    soloBtn.style.fontSize = "13px";
+    soloBtn.style.cursor = "pointer";
+    soloBtn.style.margin = "0 0px 0 0";
+    soloBtn.textContent = "S";
+    if (initialSolo) soloBtn.classList.add("soloed");
+
+    // --- MUTE BUTTON ---
+    const muteWrap = document.createElement("div");
+    muteWrap.className = "mute-wrap";
+    muteWrap.style.display = "flex";
+    muteWrap.style.alignItems = "center";
+    muteWrap.style.marginRight = "6px";
+    const muteBtn = document.createElement("button");
+    muteBtn.className = "mute-btn";
+    muteBtn.title = "Mute Track";
+    muteBtn.style.width = "22px";
+    muteBtn.style.height = "22px";
+    muteBtn.style.border = "none";
+    muteBtn.style.borderRadius = "50%";
+    muteBtn.style.background = initialMute ? "#4D88FF" : "#222";
+    muteBtn.style.color = initialMute ? "#fff" : "#aaa";
+    muteBtn.style.fontWeight = "bold";
+    muteBtn.style.fontSize = "13px";
+    muteBtn.style.cursor = "pointer";
+    muteBtn.style.margin = "0 0px 0 0";
+    muteBtn.textContent = "M";
+    if (initialMute) muteBtn.classList.add("muted");
+
+    // --- SOLO/MUTE LOGIC ---
+    function updateTrackMuteSoloStates() {
+      // Check if any track is soloed
+      const anySolo = window.trackStates.some(t => t.solo);
+      for (let j = 0; j < 16; j++) {
+        const state = window.trackStates[j];
+        const gain = window.trackGains && window.trackGains[j];
+        const muteBtnEl = document.querySelector(`.track-controls[data-index="${j}"] .mute-btn`);
+        const soloBtnEl = document.querySelector(`.track-controls[data-index="${j}"] .solo-btn`);
+        // Determine if this track should be muted
+        let effectiveMute = false;
+        if (anySolo) {
+          effectiveMute = !state.solo;
+        }
+        if (state.muted) effectiveMute = true;
+        // Update gain
+        if (gain) gain.gain.value = effectiveMute ? 0 : (state.volume ?? 0.5);
+        // Update mute button UI
+        if (muteBtnEl) {
+          muteBtnEl.style.background = state.muted ? "#4D88FF" : "#222";
+          muteBtnEl.style.color = state.muted ? "#fff" : "#aaa";
+          if (state.muted) muteBtnEl.classList.add("muted");
+          else muteBtnEl.classList.remove("muted");
+          // Dim if muted by solo
+          muteBtnEl.style.opacity = (!state.muted && anySolo && !state.solo) ? "0.5" : "";
+        }
+        // Update solo button UI
+        if (soloBtnEl) {
+          soloBtnEl.style.background = state.solo ? "#FFD24D" : "#222";
+          soloBtnEl.style.color = state.solo ? "#222" : "#aaa";
+          if (state.solo) soloBtnEl.classList.add("soloed");
+          else soloBtnEl.classList.remove("soloed");
+        }
+      }
+    }
+
+    soloBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      window.trackStates[i].solo = !window.trackStates[i].solo;
+      updateTrackMuteSoloStates();
+    });
+
+    muteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      window.trackStates[i].muted = !window.trackStates[i].muted;
+      updateTrackMuteSoloStates();
+    });
+
+    soloWrap.appendChild(soloBtn);
+    muteWrap.appendChild(muteBtn);
 
     // Volume knob + label
     const volWrap = document.createElement("div");
@@ -298,9 +478,9 @@ window.initTimeline = function () {
     panWrap.appendChild(pan);
     panWrap.appendChild(panLabel);
 
-    // Set audio engine values immediately
+    // Set audio engine values immediately (handled by updateTrackMuteSoloStates)
     if (window.trackGains && window.trackGains[i]) {
-      window.trackGains[i].gain.value = initialVol;
+      window.trackGains[i].gain.value = initialMute ? 0 : initialVol;
     }
     if (window.trackPanners && window.trackPanners[i]) {
       window.trackPanners[i].pan.value = (initialPan - 0.5) * 2;
@@ -310,25 +490,24 @@ window.initTimeline = function () {
     function knobHandler(knob, type, idx) {
       knob.addEventListener("mousedown", function (e) {
         e.preventDefault();
-        // --- FIX: Always read the latest value from dataset on mousedown ---
-        let lastVal = parseFloat(knob.dataset.value);
         const rect = knob.getBoundingClientRect();
         const centerY = rect.top + rect.height / 2;
-
         function move(ev) {
-          const dy = centerY - ev.clientY;
-          let v = lastVal + dy * 0.0007;
+          let delta = (centerY - ev.clientY) / 60;
+          let v = Number(knob.dataset.value) + delta;
           v = Math.max(0, Math.min(1, v));
           knob.dataset.value = v;
           knob.style.setProperty("--val", v);
           window.trackStates[idx][type] = v;
-          // --- Update audio engine in real time ---
           if (type === "volume" && window.trackGains && window.trackGains[idx]) {
-            window.trackGains[idx].gain.value = v;
+            // Only update gain if not muted or solo-muted
+            const anySolo = window.trackStates.some(t => t.solo);
+            const effectiveMute = (anySolo && !window.trackStates[idx].solo) || window.trackStates[idx].muted;
+            if (!effectiveMute) {
+              window.trackGains[idx].gain.value = v;
+            }
           }
-          if (type === "pan" && window.trackPanners && window.trackPanners[idx]) {
-            window.trackPanners[idx].pan.value = (v - 0.5) * 2;
-          }
+          // Do NOT update mixer fader or mixerFaderValues
         }
         function up() {
           document.removeEventListener("mousemove", move);
@@ -341,16 +520,12 @@ window.initTimeline = function () {
     knobHandler(vol, "volume", i);
     knobHandler(pan, "pan", i);
 
-    // FX button (to the right of pan)
-    const fxBtn = document.createElement("button");
-    fxBtn.className = "fx-btn";
-    fxBtn.textContent = "FX";
-    fxBtn.title = "Track FX (coming soon)";
-
-    // Append all controls to knobRow
+    // --- INSERT SOLO/MUTE BUTTONS BEFORE VOLUME KNOB ---
+    knobRow.appendChild(soloWrap);
+    knobRow.appendChild(muteWrap);
     knobRow.appendChild(volWrap);
     knobRow.appendChild(panWrap);
-    knobRow.appendChild(fxBtn);
+    
 
     controls.appendChild(label);
     controls.appendChild(knobRow);
@@ -397,36 +572,97 @@ window.initTimeline = function () {
     // Left-click to paint/duplicate selected clip
     drop.addEventListener("mousedown", function(e) {
       if (window.timelineCurrentTool !== 'pencil') return;
-      // Only respond to left-click
+      // --- Right mouse button: Start right-click drag delete mode ---
+      if (e.button === 2) {
+        e.preventDefault();
+        e.stopPropagation();
+        isDeletingClipsWithRightClick = true;
+        deletedClipIds.clear();
+        return;
+      }
+      // Only respond to left-click for painting
       if (e.button !== 0) return;
       // Prevent if dragging or selecting
       if (window.draggedClipId || window.draggedLoop) return;
-      
       const selected = window.activeClip;
       if (!selected) return;
-
       // Find bar and track index
       const rect = drop.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
       const trackIndex = i;
-
       // Check if clicking on an existing clip - if so, let the clip handle it
       const clickedOnClip = e.target.closest('.clip');
       if (clickedOnClip) return;
-
       // Check if a clip already exists at this bar/track
       const overlap = window.clips.some(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
       if (overlap) return;
-
       // Prevent event from bubbling to prevent any drag handlers
       e.preventDefault();
       e.stopPropagation();
-
       // Start paint mode
       isPainting = true;
+      paintingTrackIndex = trackIndex;
       paintedBars.clear();
-
+      // Stop painting on mouse up
+      const stopPainting = () => {
+        isPainting = false;
+        paintingTrackIndex = -1;
+        paintedBars.clear();
+        document.removeEventListener('mousemove', globalPaintMove);
+        document.removeEventListener('mouseup', stopPainting);
+      };
+      // Global paint handler that tracks X position across all tracks
+      const globalPaintMove = (ev) => {
+        if (window.timelineCurrentTool !== 'pencil') return;
+        if (!isPainting) return;
+        const selected = window.activeClip;
+        if (!selected) return;
+        // Get the timeline scroll area to calculate correct X position
+        const timelineScroll = document.getElementById("timeline-scroll");
+        if (!timelineScroll) return;
+        const rect = timelineScroll.getBoundingClientRect();
+        const x = ev.clientX - rect.left + timelineScroll.scrollLeft;
+        const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
+        // Skip if already painted at this bar or if clip exists on the painting track
+        if (paintedBars.has(startBar)) return;
+        const overlap = window.clips.some(c => c.trackIndex === paintingTrackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
+        if (overlap) return;
+        // Paint new clip on the original track
+        const newClip = {
+          ...selected,
+          id: crypto.randomUUID(),
+          trackIndex: paintingTrackIndex,
+          startBar
+        };
+        // Share references for MIDI clips (NOT deep copy)
+        if (selected.type === "midi") {
+          newClip.notes = selected.notes;
+          newClip.sampleBuffer = selected.sampleBuffer;
+          newClip.sampleName = selected.sampleName;
+          if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
+        }
+        if (selected.type === "audio") {
+          if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
+        }
+        window.clips.push(newClip);
+        resolveClipCollisions(newClip);
+        paintedBars.add(startBar);
+        window.checkAndExpandTimeline();
+        // Re-render only the painting track
+        const paintingTrack = document.querySelector(`.track[data-index="${paintingTrackIndex}"]`);
+        if (paintingTrack) {
+          const paintingDrop = paintingTrack.querySelector(".track-drop-area");
+          if (paintingDrop) {
+            paintingDrop.innerHTML = "";
+            window.clips
+              .filter(c => c.trackIndex === paintingTrackIndex)
+              .forEach(c => window.renderClip(c, paintingDrop));
+          }
+        }
+      };
+      document.addEventListener('mousemove', globalPaintMove);
+      document.addEventListener('mouseup', stopPainting);
       // Paint first clip
       const newClip = {
         ...selected,
@@ -434,7 +670,6 @@ window.initTimeline = function () {
         trackIndex,
         startBar
       };
-
       // Share references for MIDI clips (NOT deep copy)
       if (selected.type === "midi") {
         newClip.notes = selected.notes; // Share the same notes array
@@ -445,68 +680,58 @@ window.initTimeline = function () {
       if (selected.type === "audio") {
         if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
       }
-
       window.clips.push(newClip);
       resolveClipCollisions(newClip);
       paintedBars.add(startBar);
-
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
       window.checkAndExpandTimeline();
-
       drop.innerHTML = "";
       window.clips
         .filter(c => c.trackIndex === trackIndex)
         .forEach(c => window.renderClip(c, drop));
     }, true); // Use capture phase to intercept before clip handlers
-
-    // Paint on mouse move
-    drop.addEventListener("mousemove", function(e) {
-      if (window.timelineCurrentTool !== 'pencil') return;
-      if (!isPainting) return;
-
-      const selected = window.activeClip;
-      if (!selected) return;
-
-      const rect = drop.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
-      const trackIndex = i;
-
-      // Skip if already painted at this bar or if clip exists
-      if (paintedBars.has(startBar)) return;
-      const overlap = window.clips.some(c => c.trackIndex === trackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
-      if (overlap) return;
-
-      // Paint new clip
-      const newClip = {
-        ...selected,
-        id: crypto.randomUUID(),
-        trackIndex,
-        startBar
-      };
-
-      // Share references for MIDI clips (NOT deep copy)
-      if (selected.type === "midi") {
-        newClip.notes = selected.notes; // Share the same notes array
-        newClip.sampleBuffer = selected.sampleBuffer;
-        newClip.sampleName = selected.sampleName;
-        if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
+// --- GLOBAL RIGHT-CLICK DRAG DELETE LOGIC ---
+// Listen for mousemove on the timeline-scroll area to delete clips as you drag over them
+document.addEventListener("mousemove", function(e) {
+  if (!isDeletingClipsWithRightClick) return;
+  // Only act if right mouse is held
+  if (e.buttons !== undefined && (e.buttons & 2) === 0) return;
+  // Find the element under the mouse
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  if (!el) return;
+  // If it's a clip, delete it if not already deleted
+  const clipEl = el.closest && el.closest('.clip');
+  if (clipEl) {
+    const clipId = clipEl.dataset.clipId;
+    if (!deletedClipIds.has(clipId)) {
+      // Find the clip object
+      const clip = window.clips.find(c => c.id === clipId);
+      if (clip) {
+        const trackIndex = clip.trackIndex;
+        window.clips = window.clips.filter(c => c.id !== clipId);
+        deletedClipIds.add(clipId);
+        // Re-render the track
+        const track = document.querySelector(`.track[data-index="${trackIndex}"]`);
+        if (track) {
+          const dropArea = track.querySelector('.track-drop-area');
+          if (dropArea) {
+            dropArea.innerHTML = "";
+            window.clips
+              .filter(c => c.trackIndex === trackIndex)
+              .forEach(c => window.renderClip(c, dropArea));
+          }
+        }
+        if (window.activeClip && window.activeClip.id === clipId) {
+          document.getElementById("piano-roll-container").classList.add("hidden");
+          window.activeClip = null;
+        }
+        const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
+        window.refreshClipDropdown(uniqueClips);
       }
-      if (selected.type === "audio") {
-        if (selected.reverbGain) newClip.reverbGain = selected.reverbGain;
-      }
-
-      window.clips.push(newClip);
-      resolveClipCollisions(newClip);
-      paintedBars.add(startBar);
-      window.checkAndExpandTimeline();
-
-      drop.innerHTML = "";
-      window.clips
-        .filter(c => c.trackIndex === trackIndex)
-        .forEach(c => window.renderClip(c, drop));
-    });
+    }
+  }
+});
 
     let playhead = document.getElementById("playhead");
     if (!playhead) {
@@ -928,9 +1153,9 @@ if (loop.url) {
           });
 
           if (window.activeClip) {
-            const realActive = window.clips.find(c => c.id === window.activeClip.id);
-            if (realActive && realActive.type === "audio" && replacedIds.includes(realActive.id)) {
-              window.activeClip = realActive;
+            const realActiveClip = window.clips.find(c => c.id === window.activeClip.id);
+            if (realActiveClip && realActiveClip.type === "audio" && replacedIds.includes(realActiveClip.id)) {
+              window.activeClip = realActiveClip;
             } else if (window.activeClip.type === "audio" && (window.activeClip.audioBuffer === targetBuffer || window.activeClip.loopId === targetLoopId || window.activeClip.fileName === targetFileName)) {
               window.activeClip.audioBuffer = newBuffer;
               window.activeClip.loopId = loop.id;
@@ -1570,7 +1795,8 @@ handle.addEventListener("mousedown", (e) => {
     const deltaPx = ev.clientX - startX;
     const deltaBarsRaw = deltaPx / window.PIXELS_PER_BAR;
     const snappedDeltaBars = window.snapDeltaToGrid(deltaBarsRaw);
-    let newBars = Math.max(0.25, startBars + snappedDeltaBars);
+      let minSnap = window.getSnapValue();
+      let newBars = Math.max(minSnap, startBars + snappedDeltaBars);
     clip.bars = newBars;
     const newWidth = newBars * window.PIXELS_PER_BAR;
     el.style.width = newWidth + "px";
@@ -1623,11 +1849,6 @@ handle.addEventListener("mousedown", (e) => {
     preview.remove();
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
-    resolveClipCollisions(clip);
-    dropArea.innerHTML = "";
-    window.clips
-      .filter(c => c.trackIndex === clip.trackIndex)
-      .forEach(c => window.renderClip(c, dropArea));
   }
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
@@ -1721,61 +1942,6 @@ if (clip.type === "audio" && bufferToDraw) {
   el.style.overflow = "hidden";
 
   el.appendChild(waveform);
-  
-  // --- FADE OVERLAYS ---
-  if ((clip.fadeIn > 0 || clip.fadeOut > 0)) {
-    const fadeCanvas = document.createElement("canvas");
-    fadeCanvas.className = "fade-overlay";
-    fadeCanvas.width = clipWidth;
-    fadeCanvas.height = 40;
-    fadeCanvas.style.position = "absolute";
-    fadeCanvas.style.bottom = "0";
-    fadeCanvas.style.left = "0";
-    fadeCanvas.style.pointerEvents = "none";
-    
-    const ctx = fadeCanvas.getContext("2d");
-    const gradient = ctx.createLinearGradient(0, 0, clipWidth, 0);
-    
-    const fadeInPx = (clip.fadeIn / clip.bars) * clipWidth;
-    const fadeOutPx = (clip.fadeOut / clip.bars) * clipWidth;
-    
-    // Fade in gradient
-    if (clip.fadeIn > 0) {
-      gradient.addColorStop(0, "rgba(0,0,0,0.5)");
-      gradient.addColorStop(fadeInPx / clipWidth, "rgba(0,0,0,0)");
-    }
-    
-    // Fade out gradient
-    if (clip.fadeOut > 0) {
-      const fadeOutStart = 1 - (fadeOutPx / clipWidth);
-      gradient.addColorStop(fadeOutStart, "rgba(0,0,0,0)");
-      gradient.addColorStop(1, "rgba(0,0,0,0.5)");
-    }
-    
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, clipWidth, 40);
-    
-    // Draw fade curves
-    ctx.strokeStyle = "rgba(255,255,255,0.6)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    
-    // Fade in curve
-    if (clip.fadeIn > 0) {
-      ctx.moveTo(0, 40);
-      ctx.lineTo(fadeInPx, 0);
-    }
-    
-    // Fade out curve
-    if (clip.fadeOut > 0) {
-      ctx.moveTo(clipWidth - fadeOutPx, 0);
-      ctx.lineTo(clipWidth, 40);
-    }
-    
-    ctx.stroke();
-    
-    el.appendChild(fadeCanvas);
-  }
 }
 
 
@@ -1842,7 +2008,61 @@ if (clip.type === "midi") {
   });
 }
 
-
+// --- FADE OVERLAYS (for both audio and MIDI clips) ---
+if ((clip.fadeIn > 0 || clip.fadeOut > 0)) {
+  const clipWidth = clip.bars * window.PIXELS_PER_BAR;
+  const fadeCanvas = document.createElement("canvas");
+  fadeCanvas.className = "fade-overlay";
+  fadeCanvas.width = clipWidth;
+  fadeCanvas.height = 40;
+  fadeCanvas.style.position = "absolute";
+  fadeCanvas.style.bottom = "0";
+  fadeCanvas.style.left = "0";
+  fadeCanvas.style.pointerEvents = "none";
+  
+  const ctx = fadeCanvas.getContext("2d");
+  const gradient = ctx.createLinearGradient(0, 0, clipWidth, 0);
+  
+  const fadeInPx = (clip.fadeIn / clip.bars) * clipWidth;
+  const fadeOutPx = (clip.fadeOut / clip.bars) * clipWidth;
+  
+  // Fade in gradient
+  if (clip.fadeIn > 0) {
+    gradient.addColorStop(0, "rgba(0,0,0,0.5)");
+    gradient.addColorStop(fadeInPx / clipWidth, "rgba(0,0,0,0)");
+  }
+  
+  // Fade out gradient
+  if (clip.fadeOut > 0) {
+    const fadeOutStart = 1 - (fadeOutPx / clipWidth);
+    gradient.addColorStop(fadeOutStart, "rgba(0,0,0,0)");
+    gradient.addColorStop(1, "rgba(0,0,0,0.5)");
+  }
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, clipWidth, 40);
+  
+  // Draw fade curves
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  
+  // Fade in curve
+  if (clip.fadeIn > 0) {
+    ctx.moveTo(0, 40);
+    ctx.lineTo(fadeInPx, 0);
+  }
+  
+  // Fade out curve
+  if (clip.fadeOut > 0) {
+    ctx.moveTo(clipWidth - fadeOutPx, 0);
+    ctx.lineTo(clipWidth, 40);
+  }
+  
+  ctx.stroke();
+  
+  el.appendChild(fadeCanvas);
+}
 
 
 
@@ -2248,14 +2468,13 @@ el.addEventListener("touchend", () => {
     clip.fadeOut = Math.min(clip.fadeOut || 0, maxFadeOut);
   }
 
-  if (clip.type === "audio") {
-    if (clip.fadeIn === undefined) clip.fadeIn = 0;
-    if (clip.fadeOut === undefined) clip.fadeOut = 0;
-    clampFadeLengths(clip);
-  }
+  // Initialize fade properties for both audio and MIDI clips
+  if (clip.fadeIn === undefined) clip.fadeIn = 0;
+  if (clip.fadeOut === undefined) clip.fadeOut = 0;
+  clampFadeLengths(clip);
 
-  // --- FADE HANDLES (only for audio clips in fade mode) ---
-  if (clip.type === "audio" && window.timelineCurrentTool === 'fade') {
+  // --- FADE HANDLES (for both audio and MIDI clips in fade mode) ---
+  if (window.timelineCurrentTool === 'fade') {
     // Left fade handle
     const fadeInHandle = document.createElement("div");
     fadeInHandle.className = "fade-handle fade-in-handle";
@@ -2527,13 +2746,21 @@ document.addEventListener("mousedown", (e) => {
     v = Math.max(0, Math.min(1, v));
     knob.dataset.value = v;
     knob.style.setProperty("--val", v);
+    window.trackStates[idx][type] = v;
+    if (type === "volume" && window.trackGains && window.trackGains[idx]) {
+      // Only update gain if not muted or solo-muted
+      const anySolo = window.trackStates.some(t => t.solo);
+      const effectiveMute = (anySolo && !window.trackStates[idx].solo) || window.trackStates[idx].muted;
+      if (!effectiveMute) {
+        window.trackGains[idx].gain.value = v;
+      }
+    }
+    // Do NOT update mixer fader or mixerFaderValues
   }
-
   function up() {
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
   }
-
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
 });
@@ -2627,8 +2854,13 @@ document.addEventListener("DOMContentLoaded", () => {
   playBtn.addEventListener("click", () => {
     isPlaying = !isPlaying;
     setPlayheadVisible(isPlaying);
-    // Optionally update button text/icon
-    playBtn.textContent = isPlaying ? "Stop" : "Play";
+    // Toggle icon visibility (no text)
+    const playIcon = playBtn.querySelector('.play-icon');
+    const stopIcon = playBtn.querySelector('.stop-icon');
+    if (playIcon && stopIcon) {
+      playIcon.style.display = isPlaying ? 'none' : '';
+      stopIcon.style.display = isPlaying ? '' : 'none';
+    }
     // you may want to call your actual play/stop logic here as well
     // e.g. window.playAll() / window.stopAll()
   });
@@ -2851,5 +3083,4 @@ document.addEventListener("DOMContentLoaded", () => {
   attachMarqueeSelection();
   // ...existing code...
 });
-
 

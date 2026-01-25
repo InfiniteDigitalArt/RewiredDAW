@@ -66,7 +66,7 @@ window.BasicSawSynth = class BasicSawSynth {
       // Make sure convolver output goes to a per-clip reverbGain that then connects to the track gain.
       if (!clip.reverbGain) {
         clip.reverbGain = this.audioCtx.createGain();
-        clip.reverbGain.gain.value = (typeof clip.reverbWetLevel === "number") ? clip.reverbWetLevel : 0.9;
+        clip.reverbGain.gain.value = 0; // Reverb disabled
       }
 
       // Connect convolver -> reverbGain (if not already connected)

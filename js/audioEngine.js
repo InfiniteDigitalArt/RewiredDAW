@@ -38,42 +38,215 @@ window.transportStartTime = 0;
    MASTER OUTPUT (must be created BEFORE tracks)
 ------------------------------------------------------- */
 window.masterGain = audioContext.createGain();
-window.masterGain.gain.value = 0.8;
+window.masterGain.gain.value = 1.0;
 
-window.masterAnalyser = audioContext.createAnalyser();
-window.masterAnalyser.fftSize = 256;
+// Create stereo splitter for master
+const masterSplitter = audioContext.createChannelSplitter(2);
+window.masterAnalyserLeft = audioContext.createAnalyser();
+window.masterAnalyserRight = audioContext.createAnalyser();
+window.masterAnalyserLeft.fftSize = 256;
+window.masterAnalyserRight.fftSize = 256;
 
-// Master → analyser → speakers
-window.masterGain.connect(window.masterAnalyser);
-window.masterAnalyser.connect(audioContext.destination);
+// Create merger to combine back to stereo
+const masterMerger = audioContext.createChannelMerger(2);
+
+// Master → splitter → [analysers] → merger → speakers
+window.masterGain.connect(masterSplitter);
+masterSplitter.connect(window.masterAnalyserLeft, 0);
+masterSplitter.connect(window.masterAnalyserRight, 1);
+window.masterAnalyserLeft.connect(masterMerger, 0, 0);
+window.masterAnalyserRight.connect(masterMerger, 0, 1);
+masterMerger.connect(audioContext.destination);
+
+// Keep old masterAnalyser for backwards compatibility
+window.masterAnalyser = window.masterAnalyserLeft;
 
 
 /* -------------------------------------------------------
    TRACK GAIN + ANALYSER NODES
 ------------------------------------------------------- */
+
+
 window.trackGains = [];
+window.trackLowpassFilters = [];
+window.trackStereoWidthNodes = [];
 window.trackPanners = [];
 window.trackAnalysers = [];
+window.trackAnalysersLeft = [];
+window.trackAnalysersRight = [];
+window.trackSplitters = [];
+window.trackFxChains = []; // Array of arrays - each track has an FX chain
+
+// --- Update FX Chain Connections for a Track ---
+window.updateTrackFxChain = function(trackIndex) {
+  const lowpass = window.trackLowpassFilters[trackIndex];
+  const panner = window.trackPanners[trackIndex];
+  const fxChain = window.trackFxChains[trackIndex];
+
+  // Disconnect lowpass from all outputs
+  try { lowpass.disconnect(); } catch(e) {}
+  // Disconnect all FX nodes
+  if (fxChain && fxChain.length) {
+    fxChain.forEach((fx, i) => {
+      try { fx.disconnect && fx.disconnect(); } catch(e) {}
+    });
+  }
+
+  // Reconnect: lowpass -> [fx1 -> fx2 ...] -> panner
+  if (fxChain && fxChain.length) {
+    // Connect lowpass to first FX
+    lowpass.connect(fxChain[0].input || fxChain[0]);
+    // Chain all FX nodes
+    for (let i = 0; i < fxChain.length - 1; i++) {
+      const out = fxChain[i].output || fxChain[i];
+      const nextIn = fxChain[i+1].input || fxChain[i+1];
+      out.connect(nextIn);
+    }
+    // Last FX to panner
+    const lastOut = fxChain[fxChain.length-1].output || fxChain[fxChain.length-1];
+    lastOut.connect(panner);
+  } else {
+    // No FX: connect lowpass directly to panner
+    lowpass.connect(panner);
+  }
+};
+
+
+// --- Stereo Width Node Constructor ---
+
+
+function createStereoWidthNode(ctx, initialWidth = 0.5) {
+  // Mid/Side matrix for width control (corrected)
+  const input = ctx.createGain();
+  const splitter = ctx.createChannelSplitter(2);
+  const merger = ctx.createChannelMerger(2);
+  input.connect(splitter);
+
+  // Mid = (L+R)/2, Side = (L-R)/2
+  const midGainL = ctx.createGain();
+  const midGainR = ctx.createGain();
+  const sideGainL = ctx.createGain();
+  const sideGainR = ctx.createGain();
+
+  splitter.connect(midGainL, 0); // L
+  splitter.connect(midGainR, 1); // R
+  splitter.connect(sideGainL, 0); // L
+  splitter.connect(sideGainR, 1); // R
+
+  // Set up for mid: (L+R)/2, side: (L-R)/2
+  midGainL.gain.value = 0.5;
+  midGainR.gain.value = 0.5;
+  sideGainL.gain.value = 0.5;
+  sideGainR.gain.value = -0.5;
+
+  // Mid and side nodes
+  const midNode = ctx.createGain();
+  const sideNode = ctx.createGain();
+  midGainL.connect(midNode);
+  midGainR.connect(midNode);
+  sideGainL.connect(sideNode);
+  sideGainR.connect(sideNode);
+
+  // Width control: adjust sideNode.gain
+  function setStereoWidth(width) {
+    // width: 0 = mono, 0.5 = normal, 1 = double side
+    // At 0: only mid (mono), at 0.5: normal, at 1: side doubled
+    sideNode.gain.value = width * 2; // 0 = mono, 1 = normal, 2 = double
+  }
+  setStereoWidth(initialWidth);
+
+  // Convert back to L/R:
+  // L = Mid + Side
+  // R = Mid - Side
+  const sumL = ctx.createGain();
+  const sumR = ctx.createGain();
+  midNode.connect(sumL);
+  sideNode.connect(sumL);
+  midNode.connect(sumR);
+  // For R: mid - side, so invert sideNode for R
+  const inverter = ctx.createGain();
+  inverter.gain.value = -1;
+  sideNode.connect(inverter);
+  inverter.connect(sumR);
+
+  sumL.connect(merger, 0, 0); // Left
+  sumR.connect(merger, 0, 1); // Right
+
+  return {
+    input,
+    output: merger,
+    setStereoWidth,
+    get width() { return sideNode.gain.value / 2; },
+    set width(val) { setStereoWidth(val); }
+  };
+}
+
+
 
 for (let i = 0; i < 16; i++) {
   const gain = audioContext.createGain();
-  gain.gain.value = 0.8;
+  gain.gain.value = 1.0;
 
+  // Per-track lowpass filter
+  const lowpass = audioContext.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = (window.mixerLowpassValues && window.mixerLowpassValues[i]) || 20000;
+  lowpass.Q.value = 0.7;
+  window.trackLowpassFilters.push(lowpass);
+
+  // Panner node (now before stereo width)
   const panner = audioContext.createStereoPanner();
   panner.pan.value = 0; // center
+  window.trackPanners.push(panner);
 
-  const analyser = audioContext.createAnalyser();
-  analyser.fftSize = 256;
+  // Stereo width node (now after panner)
+  const stereoWidth = createStereoWidthNode(audioContext, (window.mixerStereoValues && window.mixerStereoValues[i]) ?? 0.5);
+  window.trackStereoWidthNodes.push(stereoWidth);
 
-  // Track → gain → panner → analyser → master
-  gain.connect(panner);
-  panner.connect(analyser);
-  analyser.connect(window.masterGain);
+  // Create stereo splitter and dual analysers
+  const splitter = audioContext.createChannelSplitter(2);
+  const analyserLeft = audioContext.createAnalyser();
+  const analyserRight = audioContext.createAnalyser();
+  analyserLeft.fftSize = 256;
+  analyserRight.fftSize = 256;
+
+  // Create a merger to combine back to stereo for master
+  const merger = audioContext.createChannelMerger(2);
+
+  // Initialize empty FX chain for this track
+  const fxChain = [];
+  window.trackFxChains.push(fxChain);
+
+
+  // Track → gain → lowpass → (FX chain inserted here) → panner → stereoWidth → splitter → [analysers] → merger → master
+  gain.connect(lowpass);
+  // FX chain will be inserted between lowpass and panner at runtime
+  // Initial connection: lowpass to panner (no FX yet)
+  lowpass.connect(panner);
+  panner.connect(stereoWidth.input);
+  stereoWidth.output.connect(splitter);
+  splitter.connect(analyserLeft, 0);
+  splitter.connect(analyserRight, 1);
+  analyserLeft.connect(merger, 0, 0);
+  analyserRight.connect(merger, 0, 1);
+  merger.connect(window.masterGain);
 
   window.trackGains.push(gain);
-  window.trackPanners.push(panner);
-  window.trackAnalysers.push(analyser);
+  window.trackAnalysers.push(analyserLeft); // Keep for backwards compatibility
+  window.trackAnalysersLeft.push(analyserLeft);
+  window.trackAnalysersRight.push(analyserRight);
+  window.trackSplitters.push(splitter);
 }
+
+// Allow mixer to update lowpass filter in realtime
+window.setTrackLowpass = function(trackIndex, freq) {
+  if (window.trackLowpassFilters && window.trackLowpassFilters[trackIndex]) {
+    window.trackLowpassFilters[trackIndex].frequency.value = freq;
+  }
+  if (window.mixerLowpassValues) {
+    window.mixerLowpassValues[trackIndex] = freq;
+  }
+};
 
 
 /* -------------------------------------------------------
@@ -374,7 +547,7 @@ function applyFadeEnvelope(gainNode, clip, startTime, duration) {
   }
   
   // Fade out
-  if (fadeOutSeconds > 0 && duration > fadeOutSeconds) {
+  if (fadeOutSeconds > 0 && duration >= fadeOutSeconds) {
     const fadeOutStart = startTime + duration - fadeOutSeconds;
     gainNode.gain.setValueAtTime(1, fadeOutStart);
     gainNode.gain.linearRampToValueAtTime(0, fadeOutStart + fadeOutSeconds);
