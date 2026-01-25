@@ -165,6 +165,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const transportLabel = document.getElementById("transportLabel");
 
   playToggleBtn.addEventListener("click", async () => {
+    // Stop sidebar preview if playing
+    if (typeof window.stopAudioPreview === "function") window.stopAudioPreview({ hidePlayhead: true, clearPending: true });
+    if (typeof window.stopMidiPreview === "function") window.stopMidiPreview({ hidePlayhead: true, clearPending: true });
     if (!window.isPlaying) {
       // Stop piano roll preview when starting main playback
       if (window.stopPianoRollPreview) {
