@@ -693,6 +693,7 @@ window.initTimeline = function () {
       paintedBars.add(startBar);
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
+      window.refreshGhostDropdown();
       window.checkAndExpandTimeline();
       drop.innerHTML = "";
       window.clips
@@ -736,6 +737,7 @@ document.addEventListener("mousemove", function(e) {
         }
         const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
         window.refreshClipDropdown(uniqueClips);
+        window.refreshGhostDropdown();
       }
     }
   }
@@ -866,6 +868,7 @@ if (window.activeClip) {
   }
   const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
   window.refreshClipDropdown(uniqueClips);
+  window.refreshGhostDropdown();
   drop.innerHTML = "";
   window.clips
     .filter(c => c.trackIndex === trackIndex)
@@ -968,6 +971,7 @@ if (window.activeClip) {
     
     const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
     window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
+    window.refreshGhostDropdown();
 
     drop.innerHTML = "";
     window.clips
@@ -1043,6 +1047,7 @@ if (loop.notes) {
   }
   const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
   window.refreshClipDropdown(uniqueClips);
+  window.refreshGhostDropdown();
   drop.innerHTML = "";
   window.clips
     .filter(c => c.trackIndex === trackIndex)
@@ -1100,6 +1105,7 @@ if (loop.url) {
 
     const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
     window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
+    window.refreshGhostDropdown();
 
     drop.innerHTML = "";
     window.clips
@@ -1202,6 +1208,7 @@ if (loop.url) {
         
         const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
         window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
+        window.refreshGhostDropdown();
 
         drop.innerHTML = "";
         window.clips
@@ -1241,6 +1248,7 @@ if (window.draggedClipId) {
       window.activeClip = newClip;  // Set as active immediately after duplication
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips
+      window.refreshGhostDropdown();
     } else {
       original.trackIndex = trackIndex;
       original.startBar = startBar;
@@ -1496,6 +1504,7 @@ window.renderClip = function (clip, dropArea) {
       }
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
+      window.refreshGhostDropdown();
     }
   });
 
@@ -1522,6 +1531,7 @@ window.renderClip = function (clip, dropArea) {
       }
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
+      window.refreshGhostDropdown();
       return;
     }
     if (e.button !== 0) return; // Only left mouse for normal operations
@@ -1735,6 +1745,7 @@ window.renderClip = function (clip, dropArea) {
     window.activeClip = clip;
     const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
     window.refreshClipDropdown(uniqueClips);
+    window.refreshGhostDropdown();
     const pianoRoll = document.getElementById("piano-roll-container");
     if (
       pianoRoll &&
@@ -2295,6 +2306,7 @@ if (clip.type === "midi") {
         // Update the clip list dropdown
         const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
         window.refreshClipDropdown(uniqueClips);
+        window.refreshGhostDropdown();
         // Update the piano roll header if the active clip was renamed
         if (isActiveClipAffected) {
           const clipNameEl = document.getElementById("piano-roll-clip-name");
@@ -2374,6 +2386,7 @@ labelWrap.appendChild(label);
 el.appendChild(labelWrap);
 const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
 window.refreshClipDropdown(uniqueClips);  // Refresh dropdown with unique clips at end of render
+window.refreshGhostDropdown();
 
 
 /* -------------------------------------------------------
@@ -2888,6 +2901,7 @@ document.addEventListener("mouseup", function (e) {
       paintedBars.clear();
       const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
       window.refreshClipDropdown(uniqueClips);
+      window.refreshGhostDropdown();
     }
   }
 });
@@ -3136,6 +3150,7 @@ document.addEventListener("keydown", function(e) {
     // Refresh dropdown
     const uniqueClips = [...new Map(window.clips.map(c => [c.name || c.fileName || c.id, c])).values()];
     window.refreshClipDropdown(uniqueClips);
+    window.refreshGhostDropdown();
   }
 });
 

@@ -1669,6 +1669,7 @@ body {
 }
 
 #piano-roll-scale,
+#piano-roll-ghost,
 .piano-roll-load-sample {
   background: #1c1c22;
   color: #fff;
@@ -1681,11 +1682,13 @@ body {
   transition: border 0.15s;
 }
 
-#piano-roll-scale:hover {
+#piano-roll-scale:hover,
+#piano-roll-ghost:hover {
   border-color: #444;
 }
 
-#piano-roll-scale:focus {
+#piano-roll-scale:focus,
+#piano-roll-ghost:focus {
   border-color: #007aff;
 }
 
