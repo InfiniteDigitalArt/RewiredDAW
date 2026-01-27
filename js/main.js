@@ -637,7 +637,9 @@ async function saveProjectZip() {
     // Persist stereo width knob values
     mixerStereoValues: window.mixerStereoValues || [],
     // Persist master volume
-    masterVolume
+    masterVolume,
+    // --- ADD: Save timeline labels ---
+    timelineLabels: Array.isArray(window.timelineLabels) ? window.timelineLabels : []
   };
 
   zip.file("project.json", JSON.stringify(project, null, 2));
@@ -710,6 +712,7 @@ async function loadProjectZip(json, zip) {
   window.seekBars = 0;
   window.transportStartTime = audioContext.currentTime;
 
+
   // --- Set window.loadedProject so timeline.js uses correct values ---
   window.loadedProject = json;
 
@@ -732,6 +735,12 @@ async function loadProjectZip(json, zip) {
 
   initTimeline(); // rebuilds controls + tracks from scratch
 
+  // --- Restore timeline labels after timeline is initialized ---
+  window.timelineLabels = Array.isArray(json.timelineLabels) ? json.timelineLabels.slice() : [];
+  // Keep loadedProject.timelineLabels in sync with window.timelineLabels
+  window.loadedProject.timelineLabels = window.timelineLabels;
+  console.log('Loaded timelineLabels:', window.timelineLabels);
+
   const timelineScroll = document.getElementById("timeline-scroll");
   if (timelineScroll) {
     timelineScroll.scrollLeft = 0;
@@ -751,6 +760,10 @@ async function loadProjectZip(json, zip) {
   });
   window.renderGrid();
   window.renderTimelineBar(window.timelineBars);
+  // Now render timeline labels after timeline bar exists
+  if (typeof window.renderTimelineLabels === 'function') {
+    window.renderTimelineLabels();
+  }
   
   window.updateLoadingBar(40, "Loading clips...");
 
@@ -1106,7 +1119,7 @@ el.addEventListener("click", (e) => {
 
   // Move the triangle marker
   const marker = document.getElementById("seekMarker");
-  marker.style.left = (x + 150 + 6) + "px";
+  marker.style.left = (x + 156) + "px";
 
   // --- Account for horizontal scroll offset when moving playhead ---
   const timelineScroll = document.getElementById("timeline-scroll");
@@ -1375,7 +1388,18 @@ sampleNameBox.style.borderRadius = "4px";
 
     // ⭐ Auto-scroll to highest note
     const notes = activeClip.notes || [];
+    if (notes.length > 0) {
+      const highest = Math.max(...notes.map(n => n.pitch));
 
+      const rowHeight = 16;
+      const y = (pitchMax - highest) * rowHeight;
+
+      const scrollContainer = document.getElementById("piano-roll-scroll");
+
+      const extraOffset = 8 * rowHeight; // scroll down by a few notes
+      scrollContainer.scrollTop =
+        y - scrollContainer.clientHeight / 2 + extraOffset;
+    }
   });
 
   // Always use the real clip object from window.clips

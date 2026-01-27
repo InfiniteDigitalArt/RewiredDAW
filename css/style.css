@@ -1,3 +1,10 @@
+/* --- Timeline label pointer events fix --- */
+#timeline-label-row {
+  pointer-events: none;
+}
+.timeline-label {
+  pointer-events: auto;
+}
 /* Audio Preview Loading Overlay */
 
 .audio-preview-waveform {
@@ -230,22 +237,20 @@ body {
 ------------------------------------------------------- */
 .timeline {
   flex: 1;
-
-  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
   background: #0f0f14;
-  position: relative;
   pointer-events: auto;
   height: calc(100vh - 45px);
-  
 }
 
 /* Scrollable tracks area under the bar */
 #timeline-scroll {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow: auto; /* vertical + horizontal scroll */
+  flex: 1 1 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  width: 100%;
+  height: 100%;
 }
 
 /* Scrollbars (Chrome / Edge / Safari) */
@@ -276,8 +281,7 @@ body {
 
 .tracks {
   position: relative;
-  min-width: 2000px;
-  
+  width: 4000px;
 }
 
 
@@ -503,6 +507,7 @@ body {
   pointer-events: none;
   z-index: 99;
   left: 0px; /* now correct */
+  
 }
 
 
@@ -1194,13 +1199,15 @@ body {
   background: #1a1a1f;
   border-bottom: 1px solid #2a2a30;
   display: flex;
-  align-items: center;
+  align-items: vertical;
   user-select: none;
   position: relative;
   padding-left: 158px;
+  padding-top: 6px;
   z-index: 154;
   width: 100%; 
   pointer-events: auto;
+  vertical-align: top;
   
 }
 
@@ -1212,7 +1219,8 @@ body {
   width: 80px; /* now this actually works */ 
   box-sizing: border-box;
   text-align: center;
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 800;
   color: #888;
   border-right: 1px solid #2a2a30;
   cursor: pointer;
@@ -1286,16 +1294,18 @@ body {
 
 .seek-marker {
   position: absolute;
-  top: 12px;                 /* center vertically */
-  transform: translateY(-50%);
-                /* TEMP: so you can see it */
-  width: 0;
-  height: 0;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  border-left: 10px solid var(--playhead);
+  top: 0;
+  left: 156px;
+  width: 2px;
+  height: 90px;
+  background: var(--playhead, #FFD24D);
+  box-shadow: 0 0 8px var(--playhead, #FFD24D);
   pointer-events: none;
-  z-index: 998;
+  z-index: 1998;
+  border: none;
+  border-radius: 1px;
+  opacity: 1;
+  
 }
 
 
@@ -1733,6 +1743,7 @@ body {
   border-right: 1px solid #333;
   scrollbar-width: none; /* Hide scrollbar on Firefox */
   -ms-overflow-style: none; /* Hide scrollbar on IE/Edge */
+  padding-bottom: 16px;
 }
 
 #track-controls-column::-webkit-scrollbar {

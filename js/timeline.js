@@ -1,3 +1,235 @@
+// --- Minor style: highlight label on hover for future editing ---
+const labelStyle = document.createElement('style');
+labelStyle.textContent = `
+.timeline-label:hover {
+  background: #333;
+  color: #fff;
+  border-color: #FFD24D;
+  cursor: pointer;
+}
+`;
+document.head.appendChild(labelStyle);
+// --- TIMELINE LABELS DATA ---
+// Only set timelineLabels if truly undefined (not null, not already set by loader)
+if (!('timelineLabels' in window)) window.timelineLabels = [];
+
+// Show input for label at bar
+function showLabelInput(bar, event) {
+  hideTimelineContextMenu();
+  // Remove any existing input
+  const oldInput = document.getElementById('timeline-label-input');
+  if (oldInput) oldInput.remove();
+
+  const timelineBar = document.getElementById('timeline-bar');
+  if (!timelineBar) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.id = 'timeline-label-input';
+  input.placeholder = 'Section label...';
+  input.style.position = 'absolute';
+  input.style.zIndex = '10001';
+  input.style.fontSize = '13px';
+  input.style.padding = '2px 6px';
+  input.style.border = '1.5px solid #4D88FF';
+  input.style.borderRadius = '3px';
+  input.style.background = '#222';
+  input.style.color = '#fff';
+  input.style.left = (bar * window.PIXELS_PER_BAR + 4) + 'px';
+  input.style.top = (timelineBar.offsetHeight) + 'px';
+  input.style.minWidth = '80px';
+  input.style.maxWidth = '200px';
+  input.style.outline = 'none';
+
+  timelineBar.parentElement.appendChild(input);
+  input.focus();
+
+  let finished = false;
+  function finishLabel() {
+    if (finished) return;
+    finished = true;
+    const text = input.value.trim();
+    // Defensive: bar must be a number
+    if (typeof bar !== 'number' || isNaN(bar)) {
+      if (input.parentNode) input.remove();
+      return;
+    }
+    if (text) {
+      window.timelineLabels.push({ bar, text });
+      if (typeof renderTimelineLabels === 'function') {
+        renderTimelineLabels();
+      }
+    }
+    if (input.parentNode) input.remove();
+  }
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') finishLabel();
+    if (e.key === 'Escape') {
+      if (!finished && input.parentNode) input.remove();
+      finished = true;
+    }
+  });
+  input.addEventListener('blur', finishLabel);
+}
+
+// Render timeline labels below the timeline
+function renderTimelineLabels() {
+  // Debug: log current timelineLabels
+  console.log('Rendering timelineLabels:', window.timelineLabels);
+  // Remove old labels
+  const timelineBar = document.getElementById('timeline-bar');
+  if (!timelineBar) return;
+  let labelRow = timelineBar.querySelector('#timeline-label-row');
+  if (!labelRow) {
+    labelRow = document.createElement('div');
+    labelRow.id = 'timeline-label-row';
+    timelineBar.appendChild(labelRow);
+  }
+  // Style label row to fit inside timeline-bar
+  labelRow.style.position = 'absolute';
+  labelRow.style.left = '0';
+  // Place label row below the bar numbers (assume bar numbers ~22px tall)
+  labelRow.style.top = '22px';
+  labelRow.style.width = '100%';
+  labelRow.style.height = '20px';
+  labelRow.style.display = 'flex';
+  labelRow.style.pointerEvents = 'none';
+  labelRow.style.zIndex = '10';
+  labelRow.style.alignItems = 'flex-start';
+  labelRow.style.userSelect = 'none';
+  labelRow.innerHTML = '';
+  window.timelineLabels.forEach((label, idx) => {
+    const el = document.createElement('div');
+    el.className = 'timeline-label';
+    el.textContent = label.text;
+    el.style.position = 'absolute';
+    el.style.left = (label.bar * window.PIXELS_PER_BAR) + 'px';
+    el.style.top = '0px';
+    el.style.background = '#222';
+    el.style.color = '#FFD24D';
+    el.style.border = '1px solid #444';
+    el.style.borderRadius = '3px';
+    el.style.padding = '2px 8px';
+    el.style.fontSize = '12px';
+    el.style.whiteSpace = 'nowrap';
+    el.style.pointerEvents = 'auto';
+    // Prevent default context menu so right mouse drag works
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+    el.style.boxShadow = '0 1px 4px #0008';
+
+    // --- Drag to move label (per-label listeners, no re-render during drag) ---
+    let dragStartX = null;
+    let dragBarStart = null;
+    let dragging = false;
+    let dragFrame = null;
+    const onMouseMove = (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - dragStartX;
+      const barDelta = Math.round(dx / window.PIXELS_PER_BAR);
+      let newBar = dragBarStart + barDelta;
+      newBar = Math.max(0, newBar);
+      // Only update position visually during drag
+      el.style.left = (newBar * window.PIXELS_PER_BAR) + 'px';
+    };
+    const onMouseUp = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+      // On drag end, update label data and re-render
+      const dx = e.clientX - dragStartX;
+      const barDelta = Math.round(dx / window.PIXELS_PER_BAR);
+      let newBar = dragBarStart + barDelta;
+      newBar = Math.max(0, newBar);
+      if (label.bar !== newBar) {
+        label.bar = newBar;
+      }
+      renderTimelineLabels();
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    el.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return; // Only left mouse button
+      // Do not call preventDefault here, so double click works
+      dragStartX = e.clientX;
+      dragBarStart = label.bar;
+      dragging = true;
+      document.body.style.cursor = 'grabbing';
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    });
+
+    // --- Right click to edit label text ---
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // Replace label with input
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = label.text;
+      input.style.position = 'absolute';
+      input.style.left = el.style.left;
+      input.style.top = el.style.top;
+      input.style.zIndex = '10002';
+      input.style.fontSize = '12px';
+      input.style.padding = '2px 8px';
+      input.style.border = '1.5px solid #FFD24D';
+      input.style.borderRadius = '3px';
+      input.style.background = '#222';
+      input.style.color = '#FFD24D';
+      input.style.minWidth = '80px';
+      input.style.maxWidth = '200px';
+      input.style.outline = 'none';
+      labelRow.appendChild(input);
+      input.focus();
+      input.select();
+      el.style.visibility = 'hidden';
+      let finished = false;
+      function finishEdit() {
+        if (finished) return;
+        finished = true;
+        const newText = input.value.trim();
+        if (!newText) {
+          // Remove label if empty
+          window.timelineLabels.splice(idx, 1);
+        } else {
+          label.text = newText;
+        }
+        renderTimelineLabels();
+      }
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') finishEdit();
+        if (ev.key === 'Escape') {
+          finished = true;
+          renderTimelineLabels();
+        }
+      });
+      input.addEventListener('blur', finishEdit);
+    });
+
+    labelRow.appendChild(el);
+  });
+}
+
+// Make timeline area taller to fit labels
+function adjustTimelineHeightForLabels() {
+  const timeline = document.getElementById('timeline');
+  if (timeline) {
+    timeline.style.paddingBottom = '32px';
+  }
+}
+
+// Call after DOMContentLoaded and after adding a label
+document.addEventListener('DOMContentLoaded', () => {
+  // Make timeline bar taller to fit both numbers and labels
+  const timelineBar = document.getElementById('timeline-bar');
+  if (timelineBar) {
+    timelineBar.style.height = '42px'; // 22px for numbers, 20px for labels
+    timelineBar.style.position = 'relative';
+  }
+  adjustTimelineHeightForLabels();
+  renderTimelineLabels();
+});
 window.TRACK_COLORS = [
   "#FF4D4D", // red
   "#FF884D", // orange
@@ -137,6 +369,9 @@ window.checkAndExpandTimeline = function() {
       }
       if (typeof window.renderTimelineBar === 'function') {
         window.renderTimelineBar(window.timelineBars);
+      }
+      if (typeof renderTimelineLabels === 'function') {
+        renderTimelineLabels();
       }
     } catch (error) {
       console.error('Error expanding timeline:', error);
@@ -593,7 +828,8 @@ window.initTimeline = function () {
       // Find bar and track index
       const rect = drop.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
+      // Always use integer bar index for painting
+      const startBar = Math.floor(window.snapToGrid(x / window.PIXELS_PER_BAR));
       const trackIndex = i;
       // Check if clicking on an existing clip - if so, let the clip handle it
       const clickedOnClip = e.target.closest('.clip');
@@ -631,10 +867,15 @@ window.initTimeline = function () {
         if (!timelineScroll) return;
         const rect = timelineScroll.getBoundingClientRect();
         const x = ev.clientX - rect.left + timelineScroll.scrollLeft;
-        const startBar = window.snapToGrid(x / window.PIXELS_PER_BAR);
+        // Always use integer bar index for painting
+        const startBar = Math.floor(window.snapToGrid(x / window.PIXELS_PER_BAR));
         // Skip if already painted at this bar or if clip exists on the painting track
         if (paintedBars.has(startBar)) return;
-        const overlap = window.clips.some(c => c.trackIndex === paintingTrackIndex && c.startBar <= startBar && (c.startBar + c.bars) > startBar);
+        // Check for overlap: only block if the new clip would overlap an existing one
+        const overlap = window.clips.some(c =>
+          c.trackIndex === paintingTrackIndex &&
+          ((startBar < c.startBar + c.bars) && (startBar + selected.bars > c.startBar))
+        );
         if (overlap) return;
         // Paint new clip on the original track
         const newClip = {
@@ -676,7 +917,7 @@ window.initTimeline = function () {
         ...selected,
         id: crypto.randomUUID(),
         trackIndex,
-        startBar
+        startBar // already floored above
       };
       // Share references for MIDI clips (NOT deep copy)
       if (selected.type === "midi") {
@@ -743,13 +984,7 @@ document.addEventListener("mousemove", function(e) {
   }
 });
 
-    let playhead = document.getElementById("playhead");
-    if (!playhead) {
-      playhead = document.createElement("div");
-      playhead.id = "playhead";
-      playhead.classList.add("hidden");
-      document.getElementById("timeline").appendChild(playhead);
-    }
+
 
 
 drop.addEventListener("drop", async (e) => {
@@ -2906,10 +3141,86 @@ document.addEventListener("mouseup", function (e) {
   }
 });
 
-// --- DISABLE CONTEXT MENU GLOBALLY FOR THE ENTIRE APPLICATION ---
-document.addEventListener("contextmenu", function (e) {
-  e.preventDefault();
-}, true);
+
+// --- TIMELINE CONTEXT MENU FOR LABELS ---
+let timelineContextMenu = null;
+let timelineContextMenuBar = null;
+
+function createTimelineContextMenu() {
+  if (timelineContextMenu) return timelineContextMenu;
+  const menu = document.createElement("div");
+  menu.id = "timeline-context-menu";
+  menu.style.position = "fixed";
+  menu.style.background = "#222";
+  menu.style.color = "#fff";
+  menu.style.border = "1px solid #444";
+  menu.style.borderRadius = "4px";
+  menu.style.fontSize = "13px";
+  menu.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
+  menu.style.display = "none";
+  menu.style.zIndex = "10000";
+  menu.style.minWidth = "120px";
+  menu.style.pointerEvents = "auto";
+
+  // Add Label item
+  const addLabel = document.createElement("div");
+  addLabel.textContent = "Add Label";
+  addLabel.style.padding = "8px 16px";
+  addLabel.style.cursor = "pointer";
+  addLabel.addEventListener("mouseenter", () => addLabel.style.background = "#333");
+  addLabel.addEventListener("mouseleave", () => addLabel.style.background = "#222");
+  addLabel.addEventListener("click", (e) => {
+    menu.style.display = "none";
+    showLabelInput(timelineContextMenuBar, e);
+  });
+  menu.appendChild(addLabel);
+
+  document.body.appendChild(menu);
+  timelineContextMenu = menu;
+  return menu;
+}
+
+function showTimelineContextMenu(x, y, bar) {
+  const menu = createTimelineContextMenu();
+  menu.style.left = x + "px";
+  menu.style.top = y + "px";
+  menu.style.display = "block";
+  timelineContextMenuBar = bar;
+}
+
+function hideTimelineContextMenu() {
+  if (timelineContextMenu) timelineContextMenu.style.display = "none";
+}
+
+// Attach context menu to timeline-bar (bar numbers area)
+document.addEventListener("DOMContentLoaded", () => {
+  const timelineBar = document.getElementById("timeline-bar");
+  if (timelineBar) {
+    timelineBar.addEventListener("contextmenu", function(e) {
+      // Only show if not right-clicking on a clip or label
+      if (e.target.closest('.clip') || e.target.closest('.timeline-label')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      // Find bar number from mouse X
+      const rect = timelineBar.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const bar = Math.floor(x / window.PIXELS_PER_BAR);
+      showTimelineContextMenu(e.clientX, e.clientY, bar);
+    });
+  }
+  // Hide menu on click elsewhere
+  document.addEventListener("mousedown", (e) => {
+    if (timelineContextMenu && timelineContextMenu.style.display === "block" && !timelineContextMenu.contains(e.target)) {
+      hideTimelineContextMenu();
+    }
+  });
+});
+
+// Remove global context menu disable, but keep for clips if needed
+// (If you want to keep context menu disabled globally, move this logic to only timeline-bar)
+// document.addEventListener("contextmenu", function (e) {
+//   e.preventDefault();
+// }, true);
 
 // --- Always clear selection rectangles on any mouseup (global) ---
 document.addEventListener("mouseup", function () {

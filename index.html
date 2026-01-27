@@ -4,8 +4,45 @@
   <meta charset="UTF-8">
   <title>Web DAW</title>
   <link rel="stylesheet" href="css/style.css">
+    <script>
+      // Firefox detection and custom modal popup
+      (function() {
+        var isFirefox = typeof InstallTrigger !== 'undefined';
+        if (isFirefox) {
+          window.addEventListener('DOMContentLoaded', function() {
+            var modal = document.getElementById('firefox-warning-modal');
+            if (modal) {
+              modal.classList.remove('hidden');
+            }
+          });
+        }
+      })();
+    </script>
 </head>
 <body>
+
+  <!-- Firefox Warning Modal -->
+  <div id="firefox-warning-modal" class="export-dialog hidden">
+    <div class="export-dialog-overlay"></div>
+    <div class="export-dialog-content" style="max-width: 420px;">
+      <div class="export-dialog-header">
+        <h2>Browser Compatibility</h2>
+        <button id="firefox-warning-close" class="export-dialog-close" aria-label="Close">×</button>
+      </div>
+      <div class="export-dialog-body">
+        <div style="display: flex; align-items: flex-start; gap: 16px;">
+          <svg style="flex-shrink:0; margin-top:2px; color:#ff6db3;" width="50" height="36" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12c0 5.52 4.48 10 10 10s10-4.48 10-10C22 6.48 17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" fill="currentColor"/></svg>
+          <div>
+            <div style="font-size:15px; font-weight:600; color:var(--text-primary); margin-bottom:6px;">Some features may not work in Firefox</div>
+            <div style="font-size:13px; color:var(--text-secondary); line-height:1.6;">Not all features are fully functional in Firefox. For the best experience, please use Edge, Chrome, or another browser.<br><br><span style='color:#ff6db3;'>Timeline drawing/painting is not fully working in Firefox yet.</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="export-dialog-footer">
+        <button id="firefox-warning-dismiss" class="export-dialog-btn export-dialog-btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
 
   <div class="sidebar" id="sidebar">
     <div class="sidebar-title">Rewired DAW</div>
@@ -685,11 +722,29 @@
 <script defer src="js/midi/piano-roll.js"></script>
 
 
+
 <!-- MAIN APP (must be last) -->
 <script defer src="js/main.js"></script>
 
 <script defer src="js/exportSong.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+// Firefox warning modal close/dismiss logic
+window.addEventListener('DOMContentLoaded', function() {
+  var modal = document.getElementById('firefox-warning-modal');
+  if (!modal) return;
+  var closeBtn = document.getElementById('firefox-warning-close');
+  var dismissBtn = document.getElementById('firefox-warning-dismiss');
+  var overlay = modal.querySelector('.export-dialog-overlay');
+  function closeModal() {
+    modal.classList.add('hidden');
+  }
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (dismissBtn) dismissBtn.addEventListener('click', closeModal);
+  if (overlay) overlay.addEventListener('click', closeModal);
+});
+</script>
 
 
 </body>
