@@ -347,16 +347,21 @@ function startPlayhead(realStartTime) {
       // Only loop if region is at least 1 bar
       if (loopEndBar - seekBar >= 1) {
         // If playhead has reached or passed loop end, restart from seekBar
-        // Loop at the exact bar number, no offset or subtraction
-        if (bars >= loopEndBar) {
+        if (bars >= loopEndBar-2) {
           // Prevent immediate re-entry if already at loop start
           if (Math.abs(bars - seekBar) < 0.01) {
             // Already at loop start, do not restart again
           } else {
             if (typeof window.stopAll === 'function') window.stopAll();
             if (typeof window.playAll === 'function') {
+              // Reset playhead start time and bar to loop start
               const realStart = window.playAll(seekBar);
-              startPlayhead(realStart);
+              window.playheadStartTime = window.audioContext.currentTime;
+              window.seekBars = seekBar;
+              // Restart playhead from loop start after a minimal delay to break recursion
+              setTimeout(() => {
+                startPlayhead(realStart);
+              }, 10); // 10ms delay breaks the call stack recursion
             }
             return;
           }
