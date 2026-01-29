@@ -337,10 +337,33 @@ function startPlayhead(realStartTime) {
     if (!playhead) return;
 
     const elapsed = audioContext.currentTime - window.playheadStartTime;
-    const bars = (elapsed * window.BPM) / 240;
-    const x = bars * window.PIXELS_PER_BAR;
+    let bars = (elapsed * window.BPM) / 240 + (window.seekBars || 0);
+    const x = (bars - (window.seekBars || 0)) * window.PIXELS_PER_BAR;
 
-    // --- FIX: No offset, playhead is inside .tracks and grid is at x=0 ---
+    // --- Looping logic: use raw bar numbers, no padding correction ---
+    let loopEndBar = window.timelineLoopEndBar;
+    let seekBar = window.seekBars || 0;
+    if (typeof loopEndBar === 'number') {
+      // Only loop if region is at least 1 bar
+      if (loopEndBar - seekBar >= 1) {
+        // If playhead has reached or passed loop end, restart from seekBar
+        // Loop at the exact bar number, no offset or subtraction
+        if (bars >= loopEndBar) {
+          // Prevent immediate re-entry if already at loop start
+          if (Math.abs(bars - seekBar) < 0.01) {
+            // Already at loop start, do not restart again
+          } else {
+            if (typeof window.stopAll === 'function') window.stopAll();
+            if (typeof window.playAll === 'function') {
+              const realStart = window.playAll(seekBar);
+              startPlayhead(realStart);
+            }
+            return;
+          }
+        }
+      }
+    }
+
     playhead.style.left = x + "px";
 
     window.playheadRAF = requestAnimationFrame(update);

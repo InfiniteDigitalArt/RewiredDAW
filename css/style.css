@@ -1215,6 +1215,7 @@ body {
 
 
 .timeline-bar-number {
+  
   flex: 0 0 auto; /* do NOT stretch */ 
   width: 80px; /* now this actually works */ 
   box-sizing: border-box;

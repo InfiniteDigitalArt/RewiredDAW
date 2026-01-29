@@ -3162,6 +3162,7 @@ function createTimelineContextMenu() {
   menu.style.minWidth = "120px";
   menu.style.pointerEvents = "auto";
 
+
   // Add Label item
   const addLabel = document.createElement("div");
   addLabel.textContent = "Add Label";
@@ -3175,10 +3176,83 @@ function createTimelineContextMenu() {
   });
   menu.appendChild(addLabel);
 
+  // Add Set Loop End item
+  const setLoopEnd = document.createElement("div");
+  setLoopEnd.textContent = "Set Loop End";
+  setLoopEnd.style.padding = "8px 16px";
+  setLoopEnd.style.cursor = "pointer";
+  setLoopEnd.addEventListener("mouseenter", () => setLoopEnd.style.background = "#333");
+  setLoopEnd.addEventListener("mouseleave", () => setLoopEnd.style.background = "#222");
+  setLoopEnd.addEventListener("click", (e) => {
+    menu.style.display = "none";
+    // Prevent loop smaller than 1 bar
+    let loopEnd = timelineContextMenuBar;
+    if (typeof window.seekBars === 'number') {
+      if (loopEnd - window.seekBars < 1) {
+        loopEnd = window.seekBars + 1;
+      }
+    }
+    window.timelineLoopEndBar = loopEnd;
+    if (typeof window.renderLoopEndMarker === 'function') window.renderLoopEndMarker();
+  });
+  menu.appendChild(setLoopEnd);
+
+  // Add Remove Loop item
+  const removeLoop = document.createElement("div");
+  removeLoop.textContent = "Remove Loop";
+  removeLoop.style.padding = "8px 16px";
+  removeLoop.style.cursor = "pointer";
+  removeLoop.addEventListener("mouseenter", () => removeLoop.style.background = "#333");
+  removeLoop.addEventListener("mouseleave", () => removeLoop.style.background = "#222");
+  removeLoop.addEventListener("click", (e) => {
+    menu.style.display = "none";
+    window.timelineLoopEndBar = undefined;
+    if (typeof window.renderLoopEndMarker === 'function') window.renderLoopEndMarker();
+  });
+  menu.appendChild(removeLoop);
+
   document.body.appendChild(menu);
   timelineContextMenu = menu;
   return menu;
 }
+
+// --- LOOP END MARKER RENDERING ---
+window.renderLoopEndMarker = function() {
+  // Remove any existing marker
+  document.querySelectorAll('.loop-end-marker').forEach(el => el.remove());
+  if (typeof window.timelineLoopEndBar !== 'number') return;
+  const timelineBar = document.getElementById('timeline-bar');
+  if (!timelineBar) return;
+  const marker = document.createElement('div');
+  marker.className = 'loop-end-marker';
+  marker.style.position = 'absolute';
+  marker.style.top = '0';
+  marker.style.height = '100%';
+  marker.style.width = '4px';
+  marker.style.background = '#ffb300';
+  marker.style.left = (window.timelineLoopEndBar * window.PIXELS_PER_BAR - 2) + 'px';
+  marker.style.zIndex = '1000';
+  marker.title = 'Loop End';
+  timelineBar.appendChild(marker);
+};
+
+// Redraw marker on timeline bar render
+document.addEventListener('DOMContentLoaded', () => {
+  window.renderLoopEndMarker();
+});
+// --- LOOPING PLAYBACK LOGIC ---
+// Patch playback to support looping from seek marker to loop end
+// (Removed timeline.js override of window.startPlayhead. Main playhead/looping logic is now only in main.js for consistency.)
+// --- STYLE FOR LOOP END MARKER ---
+const loopEndStyle = document.createElement('style');
+loopEndStyle.textContent = `
+.loop-end-marker {
+  pointer-events: none;
+  box-shadow: 0 0 6px 2px #ffb30099;
+}
+`;
+document.head.appendChild(loopEndStyle);
+
 
 function showTimelineContextMenu(x, y, bar) {
   const menu = createTimelineContextMenu();
