@@ -557,6 +557,64 @@ window.initPianoRoll = function () {
     currentScale = scaleSelect.value;
   }
 
+  // --- GHOST DROPDOWN LOGIC ---
+  const ghostSelect = document.getElementById('piano-roll-ghost');
+  function refreshGhostDropdown() {
+    if (!ghostSelect) return;
+    // Clear and repopulate
+    ghostSelect.innerHTML = '<option value="">None</option>';
+    if (!window.clips || !activeClip) return;
+    // Only show unique MIDI clips (by name/fileName/id), excluding the active clip
+    const uniqueClips = [
+      ...new Map(
+        window.clips
+          .filter(c => c !== activeClip && Array.isArray(c.notes) && c.notes.length > 0)
+          .map(c => [(c.name || c.fileName || c.id), c])
+      ).values()
+    ];
+    uniqueClips.forEach(c => {
+      const label = c.name || c.fileName || "MIDI Clip";
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = label;
+      ghostSelect.appendChild(opt);
+    });
+    // Restore selection if possible
+    ghostSelect.value = ghostClipId || "";
+  }
+
+  // When opening piano roll, refresh ghost dropdown
+  window.refreshGhostDropdown = refreshGhostDropdown;
+
+  // Listen for global clip changes to refresh ghost dropdown
+  if (!window._ghostDropdownListenerAdded) {
+    window._ghostDropdownListenerAdded = true;
+    // Listen for custom events or fallback to polling
+    document.addEventListener("clipListChanged", () => {
+      if (document.getElementById("piano-roll-container")?.classList.contains("hidden")) return;
+      refreshGhostDropdown();
+    });
+    // Also refresh on dropdown open (in case of missed events)
+    if (ghostSelect) {
+      ghostSelect.addEventListener("mousedown", refreshGhostDropdown);
+    }
+  }
+
+  // Handle ghost dropdown change
+  if (ghostSelect) {
+    ghostSelect.addEventListener('change', e => {
+      ghostClipId = ghostSelect.value;
+      // Find the selected ghost clip and store its notes
+      if (ghostClipId && window.clips) {
+        const ghostClip = window.clips.find(c => c.id === ghostClipId);
+        ghostNotes = ghostClip && Array.isArray(ghostClip.notes) ? ghostClip.notes : [];
+      } else {
+        ghostNotes = [];
+      }
+      renderPianoRoll();
+    });
+  }
+
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
 };
@@ -573,8 +631,22 @@ window.openPianoRoll = function (clip) {
   const container = document.getElementById("piano-roll-container");
   container.classList.remove("hidden");
 
+  // Refresh ghost dropdown when opening a new clip
+  if (window.refreshGhostDropdown) window.refreshGhostDropdown();
+  // Reset ghost notes if the selected ghost is the same as the active clip
+  if (ghostClipId === clip.id) {
+    ghostClipId = "";
+    ghostNotes = [];
+    const ghostSelect = document.getElementById('piano-roll-ghost');
+    if (ghostSelect) ghostSelect.value = "";
+  }
+  
   resizeCanvas();
 };
+
+// --- GHOST CLIP STATE (must be defined at top-level!) ---
+let ghostClipId = "";
+let ghostNotes = [];
 
 // ======================================================
 //  CANVAS RESIZE + RENDER
@@ -638,16 +710,55 @@ function renderPianoRoll() {
   // Draw piano on fixed canvas
   drawPiano(pianoCtx);
 
-  // Draw grid + notes on scrollable canvas
+  // Draw grid + ghost notes + notes on scrollable canvas
   drawGrid(gridCtx);
+  drawGhostNotes(gridCtx); // <-- insert before drawNotes
   drawNotes(gridCtx);
-  
+
   // Draw selection box if active
   if (selectBoxStart && selectBoxCurrent) {
     drawSelectionBox(gridCtx);
   }
 }
 
+// --- Draw ghost notes in the background ---
+function drawGhostNotes(ctx) {
+  // Defensive: ensure ghostNotes is always an array
+  if (!Array.isArray(ghostNotes) || !ghostNotes.length) return;
+  // use global rowHeight
+  ctx.save();
+  ctx.globalAlpha = 0.25;
+  ctx.lineWidth = 1;
+  //ctx.strokeStyle = "#888";
+  ctx.fillStyle = "#888";
+  ghostNotes.forEach(note => {
+    // Only draw notes in visible pitch range
+    if (typeof note.pitch !== "number" || typeof note.start !== "number" || typeof note.end !== "number") return;
+    if (note.pitch < pitchMin || note.pitch > pitchMax) return;
+    const y = (pitchMax - note.pitch) * rowHeight;
+    const x = note.start * pxPerBeat;
+    const w = (note.end - note.start) * pxPerBeat;
+    const h = rowHeight - 2;
+    // Rounded rectangle
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+    roundRect(ctx, x, y, w, h, 4);
+    ctx.fill();
+    ctx.stroke();
+  });
+  ctx.restore();
+}
 
 // ======================================================
 //  DRAW: PIANO KEYBOARD
@@ -1932,6 +2043,7 @@ async function playPianoRollPreview() {
   pianoRollPreviewState.scheduledNotes.clear();
   
   // Capture the active clip reference at the start to prevent issues if it changes during async operations
+ 
   const clipToPlay = activeClip;
   
   if (!clipToPlay || !clipToPlay.notes || clipToPlay.notes.length === 0) {

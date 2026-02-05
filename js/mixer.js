@@ -1230,7 +1230,6 @@ function createMixerTrack(index, color) {
   faderContainer.appendChild(faderValue);
   
 
-
   // --- Stereo Width knob UI ---
   const stereoContainer = document.createElement('div');
   stereoContainer.className = 'mixer-stereo-container';
@@ -1472,18 +1471,167 @@ function createMixerTrack(index, color) {
     dragging = false;
     document.body.style.userSelect = '';
   });
-
   lpContainer.appendChild(lpLabel);
   lpContainer.appendChild(lpKnob);
   lpContainer.appendChild(lpValue);
+  // --- PAN knob UI ---
+  const panContainer = document.createElement('div');
+  panContainer.className = 'mixer-pan-container';
+  panContainer.style.display = 'flex';
+  panContainer.style.flexDirection = 'column';
+  panContainer.style.alignItems = 'center';
+  panContainer.style.margin = '6px 0 0 0';
+
+  const panLabel = document.createElement('div');
+  panLabel.className = 'mixer-pan-label';
+  panLabel.textContent = 'Pan';
+  panLabel.style.fontSize = '10px';
+  panLabel.style.color = '#aaa';
+  panLabel.style.marginBottom = '2px';
+
+  // --- Round pan knob styled like stereo/lowpass ---
+  const panKnob = document.createElement('div');
+  panKnob.className = 'mixer-knob pan-knob';
+  panKnob.style.margin = '2px 0 0 0';
+  panKnob.style.border = `2.5px solid ${color}`;
+  panKnob.style.width = '38px';
+  panKnob.style.height = '38px';
+  panKnob.style.borderRadius = '50%';
+  panKnob.style.position = 'relative';
+  panKnob.style.background = '#18181c';
+  panKnob.style.display = 'flex';
+  panKnob.style.alignItems = 'center';
+  panKnob.style.justifyContent = 'center';
+  panKnob.style.cursor = 'pointer';
+  panKnob.style.boxShadow = 'none';
+
+  // Filled circle indicator (dot on edge)
+  const panKnobIndicator = document.createElement('div');
+  panKnobIndicator.style.position = 'absolute';
+  panKnobIndicator.style.width = '10px';
+  panKnobIndicator.style.height = '10px';
+  panKnobIndicator.style.background = color;
+  panKnobIndicator.style.borderRadius = '50%';
+  panKnobIndicator.style.boxShadow = `0 0 4px ${color}88`;
+  panKnobIndicator.style.left = '50%';
+  panKnobIndicator.style.top = '50%';
+  panKnobIndicator.style.transform = 'translate(-50%, -50%)';
+  panKnob.appendChild(panKnobIndicator);
+
+  // Value display
+  const panValue = document.createElement('div');
+  panValue.className = 'mixer-pan-value';
+  panValue.style.fontSize = '10px';
+  panValue.style.color = color;
+  panValue.style.marginTop = '2px';
+  panValue.style.textAlign = 'center';
+
+  // Range and state
+  const minPan = 0;
+  const maxPan = 1;
+  let panVal = (window.trackStates && window.trackStates[index] && typeof window.trackStates[index].pan === 'number')
+    ? window.trackStates[index].pan
+    : 0.5;
+
+  function setPanKnobVisual(val) {
+    // Angle: -135deg (min) to +135deg (max)
+    const angle = ((val - minPan) / (maxPan - minPan)) * 270 - 135;
+    const radius = 15;
+    const rad = (angle - 90) * Math.PI / 180;
+    const cx = 19 + radius * Math.cos(rad);
+    const cy = 19 + radius * Math.sin(rad);
+    panKnobIndicator.style.left = `${cx}px`;
+    panKnobIndicator.style.top = `${cy}px`;
+    if (Math.abs(val - 0.5) < 0.01) panValue.textContent = 'C';
+    else if (val <= minPan) panValue.textContent = 'L';
+    else if (val >= maxPan) panValue.textContent = 'R';
+    else if (val >= 0.5) panValue.textContent = `${Math.round((val - 0.5) * 200)}% R`;
+    else panValue.textContent = `${Math.round((val - 0.5) * 200)}% L`;
+    panKnob.style.borderColor = color;
+    panKnobIndicator.style.background = color;
+    panValue.style.color = color;
+  }
+  setPanKnobVisual(panVal);
+
+  // Mouse drag to change value
+  let panDragging = false;
+  let panLastY = 0;
+  let panLastX = 0;
+  panKnob.addEventListener('mousedown', (e) => {
+    // Ctrl + Left Click resets to center
+    if (e.button === 0 && e.ctrlKey) {
+      panVal = 0.5;
+      setPanKnobVisual(panVal);
+      updatePanValue(panVal);
+      e.preventDefault();
+      return;
+    }
+    panDragging = true;
+    panLastY = e.clientY;
+    panLastX = e.clientX;
+    document.body.style.userSelect = 'none';
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!panDragging) return;
+    const deltaY = panLastY - e.clientY;
+    const deltaX = e.clientX - panLastX;
+    panLastY = e.clientY;
+    panLastX = e.clientX;
+    let newVal = panVal + (deltaX * 0.005) - (deltaY * -0.005);
+    newVal = Math.max(minPan, Math.min(maxPan, newVal));
+    panVal = newVal;
+    setPanKnobVisual(panVal);
+    updatePanValue(panVal);
+  });
+  window.addEventListener('mouseup', () => {
+    panDragging = false;
+    document.body.style.userSelect = '';
+  });
+
+  // Update pan value in timeline and audio engine
+  function updatePanValue(val) {
+    // Update timeline trackStates
+    if (window.trackStates && window.trackStates[index]) {
+      window.trackStates[index].pan = val;
+    }
+    // Update audio engine
+    if (window.trackPanners && window.trackPanners[index]) {
+      window.trackPanners[index].pan.value = (val - 0.5) * 2;
+    }
+    // Update timeline knob UI if present
+    const timelineKnob = document.querySelector(`.track-controls[data-index="${index}"] .knob.pan-knob`);
+    if (timelineKnob) {
+      timelineKnob.dataset.value = val;
+      timelineKnob.style.setProperty('--val', val);
+    }
+  }
+
+  // Listen for timeline pan knob changes and update mixer pan knob
+  // (One-way sync: timeline → mixer)
+  document.addEventListener('input', function timelinePanSync(e) {
+    const el = e.target;
+    if (!el.classList.contains('knob') || !el.classList.contains('pan-knob')) return;
+    const idx = Number(el.dataset.idx);
+    if (idx !== index) return;
+    const val = parseFloat(el.dataset.value);
+    if (!isNaN(val)) {
+      panVal = val;
+      setPanKnobVisual(panVal);
+    }
+  });
+
+  panContainer.appendChild(panLabel);
+  panContainer.appendChild(panKnob);
+  panContainer.appendChild(panValue);
 
   // Assemble track
   track.appendChild(label);
   track.appendChild(vuMeter);
   track.appendChild(muteBtn);
   track.appendChild(faderContainer);
-  track.appendChild(stereoContainer); // Stereo knob above lowpass
-  track.appendChild(lpContainer); // Lowpass knob
+  track.appendChild(panContainer);     // <-- PAN knob above stereo
+  track.appendChild(stereoContainer);  // Stereo knob
+  track.appendChild(lpContainer);      // Lowpass knob
   // ...existing code for PAN/STEREO controls...
 
   // Mixer number label at bottom
@@ -1635,6 +1783,7 @@ function setupMasterFaderDrag(track) {
   
   let isDragging = false;
   
+   
   // Ctrl+Click to reset to 0dB
   const handleCtrlClick = (e) => {
     if (e.ctrlKey || e.metaKey) {
